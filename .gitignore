@@ -1,0 +1,16 @@
+# Generated
+bot-army
+docker-compose.yml
+.env
+
+# Cloned repos
+repos/
+
+# Runtime data (logs, PARA output, backups)
+data/
+
+# Docker
+*.tar
+
+# OS
+.DS_Store

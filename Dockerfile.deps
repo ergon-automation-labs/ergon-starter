@@ -1,0 +1,7 @@
+# Resolve go.sum — run once after changing go.mod
+FROM golang:1.22-alpine
+RUN apk add --no-cache git
+WORKDIR /src
+COPY go.mod ./
+RUN go mod download
+RUN go mod tidy

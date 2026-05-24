@@ -1,0 +1,51 @@
+[
+  {
+    "name": "primary",
+    "description": "Core user-facing bots",
+    "release_name": "primary_pack",
+    "bots": [
+      "gtd",
+      "claude_bridge",
+      "synapse",
+      "dispatcher",
+      "identity",
+      "inbox",
+      "context_broker",
+      "notification_router"
+    ]
+  },
+  {
+    "name": "background",
+    "description": "LLM, learning, and domain bots",
+    "release_name": "background_pack",
+    "bots": [
+      "llm",
+      "learning",
+      "terrain",
+      "job_applications",
+      "fitness",
+      "chore",
+      "rpg",
+      "para",
+      "advocacy",
+      "sre"
+    ]
+  },
+  {
+    "name": "infra",
+    "description": "Infrastructure and support services",
+    "release_name": "infra_pack",
+    "bots": [
+      "feeds",
+      "database_backups",
+      "job_scheduler",
+      "internal_docs",
+      "skills",
+      "rss_polling",
+      "email_triage",
+      "discord_webhook_manager",
+      "general",
+      "factory_breaker"
+    ]
+  }
+]
