@@ -42,6 +42,13 @@ type Provider struct {
 	CanSelfHost bool     `json:"can_self_host,omitempty"`
 }
 
+type Pack struct {
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	ReleaseName string   `json:"release_name"`
+	Bots        []string `json:"bots"`
+}
+
 // LoadBots reads the bot catalog from catalog/bots.json.
 // Looks next to the binary first, then in the working directory.
 func LoadBots() ([]Bot, error) {
@@ -74,6 +81,39 @@ func LoadBots() ([]Bot, error) {
 	}
 
 	return nil, fmt.Errorf("catalog/bots.json not found — run 'make sync' first")
+}
+
+// LoadPacks reads the bot packs from catalog/packs.json.
+func LoadPacks() ([]Pack, error) {
+	paths := []string{
+		catalogPath("packs.json"),
+		"catalog/packs.json",
+	}
+
+	for _, p := range paths {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		var packs []Pack
+		if err := json.Unmarshal(data, &packs); err != nil {
+			return nil, fmt.Errorf("parse %s: %w", p, err)
+		}
+		return packs, nil
+	}
+
+	return nil, fmt.Errorf("catalog/packs.json not found")
+}
+
+// BotPackMap builds a map from bot name to pack name.
+func BotPackMap(packs []Pack) map[string]string {
+	m := make(map[string]string)
+	for _, pack := range packs {
+		for _, botName := range pack.Bots {
+			m[botName] = pack.Name
+		}
+	}
+	return m
 }
 
 func catalogPath(name string) string {

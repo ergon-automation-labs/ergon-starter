@@ -36,6 +36,9 @@ func (w *WizardTUI) Run() error {
 	w.buildLayout()
 
 	// Run through steps synchronously
+	if err := w.stepSelectPack(); err != nil {
+		return err
+	}
 	if err := w.stepSelectBots(); err != nil {
 		return err
 	}
@@ -79,15 +82,121 @@ func (w *WizardTUI) buildLayout() {
 	w.app.SetRoot(w.root, true)
 }
 
+// stepSelectPack runs Step 1: select starter pack (multi-select list).
+func (w *WizardTUI) stepSelectPack() error {
+	// Load packs
+	packs, err := LoadPacks()
+	if err != nil {
+		return err
+	}
+
+	list := tview.NewList()
+	list.SetBorder(true).
+		SetTitle(" Select a Starter Pack  ↑↓:nav  Space:toggle  s:skip  Enter:next ").
+		SetTitleAlign(tview.AlignLeft)
+
+	// Track selection
+	selected := make(map[int]bool)
+
+	// Render the list
+	redraw := func() {
+		list.Clear()
+		for i, p := range packs {
+			var prefix string
+			if selected[i] {
+				prefix = "[green][✓][-] "
+			} else {
+				prefix = "[ ] "
+			}
+			botList := ""
+			for j, name := range p.Bots {
+				if j > 0 {
+					botList += " · "
+				}
+				botList += name
+			}
+			list.AddItem(prefix+p.Name, p.Description+" ("+botList+")", 0, nil)
+		}
+		// Add Custom option
+		list.AddItem("[ ] Custom", "I'll pick bots manually", 0, nil)
+	}
+	redraw()
+
+	var done bool
+	list.SetInputCapture(func(ev *tcell.EventKey) *tcell.EventKey {
+		i := list.GetCurrentItem()
+		if i < 0 {
+			return ev
+		}
+
+		switch ev.Rune() {
+		case ' ', 'x':
+			// Toggle selection
+			selected[i] = !selected[i]
+			redraw()
+			list.SetCurrentItem(i)
+			return nil
+
+		case 's':
+			// Skip pack selection (custom mode)
+			w.cfg.SelectedPacks = []Pack{}
+			done = true
+			w.app.Stop()
+			return nil
+
+		case 'q':
+			return tcell.NewEventKey(tcell.KeyCtrlC, 'q', tcell.ModCtrl)
+
+		default:
+			switch ev.Key() {
+			case tcell.KeyEnter:
+				// Collect selected packs
+				var result []Pack
+				for i, p := range packs {
+					if selected[i] {
+						result = append(result, p)
+					}
+				}
+				w.cfg.SelectedPacks = result
+
+				done = true
+				w.app.Stop()
+				return nil
+
+			case tcell.KeyEscape:
+				w.result = fmt.Errorf("cancelled")
+				w.app.Stop()
+				return nil
+			}
+		}
+		return ev
+	})
+
+	w.setContent(list, 1, "↑↓:nav  Space:toggle  s:skip  Enter:next  Esc:cancel  q:quit")
+
+	if err := w.app.Run(); err != nil {
+		return err
+	}
+
+	if w.result != nil {
+		return w.result
+	}
+	if !done {
+		return fmt.Errorf("step 1 cancelled")
+	}
+
+	return nil
+}
+
 // setHeader updates the header text with step indicator.
 func (w *WizardTUI) setHeader(title string) {
 	stepIndicator := ""
-	if w.currentStep > 0 && w.currentStep <= 5 {
-		steps := []rune{'●', '●', '●', '●', '●'}
-		for i := w.currentStep; i < 5; i++ {
+	if w.currentStep > 0 && w.currentStep <= 6 {
+		steps := []rune{'●', '●', '●', '●', '●', '●'}
+		for i := w.currentStep; i < 6; i++ {
 			steps[i] = '○'
 		}
-		stepIndicator = fmt.Sprintf("  %s  Step %d/5", string(steps), w.currentStep)
+		stepIndicator = fmt.Sprintf("  %s  Step %d/6", string(steps), w.currentStep)
 	}
 	text := fmt.Sprintf("Bot Army Starter%s", stepIndicator)
 	w.header.SetText(text)
@@ -110,20 +219,34 @@ func (w *WizardTUI) setContent(widget tview.Primitive, step int, hints string) {
 	w.app.SetFocus(widget)
 }
 
-// stepSelectBots runs Step 1: select bots (multi-select list).
+// stepSelectBots runs Step 2: select bots (multi-select list).
 func (w *WizardTUI) stepSelectBots() error {
-	w.currentStep = 1
+	w.currentStep = 2
+
+	// Load packs to show pack membership labels
+	packs, _ := LoadPacks()
+	botPackMap := BotPackMap(packs)
 
 	list := tview.NewList()
 	list.SetBorder(true).
 		SetTitle(" Select Bots  ↑↓:nav  Space:toggle  Enter:next ").
 		SetTitleAlign(tview.AlignLeft)
 
-	// Track selection: core bots locked on, others start deselected
+	// Track selection: core bots locked on, pack-selected bots on, others deselected
 	selected := make(map[int]bool)
 	for i, b := range w.cfg.AllBots {
 		if b.IsCore() {
 			selected[i] = true
+		}
+	}
+	// Pre-select bots from selected packs
+	for _, pack := range w.cfg.SelectedPacks {
+		for _, botName := range pack.Bots {
+			for i, b := range w.cfg.AllBots {
+				if b.Name == botName {
+					selected[i] = true
+				}
+			}
 		}
 	}
 
@@ -139,7 +262,13 @@ func (w *WizardTUI) stepSelectBots() error {
 			} else {
 				prefix = "[ ] "
 			}
-			list.AddItem(prefix+b.Name, b.App, 0, nil)
+			// Add pack label
+			packName := botPackMap[b.Name]
+			var packLabel string
+			if packName != "" {
+				packLabel = " [dim][" + packName + "][-]"
+			}
+			list.AddItem(prefix+b.Name+packLabel, b.App, 0, nil)
 		}
 	}
 	redraw()
@@ -188,7 +317,7 @@ func (w *WizardTUI) stepSelectBots() error {
 		return ev
 	})
 
-	w.setContent(list, 1, "↑↓:nav  Space:toggle  Enter:next  Esc:cancel  q:quit")
+	w.setContent(list, 2, "↑↓:nav  Space:toggle  Enter:next  Esc:cancel  q:quit")
 
 	// Run the app until this step completes
 	if err := w.app.Run(); err != nil {
@@ -199,15 +328,15 @@ func (w *WizardTUI) stepSelectBots() error {
 		return w.result
 	}
 	if !done {
-		return fmt.Errorf("step 1 cancelled")
+		return fmt.Errorf("step 2 cancelled")
 	}
 
 	return nil
 }
 
-// stepConfigurePorts runs Step 2: configure host ports (form).
+// stepConfigurePorts runs Step 3: configure host ports (form).
 func (w *WizardTUI) stepConfigurePorts() error {
-	w.currentStep = 2
+	w.currentStep = 3
 
 	form := tview.NewForm()
 	form.SetBorder(true).
@@ -232,7 +361,7 @@ func (w *WizardTUI) stepConfigurePorts() error {
 		w.app.Stop()
 	})
 
-	w.setContent(form, 2, "Enter:save  Esc:cancel")
+	w.setContent(form, 3, "Enter:save  Esc:cancel")
 
 	if err := w.app.Run(); err != nil {
 		return err
@@ -245,9 +374,9 @@ func (w *WizardTUI) stepConfigurePorts() error {
 	return nil
 }
 
-// stepSelectProviders runs Step 3: select LLM providers (multi-select list).
+// stepSelectProviders runs Step 4: select LLM providers (multi-select list).
 func (w *WizardTUI) stepSelectProviders() error {
-	w.currentStep = 3
+	w.currentStep = 4
 
 	list := tview.NewList()
 	list.SetBorder(true).
@@ -319,7 +448,7 @@ func (w *WizardTUI) stepSelectProviders() error {
 		return ev
 	})
 
-	w.setContent(list, 3, "↑↓:nav  Space:toggle  Enter:next  Esc:cancel  q:quit")
+	w.setContent(list, 4, "↑↓:nav  Space:toggle  Enter:next  Esc:cancel  q:quit")
 
 	if err := w.app.Run(); err != nil {
 		return err
@@ -329,15 +458,15 @@ func (w *WizardTUI) stepSelectProviders() error {
 		return w.result
 	}
 	if !done {
-		return fmt.Errorf("step 3 cancelled")
+		return fmt.Errorf("step 4 cancelled")
 	}
 
 	return nil
 }
 
-// stepConfigureEnvVars runs Step 4: configure environment variables (form).
+// stepConfigureEnvVars runs Step 5: configure environment variables (form).
 func (w *WizardTUI) stepConfigureEnvVars() error {
-	w.currentStep = 4
+	w.currentStep = 5
 
 	form := tview.NewForm()
 	form.SetBorder(true).
@@ -412,7 +541,7 @@ func (w *WizardTUI) stepConfigureEnvVars() error {
 		w.app.Stop()
 	})
 
-	w.setContent(form, 4, "Enter:save  Esc:cancel")
+	w.setContent(form, 5, "Enter:save  Esc:cancel")
 
 	if err := w.app.Run(); err != nil {
 		return err
@@ -425,9 +554,9 @@ func (w *WizardTUI) stepConfigureEnvVars() error {
 	return nil
 }
 
-// stepReviewAndConfirm runs Step 5: review and confirm (text view).
+// stepReviewAndConfirm runs Step 6: review and confirm (text view).
 func (w *WizardTUI) stepReviewAndConfirm() error {
-	w.currentStep = 5
+	w.currentStep = 6
 
 	// Build summary text
 	summary := "[yellow]Bot Army Starter Configuration[-]\n\n"
@@ -446,7 +575,21 @@ func (w *WizardTUI) stepReviewAndConfirm() error {
 		summary += "  • " + p.Label + "\n"
 	}
 
-	summary += "\n[green]Press Enter to start setup or Esc to go back[-]"
+	summary += "\n[cyan]Build Your Own Bot[-]\n"
+	summary += "A Bot Army bot is an Elixir/OTP GenServer app that subscribes to\n"
+	summary += "NATS subjects and responds to messages from other bots and surfaces.\n\n"
+	summary += "[cyan]Quick start (one command):[-]\n"
+	summary += "  cd ~/code/elixir_bots/bot_template\n"
+	summary += "  ./setup_new_bot.sh bot_army_mybot mybot_bot ergon-mybot\n\n"
+	summary += "This scaffolds a full project with NATS consumer, health signals,\n"
+	summary += "HTTP client, pre-push hooks, and Makefile targets.\n\n"
+	summary += "[cyan]Add to your fleet:[-]\n"
+	summary += "  ./bot-army add mybot\n"
+	summary += "  docker compose up -d --build\n\n"
+	summary += "[cyan]Reference:[-]\n"
+	summary += "  bot_template/docs/BEST_PRACTICES.md\n"
+	summary += "  bot_template/UPDATES.md\n\n"
+	summary += "[green]Press Enter to start setup or Esc to go back[-]"
 
 	review := tview.NewTextView()
 	review.SetBorder(true).
@@ -469,7 +612,7 @@ func (w *WizardTUI) stepReviewAndConfirm() error {
 		return ev
 	})
 
-	w.setContent(review, 5, "Enter:start setup  Esc:back  q:quit")
+	w.setContent(review, 6, "Enter:start setup  Esc:back  q:quit")
 
 	if err := w.app.Run(); err != nil {
 		return err

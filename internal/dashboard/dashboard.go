@@ -134,6 +134,9 @@ func (d *Dashboard) setupKeyCapture() {
 		case '4':
 			d.switchTab("system", d.system.Widget())
 			return nil
+		case '?':
+			d.showTemplateGuide()
+			return nil
 		case 'q':
 			d.app.Stop()
 			return nil
@@ -233,4 +236,55 @@ func RunFromDir(dir string) error {
 
 	d := NewDashboard(cfg)
 	return d.Run()
+}
+
+// showTemplateGuide displays the Build Your Own Bot guide as an overlay.
+func (d *Dashboard) showTemplateGuide() {
+	guide := "[yellow]Build Your Own Bot[-]\n\n"
+	guide += "A Bot Army bot is an Elixir/OTP GenServer app that subscribes to\n"
+	guide += "NATS subjects and responds to messages from other bots and surfaces.\n\n"
+	guide += "[cyan]Quick start (one command):[-]\n"
+	guide += "  cd ~/code/elixir_bots/bot_template\n"
+	guide += "  ./setup_new_bot.sh bot_army_mybot mybot_bot ergon-mybot\n\n"
+	guide += "This scaffolds a full project with:\n"
+	guide += "  • NATS consumer (subscribe + reply)\n"
+	guide += "  • PulsePublisher (health signal every 30 min)\n"
+	guide += "  • HTTP client with Mox injection for testing\n"
+	guide += "  • Pre-push hook: compile → test → GitHub Release\n"
+	guide += "  • Makefile targets: test, format, deploy, logs\n\n"
+	guide += "[cyan]Key patterns:[-]\n"
+	guide += "  1. Health — publish bot.<service>.pulse every 30 min\n"
+	guide += "  2. HTTP — use HTTPClient behaviour + Mox in tests\n"
+	guide += "  3. Env gating — @env Mix.env() to skip DB/workers in test\n"
+	guide += "  4. Test tagging — @moduletag :handlers, :stores, :skills\n"
+	guide += "  5. Skills — lib/.../skills/ modules with validate/1 + execute/2\n"
+	guide += "  6. Deploy — bump mix.exs version to trigger GitHub Release\n\n"
+	guide += "[cyan]Add to your fleet:[-]\n"
+	guide += "  ./bot-army add mybot\n"
+	guide += "  docker compose up -d --build\n\n"
+	guide += "[cyan]Reference:[-]\n"
+	guide += "  bot_template/docs/BEST_PRACTICES.md\n"
+	guide += "  bot_template/UPDATES.md\n\n"
+	guide += "[dim]Press Esc to close[-]"
+
+	guideView := tview.NewTextView()
+	guideView.SetBorder(true).
+		SetTitle(" Build Your Own Bot  Esc:close ").
+		SetTitleAlign(tview.AlignLeft)
+	guideView.SetDynamicColors(true)
+	guideView.SetText(guide)
+
+	guideView.SetInputCapture(func(ev *tcell.EventKey) *tcell.EventKey {
+		switch ev.Key() {
+		case tcell.KeyEscape:
+			// Return to previous tab
+			d.pages.RemovePage("guide")
+			d.app.SetFocus(d.pages)
+			return nil
+		}
+		return ev
+	})
+
+	d.pages.AddPage("guide", guideView, true, true)
+	d.app.SetFocus(guideView)
 }

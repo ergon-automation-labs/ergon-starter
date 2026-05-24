@@ -27,6 +27,7 @@ var DefaultPorts = PortMap{
 
 type Config struct {
 	AllBots           []Bot
+	SelectedPacks     []Pack
 	SelectedBots      []Bot
 	SelectedProviders []Provider
 	ProviderChain     string
