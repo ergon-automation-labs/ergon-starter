@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/abby/bot-army-starter/internal/dashboard"
 )
 
 // PortMap holds host-facing ports. Container-internal ports stay standard.
@@ -93,10 +95,27 @@ func RunInit() error {
 	}
 
 	fmt.Println("\n✓ Setup complete!")
-	fmt.Println("\nNext steps:")
-	fmt.Println("  docker compose up -d --build")
-	fmt.Println("  docker compose logs -f")
-	return nil
+	fmt.Println("\nStarting bot fleet dashboard...")
+	fmt.Println("Starting: docker compose up -d --build\n")
+
+	// Start Docker containers
+	startCmd := exec.Command("docker", "compose", "up", "-d", "--build")
+	startCmd.Stdout = os.Stdout
+	startCmd.Stderr = os.Stderr
+	if err := startCmd.Run(); err != nil {
+		// Don't fail if docker compose fails — dashboard can still show useful state
+		fmt.Printf("Warning: docker compose up failed: %v\n\n", err)
+	}
+
+	// Launch dashboard (this will block until user quits)
+	botNames := make([]string, len(cfg.SelectedBots))
+	botReleaseNames := make([]string, len(cfg.SelectedBots))
+	for i, bot := range cfg.SelectedBots {
+		botNames[i] = bot.Name
+		botReleaseNames[i] = bot.ReleaseName
+	}
+
+	return dashboard.RunFromWizardConfig(cfg.Ports.NATS, botNames, botReleaseNames, "./data/logs/")
 }
 
 func cloneRepos(cfg *Config) error {

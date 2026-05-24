@@ -1,0 +1,190 @@
+package dashboard
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
+)
+
+// FleetTab shows running bots and their status.
+type FleetTab struct {
+	widget     *tview.Flex
+	botList    *tview.List
+	botDetail  *tview.TextView
+	app        *tview.Application
+	cfg        *DashboardConfig
+	containers map[string]DockerContainer
+	selected   string
+	ctx        context.Context
+	cancel     context.CancelFunc
+}
+
+// NewFleetTab creates a new fleet tab.
+func NewFleetTab() *FleetTab {
+	return &FleetTab{
+		containers: make(map[string]DockerContainer),
+	}
+}
+
+// Widget returns the tab's root widget.
+func (f *FleetTab) Widget() tview.Primitive {
+	return f.widget
+}
+
+// Init initializes the fleet tab.
+func (f *FleetTab) Init(app *tview.Application, cfg *DashboardConfig) {
+	f.app = app
+	f.cfg = cfg
+	f.ctx, f.cancel = context.WithCancel(context.Background())
+
+	// Bot list (left panel)
+	f.botList = tview.NewList()
+	f.botList.SetBorder(true).
+		SetTitle(" Bots  ↑↓:nav  r:restart  Enter:details ").
+		SetTitleAlign(tview.AlignLeft)
+
+	// Bot detail (right panel)
+	f.botDetail = tview.NewTextView()
+	f.botDetail.SetBorder(true).
+		SetTitle(" Details ").
+		SetTitleAlign(tview.AlignLeft)
+	f.botDetail.SetDynamicColors(true)
+
+	// Layout: left list + right detail
+	flex := tview.NewFlex().
+		AddItem(f.botList, 0, 1, true).
+		AddItem(f.botDetail, 0, 1, false)
+
+	f.widget = tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(flex, 0, 1, true)
+
+	// List selection callback
+	f.botList.SetSelectedFunc(func(i int, label string, sec string, r rune) {
+		if i < len(f.cfg.Bots) {
+			f.selected = f.cfg.Bots[i].ReleaseName
+			f.updateDetail()
+		}
+	})
+
+	// Input capture for keys
+	f.botList.SetInputCapture(func(ev *tcell.EventKey) *tcell.EventKey {
+		switch ev.Rune() {
+		case 'r':
+			// Restart selected bot
+			if f.selected != "" {
+				// docker compose restart <name>
+				// For now, just show a message
+				f.app.QueueUpdateDraw(func() {
+					f.botDetail.SetText(fmt.Sprintf("[yellow]Restarting %s...[-]", f.selected))
+				})
+			}
+			return nil
+		}
+		return ev
+	})
+
+	// Start background refresh
+	go f.refreshLoop()
+
+	// Initial refresh
+	f.refresh()
+}
+
+// refreshLoop periodically refreshes the fleet list.
+func (f *FleetTab) refreshLoop() {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-f.ctx.Done():
+			return
+		case <-ticker.C:
+			f.refresh()
+		}
+	}
+}
+
+// refresh gets the current container list and updates the UI.
+func (f *FleetTab) refresh() {
+	containers, err := DockerPS()
+	if err != nil {
+		f.app.QueueUpdateDraw(func() {
+			f.botList.Clear()
+			f.botList.AddItem("[red]Docker not running[-]", "", 0, nil)
+		})
+		return
+	}
+
+	// Build map of containers
+	contMap := make(map[string]DockerContainer)
+	for _, c := range containers {
+		contMap[c.Names] = c
+	}
+
+	f.app.QueueUpdateDraw(func() {
+		f.botList.Clear()
+		f.containers = contMap
+
+		for _, bot := range f.cfg.Bots {
+			cont, ok := contMap[bot.ReleaseName]
+			var label string
+
+			if !ok {
+				label = fmt.Sprintf("○ %s  [red]not found[-]", bot.Name)
+			} else {
+				// Determine status icon and color
+				var icon string
+				var color string
+				if strings.Contains(cont.State, "running") {
+					icon = "●"
+					color = "[green]"
+				} else if strings.Contains(cont.State, "exited") {
+					icon = "○"
+					color = "[red]"
+				} else {
+					icon = "◐"
+					color = "[yellow]"
+				}
+				label = fmt.Sprintf("%s %s  %s%s[-]", icon, bot.Name, color, cont.State)
+			}
+
+			f.botList.AddItem(label, bot.ReleaseName, 0, nil)
+		}
+
+		// Set first bot as selected if none selected yet
+		if f.selected == "" && len(f.cfg.Bots) > 0 {
+			f.selected = f.cfg.Bots[0].ReleaseName
+		}
+		f.updateDetail()
+	})
+}
+
+// updateDetail updates the detail panel for the selected bot.
+func (f *FleetTab) updateDetail() {
+	cont, ok := f.containers[f.selected]
+	if !ok {
+		f.botDetail.SetText("[red]Container not found[-]")
+		return
+	}
+
+	detail := fmt.Sprintf("[cyan]%s[-]\n\n", f.selected)
+	detail += fmt.Sprintf("State: %s\n", cont.State)
+	detail += fmt.Sprintf("Status: %s\n", cont.Status)
+	detail += fmt.Sprintf("Image: %s\n", cont.Image)
+	detail += fmt.Sprintf("Ports: %s\n", cont.Ports)
+	detail += fmt.Sprintf("Created: %s\n", cont.Created)
+
+	f.botDetail.SetText(detail)
+}
+
+// Stop stops the fleet tab's background tasks.
+func (f *FleetTab) Stop() {
+	if f.cancel != nil {
+		f.cancel()
+	}
+}
