@@ -31,7 +31,7 @@ quickstart: catalog/bots.json ## Full setup: wizard → clone → build → star
 	@echo "everything in Docker."
 	@echo ""
 	$(MAKE) build
-	./$(BINARY) init
+	docker run --rm -it -v $(PWD):/workspace -w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) init
 	@echo ""
 	@echo "Building containers (first run takes ~5 min)..."
 	docker compose up -d --build
@@ -123,7 +123,7 @@ push-packs: ## Push all pack images to registry (CHANNEL=stable|latest|nightly)
 # --- Wizard ---
 
 init: build catalog/bots.json ## Run the interactive setup wizard
-	./$(BINARY) init
+	docker run --rm -it -v $(PWD):/workspace -w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) init
 
 catalog/bots.json: scripts/sync-catalog.sh config/repos-public.toml
 	@echo "Bot catalog missing — generating from repos-public.toml (channel: $(CHANNEL))..."
@@ -131,10 +131,10 @@ catalog/bots.json: scripts/sync-catalog.sh config/repos-public.toml
 
 add: build ## Add a bot (usage: make add BOT=fitness)
 	@test -n "$(BOT)" || (echo "Usage: make add BOT=<name>" && exit 1)
-	./$(BINARY) add $(BOT)
+	docker run --rm -v $(PWD):/workspace -w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) add $(BOT)
 
 status: build ## Show configured services
-	./$(BINARY) status
+	docker run --rm -v $(PWD):/workspace -w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) status
 
 # --- Docker Compose ---
 
