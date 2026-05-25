@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
@@ -16,7 +17,11 @@ func main() {
 
 	switch os.Args[1] {
 	case "init":
-		if err := wizard.RunInit(); err != nil {
+		fs := flag.NewFlagSet("init", flag.ContinueOnError)
+		customBotsFile := fs.String("custom-bots", "", "Path to JSON file with custom bots")
+		fs.Parse(os.Args[2:])
+
+		if err := wizard.RunInitWithCustomBots(*customBotsFile); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
@@ -50,7 +55,14 @@ func printUsage() {
 
 Commands:
   init        Interactive setup wizard
+              Flags: --custom-bots <file.json>
   add         Add a bot to your installation
   status      Show running services
-  dashboard   Monitor running fleet`)
+  dashboard   Monitor running fleet
+
+Examples:
+  bot-army init
+  bot-army init --custom-bots custom-bots.json
+  bot-army add mybot
+  bot-army dashboard`)
 }

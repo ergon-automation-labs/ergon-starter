@@ -80,6 +80,46 @@ rm .bot-army.json
 make quickstart
 ```
 
+## Custom Bots
+
+Add your own bots to the fleet without modifying the wizard. Create a `custom-bots.json`:
+
+```json
+{
+  "custom_bots": [
+    {
+      "name": "my-bot",
+      "repo": "https://github.com/user/my-bot.git",
+      "release_name": "my_bot_bot",
+      "env_vars": {
+        "API_KEY": "your-key",
+        "DEBUG": "false"
+      }
+    }
+  ],
+  "custom_mounts": [
+    {
+      "source": "/host/data",
+      "destination": "/app/data"
+    }
+  ]
+}
+```
+
+Then run:
+```bash
+make quickstart --custom-bots custom-bots.json
+```
+
+**Key fields:**
+- `name` — Bot directory name (e.g., `bot_army_mybot`)
+- `repo` — GitHub URL or local path (both supported)
+- `release_name` — Docker container name (e.g., `my_bot_bot`)
+- `env_vars` — Custom environment variables for this bot
+- `custom_mounts` — Host paths to mount into all services
+
+See `custom-bots.example.json` for a template.
+
 ## Architecture
 
 ```

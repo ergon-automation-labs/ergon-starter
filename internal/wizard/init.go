@@ -71,11 +71,22 @@ type ConfigFile struct {
 }
 
 func RunInit() error {
+	return RunInitWithCustomBots("")
+}
+
+func RunInitWithCustomBots(customBotsFile string) error {
 	cfg := &Config{
 		EnvValues:  make(map[string]string),
 		InstallDir: ".",
 		GitOrg:     "ergon-automation-labs",
 		Ports:      DefaultPorts,
+	}
+
+	// Load custom bots if provided
+	if customBotsFile != "" {
+		if err := loadCustomBots(cfg, customBotsFile); err != nil {
+			return fmt.Errorf("loading custom bots: %w", err)
+		}
 	}
 
 	// Load bot catalog
@@ -288,6 +299,30 @@ func cloneCustomRepo(reposDir, repoURL, botName string) error {
 		return fmt.Errorf("clone %s: %w", botName, err)
 	}
 	fmt.Println(" ✓")
+	return nil
+}
+
+// loadCustomBots loads custom bots and mounts from a JSON file
+func loadCustomBots(cfg *Config, filePath string) error {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return err
+	}
+
+	type CustomBotsFile struct {
+		CustomBots   []CustomBot   `json:"custom_bots"`
+		CustomMounts []CustomMount `json:"custom_mounts"`
+	}
+
+	var cbf CustomBotsFile
+	if err := json.Unmarshal(data, &cbf); err != nil {
+		return err
+	}
+
+	cfg.CustomBots = cbf.CustomBots
+	cfg.CustomMounts = cbf.CustomMounts
+
+	fmt.Printf("Loaded %d custom bots and %d custom mounts\n", len(cfg.CustomBots), len(cfg.CustomMounts))
 	return nil
 }
 

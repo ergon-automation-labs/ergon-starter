@@ -1,0 +1,25 @@
+{
+  "custom_bots": [
+    {
+      "name": "my-custom-bot",
+      "repo": "https://github.com/user/my-custom-bot.git",
+      "release_name": "my_custom_bot_bot",
+      "env_vars": {
+        "API_KEY": "your-key-here",
+        "DEBUG": "false"
+      }
+    },
+    {
+      "name": "local-bot",
+      "repo": "/path/to/local/bot-repo",
+      "release_name": "local_bot",
+      "env_vars": {}
+    }
+  ],
+  "custom_mounts": [
+    {
+      "source": "/host/data/path",
+      "destination": "/app/data"
+    }
+  ]
+}
