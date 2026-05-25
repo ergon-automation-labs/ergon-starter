@@ -11,5 +11,5 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o /bot-army ./cmd/bot-army
 
 FROM alpine:3.20
-RUN apk add --no-cache git
+RUN apk add --no-cache git wget tar
 COPY --from=build /bot-army /usr/local/bin/bot-army

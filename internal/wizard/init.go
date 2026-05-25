@@ -201,8 +201,19 @@ func cloneRepo(reposDir, repo, org string) error {
 	}
 
 	fmt.Printf("  ⏳ %s...", repo)
+
+	// Try gh first
 	fullRepo := fmt.Sprintf("%s/%s", org, repo)
 	cmd := exec.Command("gh", "repo", "clone", fullRepo, dest, "--", "--depth", "1")
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err == nil {
+		fmt.Println(" ✓")
+		return nil
+	}
+
+	// Fall back to git
+	url := fmt.Sprintf("https://github.com/%s/%s.git", org, repo)
+	cmd = exec.Command("git", "clone", "--depth", "1", url, dest)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		fmt.Println(" ✗")
@@ -313,10 +324,10 @@ func ensureGhAuth() error {
 	// Check if gh is installed
 	if err := exec.Command("which", "gh").Run(); err != nil {
 		fmt.Println("  Installing GitHub CLI...")
-		if err := exec.Command("apk", "add", "--no-cache", "gh").Run(); err != nil {
-			fmt.Println("  ⚠ Could not auto-install gh. Install it manually: apk add gh")
-			fmt.Println("  Then re-run the wizard.")
-			return fmt.Errorf("gh not available")
+		if err := installGh(); err != nil {
+			fmt.Println("  ⚠ Could not install gh. Using git with credentials instead.")
+			fmt.Println()
+			return nil // Don't fail, git will prompt for credentials
 		}
 		fmt.Println("  ✓ GitHub CLI installed")
 	}
@@ -335,11 +346,50 @@ func ensureGhAuth() error {
 		authCmd.Stdout = os.Stdout
 		authCmd.Stderr = os.Stderr
 		if err := authCmd.Run(); err != nil {
-			return fmt.Errorf("gh auth failed: %w", err)
+			fmt.Println("  ⚠ gh auth failed. Using git with credentials instead.")
+			fmt.Println()
+			return nil // Don't fail, git will prompt for credentials
 		}
 		fmt.Println()
 	}
 
 	fmt.Println("  ✓ GitHub authenticated")
+	return nil
+}
+
+// installGh attempts to install gh from GitHub releases.
+func installGh() error {
+	// Try apk first (might work on some Alpine configs)
+	if err := exec.Command("apk", "add", "--no-cache", "gh").Run(); err == nil {
+		return nil
+	}
+
+	// Fall back: download binary from GitHub releases for Alpine/Linux
+	fmt.Println("    Downloading gh binary...")
+	tmpDir := "/tmp"
+	tarPath := filepath.Join(tmpDir, "gh.tar.gz")
+
+	// Download (adjust architecture if needed - using x86_64 for common case)
+	downloadCmd := exec.Command("wget", "-q", "-O", tarPath,
+		"https://github.com/cli/cli/releases/download/v2.50.0/gh_2.50.0_linux_amd64.tar.gz")
+	if err := downloadCmd.Run(); err != nil {
+		return fmt.Errorf("download failed: %w", err)
+	}
+
+	// Extract
+	extractCmd := exec.Command("tar", "-xzf", tarPath, "-C", tmpDir)
+	if err := extractCmd.Run(); err != nil {
+		return fmt.Errorf("extract failed: %w", err)
+	}
+
+	// Copy to PATH
+	cpCmd := exec.Command("cp", filepath.Join(tmpDir, "gh_2.50.0_linux_amd64", "bin", "gh"), "/usr/local/bin/gh")
+	if err := cpCmd.Run(); err != nil {
+		return fmt.Errorf("install failed: %w", err)
+	}
+
+	// Cleanup
+	_ = exec.Command("rm", "-rf", tarPath, filepath.Join(tmpDir, "gh_2.50.0_linux_amd64")).Run()
+
 	return nil
 }
