@@ -157,13 +157,6 @@ stability = "experimental"
 channels = { stable = "stable", latest = "latest", nightly = "main" }
 
 [[bots]]
-name = "bot_army_advocacy"
-remote = "ergon-advocacy"
-category = "research"
-stability = "experimental"
-channels = { stable = "stable", latest = "latest", nightly = "main" }
-
-[[bots]]
 name = "bot_army_job_applications"
 remote = "ergon-job_applications"
 category = "research"

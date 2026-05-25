@@ -73,6 +73,5 @@ stability = "experimental"
 bots = [
   { repo = "ergon-feeds", binary = "feeds_bot", optional = false },
   { repo = "ergon-rss_polling", binary = "rss_polling_bot", optional = false },
-  { repo = "ergon-advocacy", binary = "advocacy_bot", optional = true },
   { repo = "ergon-job_applications", binary = "job_applications_bot", optional = false }
 ]
