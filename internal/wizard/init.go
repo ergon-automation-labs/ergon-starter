@@ -76,12 +76,14 @@ func RunInit() error {
 		fmt.Scanln(&response)
 		if strings.ToLower(response) == "y" || strings.ToLower(response) == "yes" {
 			if err := loadConfigInto(cfg, configPath); err == nil {
-				fmt.Println("✓ Loaded existing configuration\n")
+				fmt.Println("✓ Loaded existing configuration")
+				fmt.Println()
 				// Skip wizard and go straight to setup
 				return runSetup(cfg)
 			}
 		}
-		fmt.Println("Running wizard again...\n")
+		fmt.Println("Running wizard again...")
+		fmt.Println()
 	}
 
 	// Run the tview wizard
@@ -126,7 +128,8 @@ func runSetup(cfg *Config) error {
 	}
 
 	// Generate files
-	fmt.Println("\nGenerating configuration...")
+	fmt.Println()
+	fmt.Println("Generating configuration...")
 	if err := generateEnvFile(cfg); err != nil {
 		return fmt.Errorf("env file: %w", err)
 	}
@@ -134,9 +137,12 @@ func runSetup(cfg *Config) error {
 		return fmt.Errorf("compose file: %w", err)
 	}
 
-	fmt.Println("\n✓ Setup complete!")
-	fmt.Println("\nStarting bot fleet dashboard...")
-	fmt.Println("Starting: docker compose up -d --build\n")
+	fmt.Println()
+	fmt.Println("✓ Setup complete!")
+	fmt.Println()
+	fmt.Println("Starting bot fleet dashboard...")
+	fmt.Println("Starting: docker compose up -d --build")
+	fmt.Println()
 
 	// Start Docker containers
 	startCmd := exec.Command("docker", "compose", "up", "-d", "--build")
