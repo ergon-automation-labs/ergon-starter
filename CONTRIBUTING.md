@@ -2,19 +2,6 @@
 
 Thanks for helping improve Bot Army! This guide covers contributing to the starter distribution tool and the broader Bot Army ecosystem.
 
-## 🚀 Business Opportunities
-
-Interested in building a business on top of Bot Army? Check out [BUSINESS_OPPORTUNITIES.md](./BUSINESS_OPPORTUNITIES.md) for detailed paths:
-
-- **Domain-specific bot packs** (code quality, lead intelligence, content automation)
-- **Hosted / SaaS offerings** (managed deployment, white-label dashboards)
-- **Specialized bots** (single-purpose solutions)
-- **Templates & scaffolding** (accelerators for common use cases)
-- **Consulting & integration** (custom implementations, staff training)
-- **Extensions & integrations** (connectors, plugins, API integrations)
-
-Includes concrete examples for **Product & Engineering** and **Sales & Marketing** use cases.
-
 ## How to Contribute
 
 ### 1. Improve the Starter (this repo)
