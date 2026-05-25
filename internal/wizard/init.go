@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/abby/bot-army-starter/internal/dashboard"
-	"golang.org/x/term"
 )
 
 // PortMap holds host-facing ports. Container-internal ports stay standard.
@@ -52,16 +51,6 @@ type ConfigFile struct {
 }
 
 func RunInit() error {
-	// Check if stdin is a TTY
-	if !isTerminal(os.Stdin) {
-		fmt.Fprintf(os.Stderr, "⚠ Not running in an interactive terminal\n\n")
-		fmt.Fprintf(os.Stderr, "The setup wizard requires an interactive terminal.\n")
-		fmt.Fprintf(os.Stderr, "Either:\n")
-		fmt.Fprintf(os.Stderr, "  1. Run from a terminal: make quickstart\n")
-		fmt.Fprintf(os.Stderr, "  2. Use headless mode: make quickstart-default\n")
-		return fmt.Errorf("non-interactive terminal")
-	}
-
 	cfg := &Config{
 		EnvValues:  make(map[string]string),
 		InstallDir: ".",
@@ -311,9 +300,4 @@ func loadConfigInto(cfg *Config, configPath string) error {
 	cfg.Ports = cf.Ports
 
 	return nil
-}
-
-// isTerminal checks if the given file is a terminal (TTY).
-func isTerminal(f *os.File) bool {
-	return term.IsTerminal(int(f.Fd()))
 }
