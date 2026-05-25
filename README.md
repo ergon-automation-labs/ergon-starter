@@ -4,20 +4,26 @@ Get the Bot Army ecosystem running on any machine with Docker.
 
 ## One-Click Install
 
-**Interactive setup** (choose packs, ports, postgres-age):
+**Interactive setup** with TUI wizard:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/ergon-starter/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/ergon-starter/main/install.sh | bash
 ```
 
-This will prompt you for:
-1. **Bot packs** to include (default: `core`)
-   - `core` — 8 essential bots (GTD, Para, Skills, Dispatcher, Synapse, Bridge, LLM, Scheduler)
-   - `learning_deepdive` — Learning systems (FSRS-5, terrain, spaced repetition)
-   - `social_media`, `areas`, `research` — Additional optional packs
-2. **NATS port** (default: 4222)
-3. **PostgreSQL port** (default: 5432)
-4. **Apache Postgres-Age** for internal docs (optional, y/n)
+This launches an interactive 6-step wizard:
+1. **Select a Starter Pack** — Choose from Primary (8 core bots), Background (10 domain bots), Infrastructure (10 support services), or Custom
+2. **Select Bots** — Multi-select with pack labels showing which bots belong to which pack
+3. **Configure Ports** — NATS (default 54222), Monitor (58222), PostgreSQL (55432), Ollama (51434)
+4. **Select LLM Providers** — Ollama, Anthropic, OpenAI, OpenRouter (pick one or more)
+5. **Configure Environment Variables** — API keys, model names, custom settings per provider
+6. **Review Configuration** — Summary + template guide for building custom bots
+
+**Configuration persists** across restarts via `.bot-army.json`, so subsequent runs can skip the wizard.
+
+For headless setup (core bots + Ollama, no prompts):
+```bash
+curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/ergon-starter/main/install.sh | bash -s -- --default
+```
 
 ## Prerequisites
 
@@ -33,41 +39,45 @@ If you prefer to clone first:
 git clone https://github.com/ergon-automation-labs/ergon-starter.git
 cd ergon-starter
 
-# Generate docker-compose.yml with sensible defaults
-make generate-compose PACKS=core
+# Interactive setup (builds CLI, runs wizard)
+make quickstart
 
-# Or customize ports and packs
-make generate-compose PACKS=core,learning_deepdive NATS_PORT=14222 PG_PORT=15432
+# Or headless setup (core bots + Ollama, no prompts)
+make quickstart-default
 
-# Start services
-docker compose up
+# Start dashboard after wizard completes
+# (dashboard auto-launches with docker compose logs)
+```
+
+The wizard saves your configuration to `.bot-army.json` for future restarts. To reuse it:
+```bash
+# Run again — will offer to reuse saved config
+make quickstart
 ```
 
 ## Commands
 
 | Command | What it does |
 |---------|-------------|
-| `make generate-compose` | Generate docker-compose.yml (see options below) |
-| `make generate-dockerfiles` | Generate per-pack Dockerfiles |
-| `make build-pack` | Build a single pack image |
-| `make build-packs` | Build all pack images |
-| `make up` | Start services (after docker-compose.yml is generated) |
+| `make quickstart` | Interactive 6-step wizard → builds CLI → clones bots → starts dashboard |
+| `make quickstart-default` | Headless setup: core bots + Ollama (no prompts) |
+| `make build` | Build bot-army CLI only (for development) |
+| `make up` | Start docker compose services |
 | `make down` | Stop services |
-| `make logs` | Follow service logs |
+| `make logs` | Follow all service logs (or `make logs BOT=gtd`) |
 | `make ps` | Show running containers |
-| `make clean` | Remove generated files |
+| `make add BOT=name` | Add another bot to docker-compose.yml |
+| `make clean` | Remove generated files (.env, docker-compose.yml) |
 
-## Generate Options
-
+**Reusing configuration:**
 ```bash
-# Select packs (comma-separated)
-make generate-compose PACKS=core,learning_deepdive
+# Wizard saves config to .bot-army.json
+# Run again and choose to reuse it:
+make quickstart
 
-# Custom ports
-make generate-compose NATS_PORT=14222 PG_PORT=15432
-
-# Channel selection (stable, latest, nightly)
-make generate-compose CHANNEL=nightly
+# Manually remove config to force re-wizard:
+rm .bot-army.json
+make quickstart
 ```
 
 ## Architecture
@@ -103,17 +113,23 @@ The wizard lets you pick any combination:
 
 The LLM bot routes requests through your provider chain based on complexity (light/medium/heavy) with health-aware failover.
 
-## Adding bots
+## Adding bots after initial setup
 
 ```bash
-# See available bots
+# List available bots
 make add BOT=help
 
-# Add one
+# Add one to docker-compose.yml
 make add BOT=fitness
 
-# Start it
+# Rebuild and start
 docker compose up -d --build fitness_bot
+```
+
+To add bots **before initial setup**, run the wizard again:
+```bash
+rm .bot-army.json
+make quickstart
 ```
 
 ## Updating
@@ -134,15 +150,31 @@ make up
 ```
 bot-army-starter/
 ├── install.sh              # curl | bash bootstrap
-├── Makefile                # All operations
+├── Makefile                # All operations (quickstart, logs, add, etc.)
 ├── Dockerfile              # Shared multi-stage build for any bot
+├── Dockerfile.build        # Go build environment for CLI
+├── cmd/bot-army/
+│   └── main.go             # CLI entry point
+├── internal/
+│   ├── wizard/             # TUI wizard (6-step flow)
+│   │   ├── tui.go          # Interactive steps
+│   │   ├── registry.go     # Bot/pack catalog loading
+│   │   ├── init.go         # Config save/load + setup orchestration
+│   │   └── generate.go     # .env and docker-compose.yml generation
+│   └── dashboard/          # Live monitoring (Fleet, Logs, NATS, System tabs)
+│       ├── dashboard.go    # Main UI
+│       ├── fleet.go        # Fleet status tab
+│       ├── logs.go         # Live log streaming
+│       ├── nats_tab.go     # NATS request/reply tester
+│       └── system.go       # Docker stats tab
 ├── catalog/
-│   └── bots.json           # Auto-generated bot registry
+│   ├── bots.json           # Auto-generated bot registry (40 bots)
+│   └── packs.json          # Preset packs (Primary, Background, Infra)
 ├── scripts/
 │   ├── sync-catalog.sh     # Scans monorepo → catalog
-│   ├── quickstart-default.sh
-│   └── entrypoint.sh       # Optional migration-on-boot
+│   └── quickstart-default.sh
 ├── repos/                  # Cloned bot source code (gitignored)
 ├── docker-compose.yml      # Generated by wizard (gitignored)
-└── .env                    # Generated by wizard (gitignored)
+├── .env                    # Generated by wizard (gitignored)
+└── .bot-army.json          # Saved config (gitignored)
 ```
