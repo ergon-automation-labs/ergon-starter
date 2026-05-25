@@ -179,13 +179,15 @@ func generateComposeFile(cfg *Config) error {
 		b.WriteString("\n")
 	}
 
-	// Volumes
-	b.WriteString("volumes:\n")
-	if needsDB {
-		b.WriteString("  pgdata:\n")
-	}
-	if cfg.SelfHostOllama {
-		b.WriteString("  ollama_data:\n")
+	// Volumes (only if needed)
+	if needsDB || cfg.SelfHostOllama {
+		b.WriteString("volumes:\n")
+		if needsDB {
+			b.WriteString("  pgdata:\n")
+		}
+		if cfg.SelfHostOllama {
+			b.WriteString("  ollama_data:\n")
+		}
 	}
 
 	composePath := filepath.Join(cfg.InstallDir, "docker-compose.yml")
