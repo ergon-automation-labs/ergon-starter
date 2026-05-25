@@ -7,9 +7,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"github.com/abby/bot-army-starter/internal/dashboard"
+	"golang.org/x/term"
 )
 
 // PortMap holds host-facing ports. Container-internal ports stay standard.
@@ -315,6 +315,5 @@ func loadConfigInto(cfg *Config, configPath string) error {
 
 // isTerminal checks if the given file is a terminal (TTY).
 func isTerminal(f *os.File) bool {
-	_, err := syscall.IoctlGetTermios(int(f.Fd()), syscall.TIOCGETA)
-	return err == nil
+	return term.IsTerminal(int(f.Fd()))
 }
