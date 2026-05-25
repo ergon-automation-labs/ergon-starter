@@ -1,51 +1,65 @@
 [
   {
-    "name": "primary",
-    "description": "Core user-facing bots",
-    "release_name": "primary_pack",
+    "name": "core",
+    "stability": "stable",
+    "description": "Framework + operator interface (required by all packs)",
+    "release_name": "core_pack",
     "bots": [
       "gtd",
+      "para",
+      "learning",
+      "core",
+      "runtime",
+      "skills",
       "claude_bridge",
-      "synapse",
+      "job_scheduler",
       "dispatcher",
-      "identity",
-      "inbox",
-      "context_broker",
-      "notification_router"
+      "synapse",
+      "llm",
+      "surface_mcp"
     ]
   },
   {
-    "name": "background",
-    "description": "LLM, learning, and domain bots",
-    "release_name": "background_pack",
+    "name": "social_media",
+    "stability": "experimental",
+    "description": "YouTube transcript extraction + analytics summarization",
+    "release_name": "social_media_pack",
     "bots": [
-      "llm",
-      "learning",
+      "youtube_manager",
+      "media_ingestion"
+    ]
+  },
+  {
+    "name": "learning_deepdive",
+    "stability": "stable",
+    "description": "Spaced repetition game + codebase knowledge search",
+    "release_name": "learning_deepdive_pack",
+    "bots": [
       "terrain",
-      "job_applications",
+      "internal_docs"
+    ]
+  },
+  {
+    "name": "areas",
+    "stability": "stable",
+    "description": "Life management (fitness, chores, narrative gaming)",
+    "release_name": "areas_pack",
+    "bots": [
       "fitness",
       "chore",
-      "rpg",
-      "para",
-      "advocacy",
-      "sre"
+      "rpg"
     ]
   },
   {
-    "name": "infra",
-    "description": "Infrastructure and support services",
-    "release_name": "infra_pack",
+    "name": "research",
+    "stability": "experimental",
+    "description": "Web scraping, feeds, policy tracking, job search",
+    "release_name": "research_pack",
     "bots": [
       "feeds",
-      "database_backups",
-      "job_scheduler",
-      "internal_docs",
-      "skills",
       "rss_polling",
-      "email_triage",
-      "discord_webhook_manager",
-      "general",
-      "factory_breaker"
+      "advocacy",
+      "job_applications"
     ]
   }
 ]

@@ -1,0 +1,78 @@
+# Pack Docker Image Definitions
+# Defines how to build multi-bot pack images from individual bot images
+# Each pack is a docker image combining related bots + shared runtime
+
+[settings]
+registry = "ergon-automation-labs"
+base_image = "erlang:26-alpine"
+default_channel = "stable"
+
+# ============================================================================
+# CORE PACK - Framework + Essential Services
+# ============================================================================
+[[packs]]
+name = "core"
+description = "Complete framework + operator interface"
+bots = [
+  { repo = "ergon-core", binary = "core_bot", optional = false },
+  { repo = "ergon-runtime", binary = "runtime_bot", optional = false },
+  { repo = "ergon-llm", binary = "llm_bot", optional = false },
+  { repo = "ergon-learning", binary = "learning_bot", optional = false },
+  { repo = "ergon-gtd", binary = "gtd_bot", optional = false },
+  { repo = "ergon-para", binary = "para_bot", optional = false },
+  { repo = "ergon-dispatcher", binary = "dispatcher_bot", optional = false },
+  { repo = "ergon-synapse", binary = "synapse_bot", optional = false },
+  { repo = "ergon-claude-bridge", binary = "claude_bridge_bot", optional = false },
+  { repo = "ergon-job-scheduler", binary = "job_scheduler_bot", optional = false },
+  { repo = "ergon-skills", binary = "skills_bot", optional = false },
+  { repo = "ergon-surface-mcp", binary = "surface_mcp_bot", optional = false }
+]
+
+# ============================================================================
+# SOCIAL_MEDIA PACK - YouTube + Media Ingestion
+# ============================================================================
+[[packs]]
+name = "social_media"
+description = "YouTube transcript extraction + analytics"
+stability = "experimental"
+bots = [
+  { repo = "ergon-youtube-manager", binary = "youtube_manager_bot", optional = false },
+  { repo = "ergon-media-ingestion", binary = "media_ingestion_bot", optional = false }
+]
+
+# ============================================================================
+# LEARNING_DEEPDIVE PACK - Spaced Repetition + Knowledge Search
+# ============================================================================
+[[packs]]
+name = "learning_deepdive"
+description = "Spaced repetition game + codebase knowledge search"
+bots = [
+  { repo = "ergon-terrain", binary = "terrain_bot", optional = false },
+  { repo = "ergon-internal-docs", binary = "internal_docs_bot", optional = false }
+]
+
+# ============================================================================
+# AREAS PACK - Life Management (Fitness, Chores, Narrative)
+# ============================================================================
+[[packs]]
+name = "areas"
+description = "Life management (fitness, chores, narrative gaming)"
+bots = [
+  { repo = "ergon-fitness", binary = "fitness_bot", optional = false },
+  { repo = "ergon-chore", binary = "chore_bot", optional = false },
+  { repo = "ergon-rpg", binary = "rpg_bot", optional = false }
+]
+
+# ============================================================================
+# RESEARCH PACK - Web Scraping, Feeds, Policy Tracking
+# ============================================================================
+[[packs]]
+name = "research"
+description = "Web scraping, feeds, policy tracking, job search"
+stability = "experimental"
+bots = [
+  { repo = "ergon-feeds", binary = "feeds_bot", optional = false },
+  { repo = "ergon-rss-polling", binary = "rss_polling_bot", optional = false },
+  { repo = "ergon-advocacy", binary = "advocacy_bot", optional = false },
+  { repo = "ergon-job-applications", binary = "job_applications_bot", optional = false }
+]

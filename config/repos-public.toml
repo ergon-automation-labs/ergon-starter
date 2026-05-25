@@ -1,0 +1,171 @@
+# Bot Army Public Repositories
+# Source of truth for Starter (independent of main monorepo)
+# Channels: stable (frozen releases), latest (recent stable), nightly (main branch)
+
+[settings]
+github_org = "ergon-automation-labs"
+default_channel = "stable"
+
+# ============================================================================
+# CORE PACK (Framework + Essential Services)
+# ============================================================================
+
+[[bots]]
+name = "bot_army_core"
+remote = "ergon-core"
+category = "core"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+[[bots]]
+name = "bot_army_runtime"
+remote = "ergon-runtime"
+category = "core"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+[[bots]]
+name = "bot_army_llm"
+remote = "ergon-llm"
+category = "core"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+[[bots]]
+name = "bot_army_learning"
+remote = "ergon-learning"
+category = "core"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+[[bots]]
+name = "bot_army_gtd"
+remote = "ergon-gtd"
+category = "core"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+[[bots]]
+name = "bot_army_para"
+remote = "ergon-para"
+category = "core"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+[[bots]]
+name = "bot_army_dispatcher"
+remote = "ergon-dispatcher"
+category = "core"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+[[bots]]
+name = "bot_army_synapse"
+remote = "ergon-synapse"
+category = "core"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+[[bots]]
+name = "bot_army_claude_bridge"
+remote = "ergon-claude-bridge"
+category = "core"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+[[bots]]
+name = "bot_army_job_scheduler"
+remote = "ergon-job-scheduler"
+category = "core"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+[[bots]]
+name = "bot_army_skills"
+remote = "ergon-skills"
+category = "core"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+[[bots]]
+name = "bot_army_surface_mcp"
+remote = "ergon-surface-mcp"
+category = "core"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+# ============================================================================
+# SOCIAL_MEDIA PACK (Experimental)
+# ============================================================================
+
+[[bots]]
+name = "bot_army_youtube_manager"
+remote = "ergon-youtube-manager"
+category = "social_media"
+stability = "experimental"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+[[bots]]
+name = "bot_army_media_ingestion"
+remote = "ergon-media-ingestion"
+category = "social_media"
+stability = "experimental"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+# ============================================================================
+# LEARNING_DEEPDIVE PACK (Stable)
+# ============================================================================
+
+[[bots]]
+name = "bot_army_terrain"
+remote = "ergon-terrain"
+category = "learning_deepdive"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+[[bots]]
+name = "bot_army_internal_docs"
+remote = "ergon-internal-docs"
+category = "learning_deepdive"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+# ============================================================================
+# AREAS PACK (Stable)
+# ============================================================================
+
+[[bots]]
+name = "bot_army_fitness"
+remote = "ergon-fitness"
+category = "areas"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+[[bots]]
+name = "bot_army_chore"
+remote = "ergon-chore"
+category = "areas"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+[[bots]]
+name = "bot_army_rpg"
+remote = "ergon-rpg"
+category = "areas"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+# ============================================================================
+# RESEARCH PACK (Experimental)
+# ============================================================================
+
+[[bots]]
+name = "bot_army_feeds"
+remote = "ergon-feeds"
+category = "research"
+stability = "experimental"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+[[bots]]
+name = "bot_army_rss_polling"
+remote = "ergon-rss-polling"
+category = "research"
+stability = "experimental"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+[[bots]]
+name = "bot_army_advocacy"
+remote = "ergon-advocacy"
+category = "research"
+stability = "experimental"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+[[bots]]
+name = "bot_army_job_applications"
+remote = "ergon-job-applications"
+category = "research"
+stability = "experimental"
+channels = { stable = "stable", latest = "latest", nightly = "main" }

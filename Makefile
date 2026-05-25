@@ -4,7 +4,13 @@
 BINARY := bot-army
 BUILD_IMAGE := bot-army-builder
 PLATFORM := $(shell uname -s | tr '[:upper:]' '[:lower:]')-$(shell uname -m)
-MONOREPO ?= $(HOME)/code/elixir_bots
+
+# Release channel selection (stable, latest, nightly)
+CHANNEL ?= stable
+
+# Port configuration (customize to avoid conflicts)
+NATS_PORT ?= 4222
+PG_PORT ?= 5432
 
 .PHONY: help quickstart build install sync init add status up down logs ps clean
 
@@ -65,17 +71,63 @@ install: build ## Build and install to /usr/local/bin
 
 # --- Catalog ---
 
-sync: ## Sync bot catalog from monorepo (MONOREPO=path)
-	./scripts/sync-catalog.sh $(MONOREPO)
+sync: ## Sync bot catalog (CHANNEL=stable|latest|nightly, default: stable)
+	./scripts/sync-catalog.sh $(CHANNEL)
+
+# --- Pack Docker Images ---
+
+generate-dockerfiles: ## Generate Dockerfiles for all packs (CHANNEL=stable|latest|nightly)
+	@python3 scripts/generate-pack-dockerfiles.py --channel $(CHANNEL) --output-dir .
+	@echo ""
+	@echo "Generated Dockerfiles (update .gitignore if needed):"
+	@ls -1 Dockerfile.* 2>/dev/null || echo "  (no Dockerfiles yet)"
+
+generate-compose: ## Generate docker-compose.yml (PACKS=core,social_media [CHANNEL=stable] [NATS_PORT=4222] [PG_PORT=5432])
+	@test -n "$(PACKS)" || (echo "Usage: make generate-compose PACKS=core,social_media [CHANNEL=stable] [NATS_PORT=4222] [PG_PORT=5432]" && exit 1)
+	@python3 scripts/generate-compose.py \
+		--packs $(PACKS) \
+		--channel $(CHANNEL) \
+		--nats-client-port $(NATS_PORT) \
+		--postgres-port $(PG_PORT) \
+		--output docker-compose.yml
+
+build-pack: generate-dockerfiles ## Build a pack image (PACK=core|social_media|learning_deepdive|areas|research)
+	@test -n "$(PACK)" || (echo "Usage: make build-pack PACK=<pack_name> [CHANNEL=stable]" && exit 1)
+	docker build -f Dockerfile.$(PACK) \
+		--build-arg CHANNEL=$(CHANNEL) \
+		-t ergon-automation-labs/bot-army-$(PACK):$(CHANNEL) \
+		-t ergon-automation-labs/bot-army-$(PACK):latest \
+		.
+	@echo "✓ Built ergon-automation-labs/bot-army-$(PACK):$(CHANNEL)"
+
+build-packs: generate-dockerfiles ## Build all pack images (CHANNEL=stable|latest|nightly)
+	@echo "Building all packs (channel: $(CHANNEL))..."
+	@for pack in core social_media learning_deepdive areas research; do \
+		echo ""; \
+		$(MAKE) build-pack PACK=$$pack CHANNEL=$(CHANNEL); \
+	done
+
+push-pack: ## Push a pack image to registry (PACK=<name>, CHANNEL=stable|latest|nightly)
+	@test -n "$(PACK)" || (echo "Usage: make push-pack PACK=<pack_name> [CHANNEL=stable]" && exit 1)
+	docker push ergon-automation-labs/bot-army-$(PACK):$(CHANNEL)
+	docker push ergon-automation-labs/bot-army-$(PACK):latest
+	@echo "✓ Pushed ergon-automation-labs/bot-army-$(PACK)"
+
+push-packs: ## Push all pack images to registry (CHANNEL=stable|latest|nightly)
+	@echo "Pushing all packs (channel: $(CHANNEL))..."
+	@for pack in core social_media learning_deepdive areas research; do \
+		echo ""; \
+		$(MAKE) push-pack PACK=$$pack CHANNEL=$(CHANNEL); \
+	done
 
 # --- Wizard ---
 
 init: build catalog/bots.json ## Run the interactive setup wizard
 	./$(BINARY) init
 
-catalog/bots.json: scripts/sync-catalog.sh
-	@echo "Bot catalog missing — syncing from $(MONOREPO)..."
-	./scripts/sync-catalog.sh $(MONOREPO)
+catalog/bots.json: scripts/sync-catalog.sh config/repos-public.toml
+	@echo "Bot catalog missing — generating from repos-public.toml (channel: $(CHANNEL))..."
+	./scripts/sync-catalog.sh $(CHANNEL)
 
 add: build ## Add a bot (usage: make add BOT=fitness)
 	@test -n "$(BOT)" || (echo "Usage: make add BOT=<name>" && exit 1)

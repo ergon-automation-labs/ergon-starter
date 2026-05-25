@@ -1,7 +1,10 @@
 package dashboard
 
 import (
+	"bufio"
+	"context"
 	"encoding/json"
+	"fmt"
 	"os/exec"
 	"strings"
 )
@@ -77,7 +80,29 @@ func DockerStats() ([]DockerStat, error) {
 
 // DockerLogs returns the last N lines of a container's logs.
 func DockerLogs(containerName string, tail int) (string, error) {
-	cmd := exec.Command("docker", "logs", "--tail", string(rune(tail)), containerName)
+	cmd := exec.Command("docker", "logs", "--tail", fmt.Sprintf("%d", tail), containerName)
 	output, err := cmd.CombinedOutput()
 	return string(output), err
+}
+
+// DockerLogsFollow streams logs from a container until the context is cancelled.
+func DockerLogsFollow(ctx context.Context, containerName string, tail int, callback func(string)) error {
+	cmd := exec.CommandContext(ctx, "docker", "logs", "-f", "--tail", fmt.Sprintf("%d", tail), containerName)
+	pipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	defer pipe.Close()
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	scanner := bufio.NewScanner(pipe)
+	for scanner.Scan() {
+		line := scanner.Text()
+		callback(line)
+	}
+
+	return cmd.Wait()
 }
