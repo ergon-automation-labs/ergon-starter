@@ -12,7 +12,7 @@ CHANNEL ?= stable
 NATS_PORT ?= 4222
 PG_PORT ?= 5432
 
-.PHONY: help quickstart build install sync init add status up down logs ps clean
+.PHONY: help quickstart build install sync init add status up down logs ps clean rebuild pull-repos nuke test release-check release-test release-create release-list release-latest
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -160,6 +160,45 @@ migrate: ## Run database migrations for all bots with DB
 			fi; \
 		fi; \
 	done
+
+# --- Release Management ---
+
+release-check: ## Verify build succeeds and no uncommitted changes
+	@echo "Checking for uncommitted changes..."
+	@git diff --quiet || (echo "❌ Uncommitted changes detected" && exit 1)
+	@git diff --cached --quiet || (echo "❌ Staged changes detected" && exit 1)
+	@echo "✓ Working tree clean"
+	@echo ""
+	@echo "Building to verify..."
+	@$(MAKE) build > /dev/null && echo "✓ Build successful" || (echo "❌ Build failed" && exit 1)
+
+release-test: ## Test installer in a clean temporary directory
+	@echo "Testing installer in temporary directory..."
+	@TEMP_DIR=$$(mktemp -d) && \
+	cd $$TEMP_DIR && \
+	echo "Running installer..." && \
+	bash -c "curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/ergon-starter/main/install.sh | bash -s -- --help" && \
+	echo "✓ Installer test passed" || (echo "❌ Installer test failed" && false)
+
+release-create: release-check ## Create GitHub release (VERSION=x.y.z make release-create)
+	@if [ -z "$(VERSION)" ]; then \
+		echo "❌ VERSION not specified. Usage: VERSION=v0.2.0 make release-create"; \
+		exit 1; \
+	fi
+	@echo "Creating release $(VERSION)..."
+	@git tag -a $(VERSION) -m "Release $(VERSION)" && \
+	git push origin $(VERSION) && \
+	echo "✓ Tag $(VERSION) created and pushed"
+	@echo ""
+	@echo "Next: Create release notes on GitHub"
+	@echo "  gh release create $(VERSION) --notes <description>"
+
+release-list: ## List all releases
+	@echo "Releases:"
+	@git tag -l 'v*' | sort -V -r | head -10
+
+release-latest: ## Show latest release version
+	@git tag -l 'v*' | sort -V | tail -1
 
 # --- Maintenance ---
 
