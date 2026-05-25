@@ -31,18 +31,7 @@ quickstart: catalog/bots.json ## Full setup: wizard → clone → build → star
 	@echo "everything in Docker."
 	@echo ""
 	$(MAKE) build
-	@if [ -t 0 ]; then \
-		docker run --rm -it -v $(PWD):/workspace -w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) init; \
-	else \
-		echo "⚠ Not running in an interactive terminal"; \
-		echo ""; \
-		echo "The setup wizard requires an interactive terminal."; \
-		echo "Either:"; \
-		echo "  1. Run from a terminal: make quickstart"; \
-		echo "  2. Use headless mode: make quickstart-default"; \
-		echo ""; \
-		exit 1; \
-	fi
+	docker run --rm -it -v $(PWD):/workspace -w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) init
 	@echo ""
 	@echo "Building containers (first run takes ~5 min)..."
 	docker compose up -d --build
@@ -134,13 +123,7 @@ push-packs: ## Push all pack images to registry (CHANNEL=stable|latest|nightly)
 # --- Wizard ---
 
 init: build catalog/bots.json ## Run the interactive setup wizard
-	@if [ -t 0 ]; then \
-		docker run --rm -it -v $(PWD):/workspace -w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) init; \
-	else \
-		echo "⚠ Not running in an interactive terminal"; \
-		echo "The setup wizard requires an interactive terminal."; \
-		exit 1; \
-	fi
+	docker run --rm -it -v $(PWD):/workspace -w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) init
 
 catalog/bots.json: scripts/sync-catalog.sh config/repos-public.toml
 	@echo "Bot catalog missing — generating from repos-public.toml (channel: $(CHANNEL))..."
