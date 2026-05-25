@@ -1,6 +1,7 @@
 package wizard
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -38,6 +39,17 @@ type Config struct {
 	Ports             PortMap
 }
 
+// ConfigFile is serializable version of Config for persistence.
+type ConfigFile struct {
+	SelectedBotNames  []string          `json:"selected_bots"`
+	SelectedPackNames []string          `json:"selected_packs"`
+	ProviderNames     []string          `json:"providers"`
+	ProviderChain     string            `json:"provider_chain"`
+	SelfHostOllama    bool              `json:"self_host_ollama"`
+	EnvValues         map[string]string `json:"env_values"`
+	Ports             PortMap           `json:"ports"`
+}
+
 func RunInit() error {
 	cfg := &Config{
 		EnvValues:  make(map[string]string),
@@ -54,6 +66,23 @@ func RunInit() error {
 	cfg.AllBots = bots
 
 	fmt.Printf("Loaded %d bots from catalog\n\n", len(bots))
+
+	// Check for existing config
+	configPath := filepath.Join(cfg.InstallDir, ".bot-army.json")
+	if _, err := os.Stat(configPath); err == nil {
+		// Config exists, offer to reuse it
+		fmt.Print("Found existing configuration. Reuse it? (y/n): ")
+		var response string
+		fmt.Scanln(&response)
+		if strings.ToLower(response) == "y" || strings.ToLower(response) == "yes" {
+			if err := loadConfigInto(cfg, configPath); err == nil {
+				fmt.Println("✓ Loaded existing configuration\n")
+				// Skip wizard and go straight to setup
+				return runSetup(cfg)
+			}
+		}
+		fmt.Println("Running wizard again...\n")
+	}
 
 	// Run the tview wizard
 	wizard := NewWizardTUI(cfg)
@@ -80,6 +109,16 @@ func RunInit() error {
 		}
 	}
 
+	// Save config for future reuse
+	if err := saveConfig(cfg); err != nil {
+		fmt.Printf("Warning: could not save config: %v\n", err)
+	}
+
+	return runSetup(cfg)
+}
+
+// runSetup clones repos, generates config files, and starts the dashboard.
+func runSetup(cfg *Config) error {
 	// Clone repos
 	fmt.Println("\nCloning repositories...")
 	if err := cloneRepos(cfg); err != nil {
@@ -158,6 +197,102 @@ func cloneRepo(reposDir, repo, org string) error {
 		return fmt.Errorf("clone %s: %w", repo, err)
 	}
 	fmt.Println(" ✓")
+	return nil
+}
+
+// saveConfig saves the wizard configuration to .bot-army.json.
+func saveConfig(cfg *Config) error {
+	// Build bot name list
+	botNames := make([]string, len(cfg.SelectedBots))
+	for i, b := range cfg.SelectedBots {
+		botNames[i] = b.Name
+	}
+
+	// Build pack name list
+	packNames := make([]string, len(cfg.SelectedPacks))
+	for i, p := range cfg.SelectedPacks {
+		packNames[i] = p.Name
+	}
+
+	// Build provider name list
+	providerNames := make([]string, len(cfg.SelectedProviders))
+	for i, p := range cfg.SelectedProviders {
+		providerNames[i] = p.Name
+	}
+
+	cf := &ConfigFile{
+		SelectedBotNames:  botNames,
+		SelectedPackNames: packNames,
+		ProviderNames:     providerNames,
+		ProviderChain:     cfg.ProviderChain,
+		SelfHostOllama:    cfg.SelfHostOllama,
+		EnvValues:         cfg.EnvValues,
+		Ports:             cfg.Ports,
+	}
+
+	data, err := json.MarshalIndent(cf, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	configPath := filepath.Join(cfg.InstallDir, ".bot-army.json")
+	return os.WriteFile(configPath, data, 0o600)
+}
+
+// loadConfigInto populates a Config from a saved .bot-army.json file.
+func loadConfigInto(cfg *Config, configPath string) error {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return err
+	}
+
+	var cf ConfigFile
+	if err := json.Unmarshal(data, &cf); err != nil {
+		return err
+	}
+
+	// Restore selected bots by name
+	botMap := make(map[string]*Bot)
+	for i := range cfg.AllBots {
+		botMap[cfg.AllBots[i].Name] = &cfg.AllBots[i]
+	}
+	for _, name := range cf.SelectedBotNames {
+		if b, ok := botMap[name]; ok {
+			cfg.SelectedBots = append(cfg.SelectedBots, *b)
+		}
+	}
+
+	// Restore selected packs by name (load them first)
+	packs, err := LoadPacks()
+	if err == nil {
+		packMap := make(map[string]*Pack)
+		for i := range packs {
+			packMap[packs[i].Name] = &packs[i]
+		}
+		for _, name := range cf.SelectedPackNames {
+			if p, ok := packMap[name]; ok {
+				cfg.SelectedPacks = append(cfg.SelectedPacks, *p)
+			}
+		}
+	}
+
+	// Restore selected providers by name
+	providerMap := make(map[string]*Provider)
+	for i := range Providers {
+		providerMap[Providers[i].Name] = &Providers[i]
+	}
+	for _, name := range cf.ProviderNames {
+		if p, ok := providerMap[name]; ok {
+			cfg.SelectedProviders = append(cfg.SelectedProviders, *p)
+		}
+	}
+
+	// Restore other fields
+	cfg.ProviderChain = cf.ProviderChain
+	cfg.SelfHostOllama = cf.SelfHostOllama
+	cfg.EnvValues = cf.EnvValues
+	cfg.Ports = cf.Ports
+
 	return nil
 }
 
