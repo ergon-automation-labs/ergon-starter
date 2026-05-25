@@ -121,6 +121,12 @@ func RunInit() error {
 
 // runSetup clones repos, generates config files, and starts the dashboard.
 func runSetup(cfg *Config) error {
+	// Ensure gh is set up for authentication
+	fmt.Println("\nSetting up GitHub CLI...")
+	if err := ensureGhAuth(); err != nil {
+		return fmt.Errorf("gh auth: %w", err)
+	}
+
 	// Clone repos
 	fmt.Println("\nCloning repositories...")
 	if err := cloneRepos(cfg); err != nil {
@@ -195,8 +201,8 @@ func cloneRepo(reposDir, repo, org string) error {
 	}
 
 	fmt.Printf("  ⏳ %s...", repo)
-	url := fmt.Sprintf("https://github.com/%s/%s.git", org, repo)
-	cmd := exec.Command("git", "clone", "--depth", "1", url, dest)
+	fullRepo := fmt.Sprintf("%s/%s", org, repo)
+	cmd := exec.Command("gh", "repo", "clone", fullRepo, dest, "--", "--depth", "1")
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		fmt.Println(" ✗")
@@ -299,5 +305,41 @@ func loadConfigInto(cfg *Config, configPath string) error {
 	cfg.EnvValues = cf.EnvValues
 	cfg.Ports = cf.Ports
 
+	return nil
+}
+
+// ensureGhAuth ensures gh CLI is installed and authenticated.
+func ensureGhAuth() error {
+	// Check if gh is installed
+	if err := exec.Command("which", "gh").Run(); err != nil {
+		fmt.Println("  Installing GitHub CLI...")
+		if err := exec.Command("apk", "add", "--no-cache", "gh").Run(); err != nil {
+			fmt.Println("  ⚠ Could not auto-install gh. Install it manually: apk add gh")
+			fmt.Println("  Then re-run the wizard.")
+			return fmt.Errorf("gh not available")
+		}
+		fmt.Println("  ✓ GitHub CLI installed")
+	}
+
+	// Check if gh is authenticated
+	statusCmd := exec.Command("gh", "auth", "status")
+	statusCmd.Stdout = nil // suppress output
+	statusCmd.Stderr = nil
+	if err := statusCmd.Run(); err != nil {
+		// Not authenticated, need to auth
+		fmt.Println("  GitHub authentication required")
+		fmt.Println()
+		fmt.Println("  Running: gh auth login")
+		authCmd := exec.Command("gh", "auth", "login")
+		authCmd.Stdin = os.Stdin
+		authCmd.Stdout = os.Stdout
+		authCmd.Stderr = os.Stderr
+		if err := authCmd.Run(); err != nil {
+			return fmt.Errorf("gh auth failed: %w", err)
+		}
+		fmt.Println()
+	}
+
+	fmt.Println("  ✓ GitHub authenticated")
 	return nil
 }
