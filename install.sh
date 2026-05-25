@@ -62,5 +62,6 @@ if [ "${1:-}" = "--default" ]; then
   make quickstart-default
 else
   info "Launching interactive setup wizard..."
-  make quickstart
+  # Redirect stdin from /dev/tty for interactive mode when piped from curl
+  make quickstart < /dev/tty
 fi
