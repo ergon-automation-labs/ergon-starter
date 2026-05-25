@@ -2,6 +2,39 @@
 
 Thanks for helping improve Bot Army! This guide covers contributing to the starter distribution tool and the broader Bot Army ecosystem.
 
+## Business Opportunities
+
+Bot Army is built for extensibility. There are multiple ways to build a business on top of the platform:
+
+### 1. **Domain-Specific Bot Packs**
+Create industry-focused bot bundles (e.g., legal research, healthcare workflows, sales automation). Package them as packs and distribute them through the starter or independently.
+
+### 2. **Hosted / SaaS Offering**
+- Run Bot Army infrastructure for customers (managed fleet, NATS cluster, dashboards)
+- White-label the starter wizard for your domain
+- Offer per-bot or per-user pricing
+
+### 3. **Specialized Bots**
+- Build bots that solve specific problems (LinkedIn research, PDF ingestion, vendor management, etc.)
+- Sell as standalone services or rent API access
+- Integrate with your own SaaS product
+
+### 4. **Templates & Scaffolding**
+- Sell industry-specific bot templates (e.g., "legal bot scaffold", "finance bot scaffold")
+- Offer customization services to help teams deploy them
+
+### 5. **Consulting & Integration**
+- Help teams deploy and customize Bot Army for their workflows
+- Integrate Bot Army with existing enterprise systems (Salesforce, Slack, etc.)
+- Training and certification programs
+
+### 6. **Extensions & Integrations**
+- Build connectors for popular tools (databases, APIs, message queues)
+- Sell as paid plugins or subscriptions
+- Offer support contracts for production deployments
+
+**The ecosystem is open:** Bot Army uses Apache 2.0 licensing, so you can fork, modify, and commercialize. The starter is a jumping-off point—your business can run independently.
+
 ## How to Contribute
 
 ### 1. Improve the Starter (this repo)
