@@ -2,19 +2,22 @@
 
 Get the Bot Army ecosystem running on any machine with Docker.
 
-## One-line install
+## One-Click Install
 
-**Interactive** (choose your bots and LLM providers):
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/bot-army-starter/main/install.sh | bash
-```
-
-**Headless** (core bots + Ollama, zero prompts):
+**Interactive setup** (choose packs, ports, postgres-age):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/bot-army-starter/main/install.sh | bash -s -- --default
+curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/ergon-starter/main/scripts/install.sh | bash
 ```
+
+This will prompt you for:
+1. **Bot packs** to include (default: `core`)
+   - `core` — 8 essential bots (GTD, Para, Skills, Dispatcher, Synapse, Bridge, LLM, Scheduler)
+   - `learning_deepdive` — Learning systems (FSRS-5, terrain, spaced repetition)
+   - `social_media`, `areas`, `research` — Additional optional packs
+2. **NATS port** (default: 4222)
+3. **PostgreSQL port** (default: 5432)
+4. **Apache Postgres-Age** for internal docs (optional, y/n)
 
 ## Prerequisites
 
@@ -22,31 +25,50 @@ curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/bot-army-star
 - Git
 - ~4 GB RAM for builds
 
-## Manual setup
+## Manual Setup
+
+If you prefer to clone first:
 
 ```bash
-git clone https://github.com/ergon-automation-labs/bot-army-starter.git
-cd bot-army-starter
-make quickstart
+git clone https://github.com/ergon-automation-labs/ergon-starter.git
+cd ergon-starter
+
+# Generate docker-compose.yml with sensible defaults
+make generate-compose PACKS=core
+
+# Or customize ports and packs
+make generate-compose PACKS=core,learning_deepdive NATS_PORT=14222 PG_PORT=15432
+
+# Start services
+docker compose up
 ```
 
 ## Commands
 
 | Command | What it does |
 |---------|-------------|
-| `make quickstart` | Interactive wizard → build → start |
-| `make quickstart-default` | Headless setup (core bots + Ollama) |
-| `make up` | Start all services |
-| `make down` | Stop all services |
-| `make logs` | Follow all logs |
+| `make generate-compose` | Generate docker-compose.yml (see options below) |
+| `make generate-dockerfiles` | Generate per-pack Dockerfiles |
+| `make build-pack` | Build a single pack image |
+| `make build-packs` | Build all pack images |
+| `make up` | Start services (after docker-compose.yml is generated) |
+| `make down` | Stop services |
+| `make logs` | Follow service logs |
 | `make ps` | Show running containers |
-| `make add BOT=fitness` | Add a bot to your install |
-| `make status` | Show configured services |
-| `make pull-repos` | Update all bot repos to latest |
-| `make rebuild` | Force rebuild all images |
-| `make sync` | Re-sync bot catalog from monorepo |
-| `make clean` | Remove generated files (keeps repos) |
-| `make nuke` | Remove everything + Docker volumes |
+| `make clean` | Remove generated files |
+
+## Generate Options
+
+```bash
+# Select packs (comma-separated)
+make generate-compose PACKS=core,learning_deepdive
+
+# Custom ports
+make generate-compose NATS_PORT=14222 PG_PORT=15432
+
+# Channel selection (stable, latest, nightly)
+make generate-compose CHANNEL=nightly
+```
 
 ## Architecture
 
