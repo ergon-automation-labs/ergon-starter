@@ -188,11 +188,12 @@ func cloneRepos(cfg *Config) error {
 
 	// Clone selected bots
 	for _, bot := range cfg.SelectedBots {
-		org := bot.Remote
-		if org == "" {
-			org = cfg.GitOrg
+		// Use bot.Remote as the repo name if available, otherwise use bot.Repo
+		repoName := bot.Remote
+		if repoName == "" {
+			repoName = bot.Repo
 		}
-		if err := cloneRepo(reposDir, bot.Repo, org); err != nil {
+		if err := cloneRepo(reposDir, repoName, cfg.GitOrg); err != nil {
 			return err
 		}
 	}
