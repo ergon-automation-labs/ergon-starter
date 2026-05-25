@@ -61,5 +61,12 @@
       "advocacy",
       "job_applications"
     ]
+  },
+  {
+    "name": "development",
+    "stability": "stable",
+    "description": "Local development setup with library repos and volume mounts (edit code live)",
+    "release_name": "development_pack",
+    "bots": []
   }
 ]

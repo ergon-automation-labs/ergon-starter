@@ -152,6 +152,14 @@ func generateComposeFile(cfg *Config) error {
 		b.WriteString(fmt.Sprintf("      - ./data/para/%s:/opt/app/para\n", bot.Name))
 		b.WriteString(fmt.Sprintf("      - ./data/state/%s:/opt/app/state\n", bot.Name))
 
+		// Development mode: mount library repos for live editing
+		if cfg.DevMode {
+			b.WriteString("      # Library mounts for development\n")
+			b.WriteString("      - ./repos/bot_army_library_runtime:/app/deps/bot_army_library_runtime\n")
+			b.WriteString("      - ./repos/bot_army_library_core:/app/deps/bot_army_library_core\n")
+			b.WriteString("      - ./repos/bot_army_library_learning:/app/deps/bot_army_library_learning\n")
+		}
+
 		deps := []string{"nats"}
 		if bot.NeedsDB {
 			deps = append(deps, "postgres")

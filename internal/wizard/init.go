@@ -37,6 +37,7 @@ type Config struct {
 	InstallDir        string
 	GitOrg            string
 	Ports             PortMap
+	DevMode           bool // True if Development pack selected
 }
 
 // ConfigFile is serializable version of Config for persistence.
@@ -48,6 +49,7 @@ type ConfigFile struct {
 	SelfHostOllama    bool              `json:"self_host_ollama"`
 	EnvValues         map[string]string `json:"env_values"`
 	Ports             PortMap           `json:"ports"`
+	DevMode           bool              `json:"dev_mode"`
 }
 
 func RunInit() error {
@@ -174,6 +176,16 @@ func cloneRepos(cfg *Config) error {
 	reposDir := filepath.Join(cfg.InstallDir, "repos")
 	os.MkdirAll(reposDir, 0o755)
 
+	// Clone libraries if in development mode
+	if cfg.DevMode {
+		libraryRepos := []string{"bot_army_library_runtime", "bot_army_library_core", "bot_army_library_learning"}
+		for _, repo := range libraryRepos {
+			if err := cloneRepo(reposDir, repo, cfg.GitOrg); err != nil {
+				return err
+			}
+		}
+	}
+
 	// Clone selected bots
 	for _, bot := range cfg.SelectedBots {
 		remote := bot.Remote
@@ -245,6 +257,7 @@ func saveConfig(cfg *Config) error {
 		SelfHostOllama:    cfg.SelfHostOllama,
 		EnvValues:         cfg.EnvValues,
 		Ports:             cfg.Ports,
+		DevMode:           cfg.DevMode,
 	}
 
 	data, err := json.MarshalIndent(cf, "", "  ")
@@ -309,6 +322,7 @@ func loadConfigInto(cfg *Config, configPath string) error {
 	cfg.SelfHostOllama = cf.SelfHostOllama
 	cfg.EnvValues = cf.EnvValues
 	cfg.Ports = cf.Ports
+	cfg.DevMode = cf.DevMode
 
 	return nil
 }

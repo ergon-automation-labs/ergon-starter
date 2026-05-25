@@ -159,6 +159,14 @@ func (w *WizardTUI) stepSelectPack() error {
 				}
 				w.cfg.SelectedPacks = result
 
+				// Check if Development pack was selected
+				for _, pack := range result {
+					if pack.Name == "development" {
+						w.cfg.DevMode = true
+						break
+					}
+				}
+
 				done = true
 				w.app.Stop()
 				return nil
