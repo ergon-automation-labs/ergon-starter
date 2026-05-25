@@ -34,7 +34,7 @@ CHANNEL ?= stable
 NATS_PORT ?= 4222
 PG_PORT ?= 5432
 
-.PHONY: help quickstart build install sync init add status up down logs ps clean rebuild pull-repos nuke test release-check release-test release-create release-list release-latest
+.PHONY: help quickstart build install sync init add status up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health test release-check release-test release-create release-list release-latest
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -258,3 +258,37 @@ nuke: ## Remove everything including cloned repos
 	rm -rf repos/
 	docker compose down -v 2>/dev/null || true
 	@echo "✓ Nuked"
+
+docker-clean: ## Stop and remove all bot containers (safe)
+	@echo "Stopping docker compose services..."
+	docker compose down 2>/dev/null || true
+	@echo "Removing exited containers..."
+	docker container prune -f --filter "status=exited" 2>/dev/null || true
+	@echo "✓ Docker cleaned (images and volumes preserved)"
+
+docker-deep-clean: ## Remove all docker images and volumes (WARNING: deletes data)
+	@echo "⚠️  This will remove all containers, images, and volumes..."
+	@echo "This is safe only if you're not using Docker for other projects."
+	@read -p "Continue? [y/N] " -n 1 -r; \
+	echo; \
+	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
+		docker compose down -v 2>/dev/null || true; \
+		echo "Removing unused images..."; \
+		docker image prune -a -f 2>/dev/null || true; \
+		echo "Removing unused volumes..."; \
+		docker volume prune -f 2>/dev/null || true; \
+		echo "✓ Deep clean complete"; \
+	else \
+		echo "Cancelled"; \
+	fi
+
+docker-health: ## Show Docker disk usage and diagnostics
+	@echo "Docker Disk Usage:"
+	docker system df
+	@echo ""
+	@echo "Running Containers:"
+	docker ps --format "table {{.Names}}\t{{.Status}}"
+	@echo ""
+	@echo "To free up space:"
+	@echo "  make docker-clean       # Stop services, remove exited containers"
+	@echo "  make docker-deep-clean  # Full cleanup (warning: removes images)"
