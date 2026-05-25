@@ -168,7 +168,7 @@ func cloneRepos(cfg *Config) error {
 	reposDir := filepath.Join(cfg.InstallDir, "repos")
 	os.MkdirAll(reposDir, 0o755)
 
-	coreRepos := []string{"bot_army_runtime", "bot_army_core"}
+	coreRepos := []string{"bot_army_library_runtime", "bot_army_library_core", "bot_army_library_learning"}
 	for _, repo := range coreRepos {
 		if err := cloneRepo(reposDir, repo, cfg.GitOrg); err != nil {
 			return err
