@@ -12,13 +12,13 @@ default_channel = "stable"
 
 [[bots]]
 name = "bot_army_core"
-remote = "ergon-core"
+remote = "ergon-library-core"
 category = "core"
 channels = { stable = "stable", latest = "latest", nightly = "main" }
 
 [[bots]]
 name = "bot_army_runtime"
-remote = "ergon-runtime"
+remote = "ergon-library-runtime"
 category = "core"
 channels = { stable = "stable", latest = "latest", nightly = "main" }
 
@@ -30,7 +30,7 @@ channels = { stable = "stable", latest = "latest", nightly = "main" }
 
 [[bots]]
 name = "bot_army_learning"
-remote = "ergon-learning"
+remote = "ergon-library-learning"
 category = "core"
 channels = { stable = "stable", latest = "latest", nightly = "main" }
 
@@ -54,25 +54,25 @@ channels = { stable = "stable", latest = "latest", nightly = "main" }
 
 [[bots]]
 name = "bot_army_synapse"
-remote = "ergon-synapse"
+remote = "ergon-synapse-lite"
 category = "core"
 channels = { stable = "stable", latest = "latest", nightly = "main" }
 
 [[bots]]
 name = "bot_army_claude_bridge"
-remote = "ergon-claude-bridge"
+remote = "ergon-claude_bridge"
 category = "core"
 channels = { stable = "stable", latest = "latest", nightly = "main" }
 
 [[bots]]
 name = "bot_army_job_scheduler"
-remote = "ergon-job-scheduler"
+remote = "ergon-job_scheduler"
 category = "core"
 channels = { stable = "stable", latest = "latest", nightly = "main" }
 
 [[bots]]
 name = "bot_army_skills"
-remote = "ergon-skills"
+remote = "ergon-skills-base"
 category = "core"
 channels = { stable = "stable", latest = "latest", nightly = "main" }
 
@@ -88,14 +88,14 @@ channels = { stable = "stable", latest = "latest", nightly = "main" }
 
 [[bots]]
 name = "bot_army_youtube_manager"
-remote = "ergon-youtube-manager"
+remote = "ergon-youtube_manager"
 category = "social_media"
 stability = "experimental"
 channels = { stable = "stable", latest = "latest", nightly = "main" }
 
 [[bots]]
 name = "bot_army_media_ingestion"
-remote = "ergon-media-ingestion"
+remote = "ergon-media_ingestion"
 category = "social_media"
 stability = "experimental"
 channels = { stable = "stable", latest = "latest", nightly = "main" }
@@ -112,7 +112,7 @@ channels = { stable = "stable", latest = "latest", nightly = "main" }
 
 [[bots]]
 name = "bot_army_internal_docs"
-remote = "ergon-internal-docs"
+remote = "ergon-internal_docs"
 category = "learning_deepdive"
 channels = { stable = "stable", latest = "latest", nightly = "main" }
 
@@ -151,7 +151,7 @@ channels = { stable = "stable", latest = "latest", nightly = "main" }
 
 [[bots]]
 name = "bot_army_rss_polling"
-remote = "ergon-rss-polling"
+remote = "ergon-rss_polling"
 category = "research"
 stability = "experimental"
 channels = { stable = "stable", latest = "latest", nightly = "main" }
@@ -165,7 +165,7 @@ channels = { stable = "stable", latest = "latest", nightly = "main" }
 
 [[bots]]
 name = "bot_army_job_applications"
-remote = "ergon-job-applications"
+remote = "ergon-job_applications"
 category = "research"
 stability = "experimental"
 channels = { stable = "stable", latest = "latest", nightly = "main" }
