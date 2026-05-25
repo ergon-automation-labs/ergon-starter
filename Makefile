@@ -5,9 +5,6 @@ BINARY := bot-army
 BUILD_IMAGE := bot-army-builder
 PLATFORM := $(shell uname -s | tr '[:upper:]' '[:lower:]')-$(shell uname -m)
 
-# TTY detection for interactive docker runs
-DOCKER_TTY := $(shell [ -t 0 ] && echo "-it" || echo "-i")
-
 # Release channel selection (stable, latest, nightly)
 CHANNEL ?= stable
 
@@ -33,9 +30,9 @@ quickstart: catalog/bots.json ## Full setup: wizard → clone → build → star
 	@echo "and LLM providers, then build and start"
 	@echo "everything in Docker."
 	@echo ""
+	$(MAKE) build
 	@if [ -t 0 ]; then \
-		$(MAKE) build; \
-		docker run --rm $(DOCKER_TTY) -v $(PWD):/workspace -w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) init; \
+		docker run --rm -it -v $(PWD):/workspace -w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) init; \
 	else \
 		echo "⚠ Not running in an interactive terminal"; \
 		echo ""; \
@@ -138,7 +135,7 @@ push-packs: ## Push all pack images to registry (CHANNEL=stable|latest|nightly)
 
 init: build catalog/bots.json ## Run the interactive setup wizard
 	@if [ -t 0 ]; then \
-		docker run --rm $(DOCKER_TTY) -v $(PWD):/workspace -w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) init; \
+		docker run --rm -it -v $(PWD):/workspace -w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) init; \
 	else \
 		echo "⚠ Not running in an interactive terminal"; \
 		echo "The setup wizard requires an interactive terminal."; \
