@@ -179,6 +179,43 @@ func generateComposeFile(cfg *Config) error {
 		b.WriteString("\n")
 	}
 
+	// Custom bots
+	for _, customBot := range cfg.CustomBots {
+		b.WriteString(fmt.Sprintf("  %s:\n", customBot.ReleaseName))
+		b.WriteString("    build:\n")
+		b.WriteString("      context: ./repos\n")
+		b.WriteString("      dockerfile: ../Dockerfile\n")
+		b.WriteString("      args:\n")
+		b.WriteString(fmt.Sprintf("        BOT_REPO: %s\n", customBot.Name))
+		b.WriteString(fmt.Sprintf("        BOT_NAME: %s\n", customBot.ReleaseName))
+		b.WriteString("    env_file: .env\n")
+
+		// Custom env vars for this bot
+		if len(customBot.EnvVars) > 0 {
+			b.WriteString("    environment:\n")
+			for k, v := range customBot.EnvVars {
+				b.WriteString(fmt.Sprintf("      %s: %s\n", k, v))
+			}
+		}
+
+		// Standard volumes
+		b.WriteString("    volumes:\n")
+		b.WriteString(fmt.Sprintf("      - ./data/logs/%s:/var/log/bot_army\n", customBot.Name))
+		b.WriteString(fmt.Sprintf("      - ./data/para/%s:/opt/app/para\n", customBot.Name))
+		b.WriteString(fmt.Sprintf("      - ./data/state/%s:/opt/app/state\n", customBot.Name))
+
+		// Custom mounts
+		for _, mount := range cfg.CustomMounts {
+			b.WriteString(fmt.Sprintf("      - %s:%s\n", mount.Source, mount.Destination))
+		}
+
+		b.WriteString("    depends_on:\n")
+		b.WriteString("      nats:\n")
+		b.WriteString("        condition: service_started\n")
+		b.WriteString("    restart: unless-stopped\n")
+		b.WriteString("\n")
+	}
+
 	// Volumes (only if needed)
 	if needsDB || cfg.SelfHostOllama {
 		b.WriteString("volumes:\n")

@@ -26,11 +26,27 @@ var DefaultPorts = PortMap{
 	Ollama:      "51434",
 }
 
+// CustomBot represents a user-defined bot not in the catalog
+type CustomBot struct {
+	Name        string            `json:"name"`
+	Repo        string            `json:"repo"` // URL or local path
+	ReleaseName string            `json:"release_name"`
+	EnvVars     map[string]string `json:"env_vars"`
+}
+
+// CustomMount represents a custom directory to mount in docker-compose
+type CustomMount struct {
+	Source      string `json:"source"`      // Host path
+	Destination string `json:"destination"` // Container path
+}
+
 type Config struct {
 	AllBots           []Bot
 	SelectedPacks     []Pack
 	SelectedBots      []Bot
 	SelectedProviders []Provider
+	CustomBots        []CustomBot
+	CustomMounts      []CustomMount
 	ProviderChain     string
 	SelfHostOllama    bool
 	EnvValues         map[string]string
@@ -50,6 +66,8 @@ type ConfigFile struct {
 	EnvValues         map[string]string `json:"env_values"`
 	Ports             PortMap           `json:"ports"`
 	DevMode           bool              `json:"dev_mode"`
+	CustomBots        []CustomBot       `json:"custom_bots"`
+	CustomMounts      []CustomMount     `json:"custom_mounts"`
 }
 
 func RunInit() error {
@@ -197,6 +215,14 @@ func cloneRepos(cfg *Config) error {
 			return err
 		}
 	}
+
+	// Clone custom bots
+	for _, customBot := range cfg.CustomBots {
+		if err := cloneCustomRepo(reposDir, customBot.Repo, customBot.Name); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -225,6 +251,41 @@ func cloneRepo(reposDir, repo, org string) error {
 	if err := cmd.Run(); err != nil {
 		fmt.Println(" ✗")
 		return fmt.Errorf("clone %s: %w", repo, err)
+	}
+	fmt.Println(" ✓")
+	return nil
+}
+
+// cloneCustomRepo clones a custom bot repository (URL or local path)
+func cloneCustomRepo(reposDir, repoURL, botName string) error {
+	dest := filepath.Join(reposDir, botName)
+
+	// Check if already exists
+	if _, err := os.Stat(dest); err == nil {
+		fmt.Printf("  ✓ %s (exists)\n", botName)
+		return nil
+	}
+
+	fmt.Printf("  ⏳ %s...", botName)
+
+	// Check if it's a local path
+	if _, err := os.Stat(repoURL); err == nil {
+		// Local path - copy instead of clone
+		cmd := exec.Command("cp", "-r", repoURL, dest)
+		if err := cmd.Run(); err != nil {
+			fmt.Println(" ✗")
+			return fmt.Errorf("copy %s: %w", botName, err)
+		}
+		fmt.Println(" ✓")
+		return nil
+	}
+
+	// Try git clone (handles both https and ssh URLs)
+	cmd := exec.Command("git", "clone", "--depth", "1", repoURL, dest)
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Println(" ✗")
+		return fmt.Errorf("clone %s: %w", botName, err)
 	}
 	fmt.Println(" ✓")
 	return nil
@@ -259,6 +320,8 @@ func saveConfig(cfg *Config) error {
 		EnvValues:         cfg.EnvValues,
 		Ports:             cfg.Ports,
 		DevMode:           cfg.DevMode,
+		CustomBots:        cfg.CustomBots,
+		CustomMounts:      cfg.CustomMounts,
 	}
 
 	data, err := json.MarshalIndent(cf, "", "  ")
@@ -324,6 +387,8 @@ func loadConfigInto(cfg *Config, configPath string) error {
 	cfg.EnvValues = cf.EnvValues
 	cfg.Ports = cf.Ports
 	cfg.DevMode = cf.DevMode
+	cfg.CustomBots = cf.CustomBots
+	cfg.CustomMounts = cf.CustomMounts
 
 	return nil
 }
