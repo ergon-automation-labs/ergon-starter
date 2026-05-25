@@ -2,7 +2,7 @@
 # Bot Army one-line installer.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/bot-army-starter/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/ergon-starter/main/install.sh | bash
 #
 # What it does:
 #   1. Checks prerequisites (git, docker, docker compose)
@@ -10,11 +10,11 @@
 #   3. Runs `make quickstart` (interactive wizard)
 #
 # For a non-interactive install with defaults (core bots + Ollama):
-#   curl -fsSL .../install.sh | bash -s -- --default
+#   curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/ergon-starter/main/install.sh | bash -s -- --default
 
 set -euo pipefail
 
-REPO="ergon-automation-labs/bot-army-starter"
+REPO="ergon-automation-labs/ergon-starter"
 INSTALL_DIR="bot-army"
 
 # --- Helpers ---
