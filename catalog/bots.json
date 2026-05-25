@@ -82,7 +82,7 @@
   {
     "name": "claude_bridge",
     "repo": "bot_army_claude_bridge",
-    "remote": "ergon-claude-bridge",
+    "remote": "ergon-claude_bridge",
     "release_name": "claude_bridge_bot",
     "category": "core",
     "stability": "stable",
@@ -92,7 +92,7 @@
   {
     "name": "job_scheduler",
     "repo": "bot_army_job_scheduler",
-    "remote": "ergon-job-scheduler",
+    "remote": "ergon-job_scheduler",
     "release_name": "job_scheduler_bot",
     "category": "core",
     "stability": "stable",
@@ -112,7 +112,7 @@
   {
     "name": "surface_mcp",
     "repo": "bot_army_surface_mcp",
-    "remote": "ergon-surface-mcp",
+    "remote": "ergon-mcp",
     "release_name": "surface_mcp_bot",
     "category": "core",
     "stability": "stable",
@@ -122,7 +122,7 @@
   {
     "name": "youtube_manager",
     "repo": "bot_army_youtube_manager",
-    "remote": "ergon-youtube-manager",
+    "remote": "ergon-youtube_manager",
     "release_name": "youtube_manager_bot",
     "category": "social_media",
     "stability": "experimental",
@@ -132,7 +132,7 @@
   {
     "name": "media_ingestion",
     "repo": "bot_army_media_ingestion",
-    "remote": "ergon-media-ingestion",
+    "remote": "ergon-media_ingestion",
     "release_name": "media_ingestion_bot",
     "category": "social_media",
     "stability": "experimental",
@@ -152,7 +152,7 @@
   {
     "name": "internal_docs",
     "repo": "bot_army_internal_docs",
-    "remote": "ergon-internal-docs",
+    "remote": "ergon-internal_docs",
     "release_name": "internal_docs_bot",
     "category": "learning_deepdive",
     "stability": "stable",
@@ -202,7 +202,7 @@
   {
     "name": "rss_polling",
     "repo": "bot_army_rss_polling",
-    "remote": "ergon-rss-polling",
+    "remote": "ergon-rss_polling",
     "release_name": "rss_polling_bot",
     "category": "research",
     "stability": "experimental",
@@ -222,7 +222,7 @@
   {
     "name": "job_applications",
     "repo": "bot_army_job_applications",
-    "remote": "ergon-job-applications",
+    "remote": "ergon-job_applications",
     "release_name": "job_applications_bot",
     "category": "research",
     "stability": "experimental",
