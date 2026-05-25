@@ -34,6 +34,7 @@ quickstart: catalog/bots.json ## Full setup: wizard → clone → build → star
 	docker run --rm -it \
 		-v $(PWD):/workspace \
 		-v $(HOME)/.config/gh:/root/.config/gh \
+		-v /var/run/docker.sock:/var/run/docker.sock \
 		-w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) init
 	@echo ""
 	@echo "Building containers (first run takes ~5 min)..."
@@ -129,6 +130,7 @@ init: build catalog/bots.json ## Run the interactive setup wizard
 	docker run --rm -it \
 		-v $(PWD):/workspace \
 		-v $(HOME)/.config/gh:/root/.config/gh \
+		-v /var/run/docker.sock:/var/run/docker.sock \
 		-w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) init
 
 catalog/bots.json: scripts/sync-catalog.sh config/repos-public.toml
