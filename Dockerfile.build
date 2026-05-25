@@ -12,4 +12,3 @@ RUN CGO_ENABLED=0 go build -o /bot-army ./cmd/bot-army
 
 FROM alpine:3.20
 COPY --from=build /bot-army /usr/local/bin/bot-army
-ENTRYPOINT ["bot-army"]
