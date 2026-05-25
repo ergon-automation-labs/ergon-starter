@@ -5,6 +5,9 @@ BINARY := bot-army
 BUILD_IMAGE := bot-army-builder
 PLATFORM := $(shell uname -s | tr '[:upper:]' '[:lower:]')-$(shell uname -m)
 
+# TTY detection for interactive docker runs
+DOCKER_TTY := $(shell [ -t 0 ] && echo "-it" || echo "-i")
+
 # Release channel selection (stable, latest, nightly)
 CHANNEL ?= stable
 
@@ -31,7 +34,7 @@ quickstart: catalog/bots.json ## Full setup: wizard → clone → build → star
 	@echo "everything in Docker."
 	@echo ""
 	$(MAKE) build
-	docker run --rm -it -v $(PWD):/workspace -w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) init
+	docker run --rm $(DOCKER_TTY) -v $(PWD):/workspace -w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) init
 	@echo ""
 	@echo "Building containers (first run takes ~5 min)..."
 	docker compose up -d --build
@@ -123,7 +126,7 @@ push-packs: ## Push all pack images to registry (CHANNEL=stable|latest|nightly)
 # --- Wizard ---
 
 init: build catalog/bots.json ## Run the interactive setup wizard
-	docker run --rm -it -v $(PWD):/workspace -w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) init
+	docker run --rm $(DOCKER_TTY) -v $(PWD):/workspace -w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) init
 
 catalog/bots.json: scripts/sync-catalog.sh config/repos-public.toml
 	@echo "Bot catalog missing — generating from repos-public.toml (channel: $(CHANNEL))..."
