@@ -5,6 +5,28 @@ BINARY := bot-army
 BUILD_IMAGE := bot-army-builder
 PLATFORM := $(shell uname -s | tr '[:upper:]' '[:lower:]')-$(shell uname -m)
 
+# Detect OS for Docker socket mounting
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+  DOCKER_SOCK := /var/run/docker.sock
+  OS_NAME := macOS
+else ifeq ($(UNAME_S),Linux)
+  DOCKER_SOCK := /var/run/docker.sock
+  OS_NAME := Linux
+else ifneq (,$(findstring MINGW,$(UNAME_S)))
+  # Windows (Git Bash / MSYS2) - requires WSL2 or native pipe handling
+  DOCKER_SOCK := /var/run/docker.sock
+  OS_NAME := Windows
+else ifneq (,$(findstring CYGWIN,$(UNAME_S)))
+  # Cygwin on Windows
+  DOCKER_SOCK := /var/run/docker.sock
+  OS_NAME := Windows (Cygwin)
+else
+  # Fallback
+  DOCKER_SOCK := /var/run/docker.sock
+  OS_NAME := Unknown
+endif
+
 # Release channel selection (stable, latest, nightly)
 CHANNEL ?= stable
 
@@ -23,7 +45,7 @@ help: ## Show this help
 quickstart: catalog/bots.json ## Full setup: wizard → clone → build → start
 	@echo ""
 	@echo "═══════════════════════════════════════════"
-	@echo "  Bot Army Quickstart"
+	@echo "  Bot Army Quickstart ($(OS_NAME))"
 	@echo "═══════════════════════════════════════════"
 	@echo ""
 	@echo "This will walk you through selecting bots"
@@ -34,7 +56,7 @@ quickstart: catalog/bots.json ## Full setup: wizard → clone → build → star
 	docker run --rm -it \
 		-v $(PWD):/workspace \
 		-v $(HOME)/.config/gh:/root/.config/gh \
-		-v /var/run/docker.sock:/var/run/docker.sock \
+		-v $(DOCKER_SOCK):/var/run/docker.sock \
 		-w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) init
 	@echo ""
 	@echo "Building containers (first run takes ~5 min)..."
@@ -130,7 +152,7 @@ init: build catalog/bots.json ## Run the interactive setup wizard
 	docker run --rm -it \
 		-v $(PWD):/workspace \
 		-v $(HOME)/.config/gh:/root/.config/gh \
-		-v /var/run/docker.sock:/var/run/docker.sock \
+		-v $(DOCKER_SOCK):/var/run/docker.sock \
 		-w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) init
 
 catalog/bots.json: scripts/sync-catalog.sh config/repos-public.toml
@@ -142,12 +164,14 @@ add: build ## Add a bot (usage: make add BOT=fitness)
 	docker run --rm \
 		-v $(PWD):/workspace \
 		-v $(HOME)/.config/gh:/root/.config/gh \
+		-v $(DOCKER_SOCK):/var/run/docker.sock \
 		-w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) add $(BOT)
 
 status: build ## Show configured services
 	docker run --rm \
 		-v $(PWD):/workspace \
 		-v $(HOME)/.config/gh:/root/.config/gh \
+		-v $(DOCKER_SOCK):/var/run/docker.sock \
 		-w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) status
 
 # --- Docker Compose ---
