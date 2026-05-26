@@ -57,6 +57,7 @@ ok "Starter repo ready"
 
 # --- Run ---
 echo ""
+export DOCKER_BUILDKIT=1
 if [ "${1:-}" = "--default" ]; then
   info "Running headless quickstart (core bots + Ollama)..."
   make quickstart-default

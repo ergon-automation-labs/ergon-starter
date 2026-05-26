@@ -60,7 +60,7 @@ quickstart: catalog/bots.json ## Full setup: wizard → clone → build → star
 		-w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) init
 	@echo ""
 	@echo "Building containers (first run takes ~5 min)..."
-	docker compose up -d --build
+	DOCKER_BUILDKIT=1 docker compose up -d --build
 	@echo ""
 	@echo "═══════════════════════════════════════════"
 	@echo "  ✓ Bot Army is running!"
@@ -76,7 +76,7 @@ quickstart-default: catalog/bots.json ## Headless: core bots + Ollama, no prompt
 	@echo "Setting up Bot Army with defaults (core bots + Ollama)..."
 	$(MAKE) build
 	./scripts/quickstart-default.sh
-	docker compose up -d --build
+	DOCKER_BUILDKIT=1 docker compose up -d --build
 	@echo ""
 	@echo "✓ Bot Army is running with core bots + Ollama"
 	@echo "  Run 'make logs' to follow output"
@@ -176,8 +176,8 @@ status: build ## Show configured services
 
 # --- Docker Compose ---
 
-up: ## Start all services (builds if needed)
-	docker compose up -d --build
+up: ## Start all services (builds if needed, uses BuildKit for shared base caching)
+	DOCKER_BUILDKIT=1 docker compose up -d --build
 
 down: ## Stop all services
 	docker compose down
