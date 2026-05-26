@@ -257,18 +257,9 @@ func cloneRepoAs(reposDir, remote, destName, org string) error {
 
 	fmt.Printf("  ⏳ %s...", destName)
 
-	// Try gh first
-	fullRepo := fmt.Sprintf("%s/%s", org, remote)
-	cmd := exec.Command("gh", "repo", "clone", fullRepo, dest, "--", "--depth", "1")
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err == nil {
-		fmt.Println(" ✓")
-		return nil
-	}
-
-	// Fall back to git
+	// Use explicit HTTPS URL to avoid SSH fallback in containers
 	url := fmt.Sprintf("https://github.com/%s/%s.git", org, remote)
-	cmd = exec.Command("git", "clone", "--depth", "1", url, dest)
+	cmd := exec.Command("git", "clone", "--depth", "1", url, dest)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		fmt.Println(" ✗")
