@@ -135,8 +135,11 @@ func generateComposeFile(cfg *Config) error {
 `, cfg.Ports.Ollama))
 	}
 
-	// Bots
+	// Bots (skip libraries — they're path deps bundled into each bot's release)
 	for _, bot := range cfg.SelectedBots {
+		if strings.HasPrefix(bot.Repo, "bot_army_library_") {
+			continue
+		}
 		b.WriteString(fmt.Sprintf("  %s:\n", bot.ReleaseName))
 		b.WriteString("    build:\n")
 		b.WriteString("      context: ./repos\n")
