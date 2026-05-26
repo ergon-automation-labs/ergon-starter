@@ -17,6 +17,7 @@ type PortMap struct {
 	NATSMonitor  string // host:container 8222
 	Postgres     string // host:container 5432
 	Ollama       string // host:container 11434
+	MCP          string // host:container 39900
 }
 
 var DefaultPorts = PortMap{
@@ -24,6 +25,7 @@ var DefaultPorts = PortMap{
 	NATSMonitor: "58222",
 	Postgres:    "55432",
 	Ollama:      "51434",
+	MCP:         "39900",
 }
 
 // CustomBot represents a user-defined bot not in the catalog

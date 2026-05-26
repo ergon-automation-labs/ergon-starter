@@ -355,12 +355,14 @@ func (w *WizardTUI) stepConfigurePorts() error {
 	form.AddInputField("NATS monitor port", w.cfg.Ports.NATSMonitor, 10, nil, nil)
 	form.AddInputField("PostgreSQL port", w.cfg.Ports.Postgres, 10, nil, nil)
 	form.AddInputField("Ollama port", w.cfg.Ports.Ollama, 10, nil, nil)
+	form.AddInputField("MCP server port", w.cfg.Ports.MCP, 10, nil, nil)
 
 	form.AddButton("Next", func() {
 		w.cfg.Ports.NATS = form.GetFormItem(0).(*tview.InputField).GetText()
 		w.cfg.Ports.NATSMonitor = form.GetFormItem(1).(*tview.InputField).GetText()
 		w.cfg.Ports.Postgres = form.GetFormItem(2).(*tview.InputField).GetText()
 		w.cfg.Ports.Ollama = form.GetFormItem(3).(*tview.InputField).GetText()
+		w.cfg.Ports.MCP = form.GetFormItem(4).(*tview.InputField).GetText()
 		w.app.Stop()
 	})
 
@@ -580,6 +582,7 @@ func (w *WizardTUI) stepReviewAndConfirm() error {
 	summary += "  NATS: " + w.cfg.Ports.NATS + "\n"
 	summary += "  PostgreSQL: " + w.cfg.Ports.Postgres + "\n"
 	summary += "  Ollama: " + w.cfg.Ports.Ollama + "\n"
+	summary += "  MCP server: " + w.cfg.Ports.MCP + "\n"
 
 	summary += "\n[cyan]LLM Providers[-]\n"
 	for _, p := range w.cfg.SelectedProviders {
@@ -599,9 +602,9 @@ func (w *WizardTUI) stepReviewAndConfirm() error {
 	summary += "  docker compose up -d --build\n\n"
 	summary += "[cyan]MCP Server (Claude Desktop Integration):[-]\n"
 	summary += "Streamable HTTP transport — no local Elixir/OTP needed.\n"
-	summary += "  1. Bot Army runs the MCP server in Docker on port 39900\n"
+	summary += "  1. Bot Army runs the MCP server in Docker on port " + w.cfg.Ports.MCP + "\n"
 	summary += "  2. In Claude Desktop settings, add MCP server:\n"
-	summary += "     \"mcpServers\": { \"bot-army\": { \"url\": \"http://localhost:39900/mcp\" } }\n"
+	summary += "     \"mcpServers\": { \"bot-army\": { \"url\": \"http://localhost:" + w.cfg.Ports.MCP + "/mcp\" } }\n"
 	summary += "  3. Restart Claude Desktop — Bot Army tools will appear.\n\n"
 	summary += "[cyan]Reference:[-]\n"
 	summary += "  bot_template/docs/BEST_PRACTICES.md\n"
