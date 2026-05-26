@@ -9,15 +9,19 @@
 #
 # docker-compose.yml sets context: ./repos/ and passes BOT_REPO + BOT_NAME.
 
+# Cache-bust arg: change this value to force a full rebuild (e.g. after Dockerfile changes)
+ARG CACHE_BUST=1
+
 # =============================================
 # Phase 1: Base image with shared libraries
 # =============================================
 FROM elixir:1.17.3-otp-27-alpine AS base
 
+ARG CACHE_BUST
 ARG MIX_ENV=prod
 ENV MIX_ENV=${MIX_ENV}
 
-RUN apk add --no-cache git build-base
+RUN apk add --no-cache git build-base && echo "cache_bust=${CACHE_BUST}"
 RUN mix local.hex --force && mix local.rebar --force
 
 WORKDIR /repos
@@ -70,13 +74,13 @@ WORKDIR /repos/${BOT_REPO}
 RUN <<BUILDfix
 cat > /tmp/fix_deps.exs << 'ELIXIRSCRIPT'
 {:ok, c} = File.read("mix.exs")
-c = Enum.reduce(~w(bot_army_library_core bot_army_library_runtime bot_army_library_learning), c, fn lib, acc ->
-  # Match either format:
-  #   {:lib, [env: :prod, git: "...", branch: "main"]}  (with brackets)
-  #   {:lib, git: "...", branch: "main"}                 (without brackets, possibly multiline)
-  re_bracket = Regex.compile!("\\{:" <> lib <> ",\\s*\\[.*?\\]\\}", "s")
-  re_bare = Regex.compile!("\\{:" <> lib <> ",\\s*[^}]+\\}", "s")
+# All known dep names (old + current) → bot_army_library_* path dep
+c = Enum.reduce(~w(bot_army_core bot_army_library_core bot_army_runtime bot_army_library_runtime bot_army_learning bot_army_library_learning), c, fn dep, acc ->
+  suffix = dep |> String.replace_prefix("bot_army_library_", "") |> String.replace_prefix("bot_army_", "")
+  lib = "bot_army_library_" <> suffix
   replacement = "{:" <> lib <> ", path: \"../" <> lib <> "\"}"
+  re_bracket = Regex.compile!("\\{:" <> dep <> ",\\s*\\[.*?\\]\\}", "s")
+  re_bare = Regex.compile!("\\{:" <> dep <> ",\\s*[^}]+\\}", "s")
   case Regex.replace(re_bracket, acc, replacement) do
     ^acc -> Regex.replace(re_bare, acc, replacement)
     result -> result

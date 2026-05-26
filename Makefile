@@ -38,6 +38,9 @@ PG_PORT ?= 5432
 REGISTRY ?= localhost:32000
 REGISTRY_PORT ?= 32000
 
+# Elixir builds are memory-heavy — limit parallel builds to avoid OOM
+COMPOSE_BUILD_PARALLEL ?= 3
+
 .PHONY: help quickstart build install sync init add status up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health test release-check release-test release-create release-list release-latest registry-build registry-push registry-publish registry-images registry-setup
 
 help: ## Show this help
@@ -64,7 +67,7 @@ quickstart: catalog/bots.json ## Full setup: wizard → clone → build → star
 		-w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) init
 	@echo ""
 	@echo "Building containers (first run takes ~5 min)..."
-	DOCKER_BUILDKIT=1 docker compose up -d --build
+	DOCKER_BUILDKIT=1 COMPOSE_PARALLEL_LIMIT=$(COMPOSE_BUILD_PARALLEL) docker compose up -d --build
 	@echo ""
 	@echo "═══════════════════════════════════════════"
 	@echo "  ✓ Bot Army is running!"
@@ -87,7 +90,7 @@ quickstart-default: catalog/bots.json ## Headless: core bots + Ollama, no prompt
 		docker compose up -d; \
 	else \
 		./scripts/quickstart-default.sh; \
-		DOCKER_BUILDKIT=1 docker compose up -d --build; \
+		DOCKER_BUILDKIT=1 COMPOSE_PARALLEL_LIMIT=$(COMPOSE_BUILD_PARALLEL) docker compose up -d --build; \
 	fi
 	@echo ""
 	@echo "✓ Bot Army is running with core bots + Ollama"
@@ -189,7 +192,7 @@ status: build ## Show configured services
 # --- Docker Compose ---
 
 up: ## Start all services (builds if needed, uses BuildKit for shared base caching)
-	DOCKER_BUILDKIT=1 docker compose up -d --build
+	DOCKER_BUILDKIT=1 COMPOSE_PARALLEL_LIMIT=$(COMPOSE_BUILD_PARALLEL) docker compose up -d --build
 
 down: ## Stop all services
 	docker compose down
