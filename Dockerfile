@@ -56,6 +56,8 @@ ARG BOT_NAME
 ARG BOT_REPO
 ARG MIX_ENV=prod
 
+WORKDIR /repos
+
 # Copy bot mix.exs first for dep caching
 COPY ${BOT_REPO}/mix.exs ${BOT_REPO}/mix.lock* ${BOT_REPO}/
 
