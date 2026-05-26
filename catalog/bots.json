@@ -72,7 +72,7 @@
   {
     "name": "synapse",
     "repo": "bot_army_synapse",
-    "remote": "ergon-synapse",
+    "remote": "ergon-synapse-lite",
     "release_name": "synapse_bot",
     "category": "core",
     "stability": "stable",

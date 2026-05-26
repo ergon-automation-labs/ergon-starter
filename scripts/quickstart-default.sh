@@ -24,42 +24,50 @@ NATS_MONITOR_HOST_PORT="${NATS_MONITOR_HOST_PORT:-58222}"
 POSTGRES_HOST_PORT="${POSTGRES_HOST_PORT:-55432}"
 OLLAMA_HOST_PORT="${OLLAMA_HOST_PORT:-51434}"
 
-# Select core bots (primary category) from catalog
+# Select core bots from catalog
+# Output: remote repo_name release_name bot_name needs_db
 core_bots=$(python3 -c "
 import json
 bots = json.load(open('$CATALOG'))
 for b in bots:
-    if b['category'] == 'primary':
-        print(b['repo'], b['release_name'], b['name'], str(b['needs_db']).lower())
+    if b['category'] == 'core':
+        remote = b.get('remote', b['repo'])
+        print(remote, b['repo'], b['release_name'], b['name'], str(b.get('needs_db', False)).lower())
 ")
 
 echo "Cloning core bot repos..."
 mkdir -p repos
 
-for lib in bot_army_runtime bot_army_core; do
+# Clone library repos (remote names differ from local dir names)
+declare -A lib_remotes=(
+  ["bot_army_runtime"]="ergon-runtime"
+  ["bot_army_core"]="ergon-core"
+)
+for lib in "${!lib_remotes[@]}"; do
+  remote="${lib_remotes[$lib]}"
   dest="repos/$lib"
   if [ ! -d "$dest" ]; then
-    echo "  ⏳ $lib..."
-    git clone --depth 1 "https://github.com/${GIT_ORG}/${lib}.git" "$dest" 2>/dev/null
-    echo "  ✓ $lib"
+    echo "  ⏳ $remote..."
+    git clone --depth 1 "https://github.com/${GIT_ORG}/${remote}.git" "$dest" 2>/dev/null
+    echo "  ✓ $remote"
   else
-    echo "  ✓ $lib (exists)"
+    echo "  ✓ $remote (exists)"
   fi
 done
 
 needs_db=false
 bot_services=""
 
-while IFS=' ' read -r repo release bot_name db_flag; do
+while IFS=' ' read -r remote repo release bot_name db_flag; do
   [ -z "$repo" ] && continue
 
   dest="repos/$repo"
   if [ ! -d "$dest" ]; then
-    echo "  ⏳ $repo..."
-    git clone --depth 1 "https://github.com/${GIT_ORG}/${repo}.git" "$dest" 2>/dev/null
-    echo "  ✓ $repo"
+    echo "  ⏳ $remote..."
+    git clone --depth 1 "https://github.com/${GIT_ORG}/${remote}.git" "$dest" 2>/dev/null
+    echo "  ✓ $remote"
   else
-    echo "  ✓ $repo (exists)"
+    echo "  ✓ $remote (exists)"
   fi
 
   [ "$db_flag" = "true" ] && needs_db=true
