@@ -3,7 +3,7 @@
 # Each pack is a docker image combining related bots + shared runtime
 
 [settings]
-registry = "ergon-automation-labs"
+registry = "localhost:32000"
 base_image = "erlang:26-alpine"
 default_channel = "stable"
 
@@ -14,15 +14,12 @@ default_channel = "stable"
 name = "core"
 description = "Complete framework + operator interface"
 bots = [
-  { repo = "ergon-library-core", binary = "library_core_bot", optional = false },
-  { repo = "ergon-library-runtime", binary = "library_runtime_bot", optional = false },
   { repo = "ergon-llm", binary = "llm_bot", optional = false },
-  { repo = "ergon-library-learning", binary = "library_learning_bot", optional = false },
   { repo = "ergon-gtd", binary = "gtd_bot", optional = false },
   { repo = "ergon-para", binary = "para_bot", optional = false },
   { repo = "ergon-dispatcher", binary = "dispatcher_bot", optional = false },
   { repo = "ergon-synapse-lite", binary = "synapse_bot", optional = false },
-  { repo = "ergon-bridge-lite", binary = "bridge_lite", optional = false },
+  { repo = "ergon-bridge-lite", binary = "bridge_lite_bot", optional = false },
   { repo = "ergon-job_scheduler", binary = "job_scheduler_bot", optional = false },
   { repo = "ergon-skills-base", binary = "skills_bot", optional = false },
   { repo = "ergon-mcp", binary = "surface_mcp_bot", optional = false },

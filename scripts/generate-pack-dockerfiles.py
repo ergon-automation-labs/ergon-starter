@@ -18,66 +18,87 @@ def load_config(config_path):
     with open(config_path, 'rb') as f:
         return tomllib.load(f)
 
-def generate_dockerfile(pack, channel="stable", registry="ergon-automation-labs"):
+def generate_dockerfile(pack, channel="stable", registry="localhost:32000"):
     """Generate Dockerfile content for a pack."""
 
-    # Stage 1: Copy bot binaries from individual images
+    # Separate required vs optional bots
+    required_bots = [b for b in pack['bots'] if not b.get('optional', False)]
+    optional_bots = [b for b in pack['bots'] if b.get('optional', False)]
+
+    # Stage 1: Copy bot releases from individual images
     stages = []
-    for i, bot in enumerate(pack['bots']):
-        repo = bot['repo']
+    for bot in required_bots:
         binary = bot['binary']
-        stages.append(f"FROM {registry}/{repo}:{channel} as {binary}")
+        stages.append(f"FROM {registry}/{binary}:{channel} AS {binary}")
 
     stages_str = "\n".join(stages)
 
-    # Stage 2: Combine into final image
+    # Stage 2: Copy commands
     copy_commands = []
-    for bot in pack['bots']:
+    for bot in required_bots:
         binary = bot['binary']
-        copy_commands.append(f"COPY --from={binary} /app/bin/{binary} /usr/local/bin/")
+        copy_commands.append(f"COPY --from={binary} /app/ /opt/bot_army/{binary}/")
 
     copy_str = "\n".join(copy_commands)
 
-    # Build startup script (start all bots in background)
+    # Startup script
     start_commands = []
-    for bot in pack['bots']:
+    for bot in required_bots:
         binary = bot['binary']
-        start_commands.append(f"{binary} start &")
+        start_commands.append(f"/opt/bot_army/{binary}/bin/{binary} start &")
 
     start_script = "\n".join(start_commands)
 
-    dockerfile = dedent(f"""
-        # Auto-generated Dockerfile for {pack['name']} pack
-        # Generated from config/packs-docker.toml
-        # Do not edit manually; regenerate with: ./scripts/generate-pack-dockerfiles.py
+    # Optional bots note
+    optional_note = ""
+    if optional_bots:
+        names = ", ".join(b['binary'] for b in optional_bots)
+        optional_note = f"\n# Optional bots (not included — add individual images separately): {names}\n"
 
-        ARG CHANNEL={channel}
-        ARG REGISTRY={registry}
+    lines = [
+        f"# Auto-generated Dockerfile for {pack['name']} pack",
+        f"# Generated from config/packs-docker.toml",
+        f"# Do not edit manually; regenerate with: ./scripts/generate-pack-dockerfiles.py",
+        f"",
+        f"ARG CHANNEL={channel}",
+        f"ARG REGISTRY={registry}",
+        f"",
+        f"# Stage 1: Import bot releases from individual images (libraries already bundled in each release)",
+    ]
+    for stage in stages:
+        lines.append(stage)
 
-        # Stage 1: Import bot binaries from individual images
-        {stages_str}
+    lines.extend([
+        f"",
+        f"# Stage 2: Assemble final image",
+        f"FROM erlang:27-alpine",
+        f"",
+        f"# Install runtime dependencies",
+        f"RUN apk add --no-cache \\",
+        f"    bash \\",
+        f"    openssl \\",
+        f"    ncurses-libs \\",
+        f"    libstdc++",
+        f"",
+        f"# Copy bot releases from stages",
+    ])
+    for copy in copy_commands:
+        lines.append(copy)
 
-        # Stage 2: Assemble final image
-        FROM erlang:26-alpine
+    if optional_note:
+        lines.append(optional_note.strip())
 
-        # Copy bot binaries from stages
-        {copy_str}
+    lines.extend([
+        f"",
+        f"# Health check",
+        f"HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \\",
+        f"    CMD curl -f http://localhost:8888/health || exit 1",
+        f"",
+        f"# Start all bots",
+        f'CMD ["sh", "-c", "{start_script}\\ntail -f /dev/null"]',
+    ])
 
-        # Install runtime dependencies
-        RUN apk add --no-cache \\
-            bash \\
-            curl \\
-            ca-certificates
-
-        # Health check
-        HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \\
-            CMD curl -f http://localhost:8888/health || exit 1
-
-        # Start all bots
-        CMD ["sh", "-c", "{start_script}\\ntail -f /dev/null"]
-    """).strip()
-
-    return dockerfile
+    return "\n".join(lines)
 
 def main():
     parser = argparse.ArgumentParser(description="Generate Dockerfiles for bot packs")
@@ -104,7 +125,7 @@ def main():
 
     packs = config.get('packs', [])
     settings = config.get('settings', {})
-    registry = settings.get('registry', 'ergon-automation-labs')
+    registry = settings.get('registry', 'localhost:32000')
 
     if not packs:
         print("No packs defined in config", file=sys.stderr)
