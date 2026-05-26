@@ -38,6 +38,16 @@ for b in bots:
 
 echo "Cloning core bot repos..."
 mkdir -p repos
+cat > repos/.dockerignore << 'DOCKERIGNORE'
+**/deps
+**/_build
+**/.git
+**/.elixir_ls
+**/doc
+**/test
+**/*.beam
+**/*.ez
+DOCKERIGNORE
 
 # Clone library repos (remote names differ from local dir names)
 declare -A lib_remotes=(
@@ -221,3 +231,6 @@ echo "Data directories:"
 echo "  ./data/logs/     Bot logs (mounted from containers)"
 echo "  ./data/para/     PARA output (mount to para_bot)"
 echo "  ./data/backups/  DB backups (mount to backup_bot)"
+echo ""
+echo "To build and start:"
+echo "  DOCKER_BUILDKIT=1 docker compose up -d --build"
