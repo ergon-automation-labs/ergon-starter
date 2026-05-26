@@ -25,7 +25,8 @@ bots = [
   { repo = "ergon-bridge-lite", binary = "bridge_lite", optional = false },
   { repo = "ergon-job_scheduler", binary = "job_scheduler_bot", optional = false },
   { repo = "ergon-skills-base", binary = "skills_bot", optional = false },
-  { repo = "ergon-surface-mcp", binary = "surface_mcp_bot", optional = false }
+  { repo = "ergon-mcp", binary = "surface_mcp_bot", optional = false },
+  { repo = "ergon-elixir-tools-mcp_server", binary = "elixir_tools_mcp_bot", optional = true }
 ]
 
 # ============================================================================

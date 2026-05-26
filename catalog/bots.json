@@ -112,12 +112,23 @@
   {
     "name": "surface_mcp",
     "repo": "bot_army_surface_mcp",
-    "remote": "ergon-surface-mcp",
+    "remote": "ergon-mcp",
     "release_name": "surface_mcp_bot",
     "category": "core",
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable"
+  },
+  {
+    "name": "elixir_tools_mcp",
+    "repo": "bot_army_elixir_tools_mcp",
+    "remote": "ergon-elixir-tools-mcp_server",
+    "release_name": "elixir_tools_mcp_bot",
+    "category": "core",
+    "stability": "stable",
+    "channel": "stable",
+    "channel_ref": "stable",
+    "install_note": "Requires Elixir/OTP toolchain on host — see wizard setup instructions"
   },
   {
     "name": "youtube_manager",

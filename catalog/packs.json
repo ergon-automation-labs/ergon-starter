@@ -16,7 +16,8 @@
       "dispatcher",
       "synapse",
       "llm",
-      "surface_mcp"
+      "surface_mcp",
+      "elixir_tools_mcp"
     ]
   },
   {

@@ -17,6 +17,7 @@ type Bot struct {
 	NeedsDB     bool     `json:"needs_db"`
 	Category    string   `json:"category"`
 	EnvVars     []EnvVar `json:"env_vars"`
+	InstallNote string   `json:"install_note,omitempty"`
 }
 
 func (b Bot) DisplayName() string {

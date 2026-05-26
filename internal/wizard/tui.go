@@ -569,10 +569,13 @@ func (w *WizardTUI) stepReviewAndConfirm() error {
 	// Build summary text
 	summary := "[yellow]Bot Army Starter Configuration[-]\n\n"
 	summary += "[cyan]Selected Bots[-]\n"
-	for _, b := range w.cfg.SelectedBots {
-		summary += "  • " + b.Name + " (v" + b.Version + ")\n"
-	}
-
+		summary += "[cyan]Selected Bots[-]\n"
+		for _, b := range w.cfg.SelectedBots {
+			summary += "  • " + b.Name + " (v" + b.Version + ")\n"
+			if b.InstallNote != "" {
+				summary += "    [yellow]" + b.InstallNote + "[-]\n"
+			}
+		}
 	summary += "\n[cyan]Host Ports[-]\n"
 	summary += "  NATS: " + w.cfg.Ports.NATS + "\n"
 	summary += "  PostgreSQL: " + w.cfg.Ports.Postgres + "\n"
@@ -594,6 +597,12 @@ func (w *WizardTUI) stepReviewAndConfirm() error {
 	summary += "[cyan]Add to your fleet:[-]\n"
 	summary += "  ./bot-army add mybot\n"
 	summary += "  docker compose up -d --build\n\n"
+	summary += "[cyan]Elixir Tools MCP Server Setup:[-]\n"
+	summary += "The elixir_tools_mcp bot requires Elixir/OTP on the host.\n"
+	summary += "  1. Install Elixir: https://elixir-lang.org/install.html\n"
+	summary += "  2. Clone: git clone https://github.com/ergon-automation-labs/ergon-elixir-tools-mcp_server.git\n"
+	summary += "  3. Build: cd ergon-elixir-tools-mcp_server && mix deps.get && mix release\n"
+	summary += "  4. The bot connects to NATS on startup and registers as an MCP tool server.\n\n"
 	summary += "[cyan]Reference:[-]\n"
 	summary += "  bot_template/docs/BEST_PRACTICES.md\n"
 	summary += "  bot_template/UPDATES.md\n\n"

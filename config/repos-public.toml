@@ -78,7 +78,13 @@ channels = { stable = "stable", latest = "latest", nightly = "main" }
 
 [[bots]]
 name = "bot_army_surface_mcp"
-remote = "ergon-surface-mcp"
+remote = "ergon-mcp"
+category = "core"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+[[bots]]
+name = "bot_army_elixir_tools_mcp"
+remote = "ergon-elixir-tools-mcp_server"
 category = "core"
 channels = { stable = "stable", latest = "latest", nightly = "main" }
 
