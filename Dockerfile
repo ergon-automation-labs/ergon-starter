@@ -62,6 +62,21 @@ WORKDIR /repos
 COPY ${BOT_REPO}/mix.exs ${BOT_REPO}/mix.lock* ${BOT_REPO}/
 
 WORKDIR /repos/${BOT_REPO}
+
+# Replace library git deps with path deps to avoid divergence.
+# Public bot repos declare libraries as git deps, but libraries reference
+# each other as path deps — Mix can't reconcile the mismatch.
+# In Docker, all repos are siblings under /repos/, so path deps resolve correctly.
+RUN elixir -e '
+  {:ok, content} = File.read("mix.exs")
+  for lib <- ~w(bot_army_library_core bot_army_library_runtime bot_army_library_learning) do
+    re = Regex.compile!("[{:]#{lib},\\s*\\[.*?\\]}", "s")
+    replacement = "{:#{lib}, path: \"../#{lib}\"}"
+    content = Regex.replace(re, content, replacement)
+  end
+  File.write!("mix.exs", content)
+'
+
 RUN mix deps.get --only ${MIX_ENV} && mix deps.compile
 
 # Copy bot source and compile
