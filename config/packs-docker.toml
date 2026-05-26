@@ -14,10 +14,10 @@ default_channel = "stable"
 name = "core"
 description = "Complete framework + operator interface"
 bots = [
-  { repo = "ergon-library-core", binary = "core_bot", optional = false },
-  { repo = "ergon-library-runtime", binary = "runtime_bot", optional = false },
+  { repo = "ergon-library-core", binary = "library_core_bot", optional = false },
+  { repo = "ergon-library-runtime", binary = "library_runtime_bot", optional = false },
   { repo = "ergon-llm", binary = "llm_bot", optional = false },
-  { repo = "ergon-library-learning", binary = "learning_bot", optional = false },
+  { repo = "ergon-library-learning", binary = "library_learning_bot", optional = false },
   { repo = "ergon-gtd", binary = "gtd_bot", optional = false },
   { repo = "ergon-para", binary = "para_bot", optional = false },
   { repo = "ergon-dispatcher", binary = "dispatcher_bot", optional = false },

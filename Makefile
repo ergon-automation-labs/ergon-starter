@@ -34,7 +34,11 @@ CHANNEL ?= stable
 NATS_PORT ?= 4222
 PG_PORT ?= 5432
 
-.PHONY: help quickstart build install sync init add status up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health test release-check release-test release-create release-list release-latest
+# Docker registry (local registry for pre-built images)
+REGISTRY ?= localhost:32000
+REGISTRY_PORT ?= 32000
+
+.PHONY: help quickstart build install sync init add status up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health test release-check release-test release-create release-list release-latest registry-build registry-push registry-publish registry-images registry-setup
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -75,8 +79,16 @@ quickstart: catalog/bots.json ## Full setup: wizard → clone → build → star
 quickstart-default: catalog/bots.json ## Headless: core bots + Ollama, no prompts
 	@echo "Setting up Bot Army with defaults (core bots + Ollama)..."
 	$(MAKE) build
-	./scripts/quickstart-default.sh
-	DOCKER_BUILDKIT=1 docker compose up -d --build
+	@# Auto-detect local registry — use pre-built images if available
+	@if curl -s http://$(REGISTRY)/v2/_catalog >/dev/null 2>&1 && \
+	    curl -s http://$(REGISTRY)/v2/gtd_bot/tags/list 2>/dev/null | grep -q latest; then \
+		echo "  Found pre-built images in $(REGISTRY) — using registry"; \
+		REGISTRY=$(REGISTRY) ./scripts/quickstart-default.sh; \
+		docker compose up -d; \
+	else \
+		./scripts/quickstart-default.sh; \
+		DOCKER_BUILDKIT=1 docker compose up -d --build; \
+	fi
 	@echo ""
 	@echo "✓ Bot Army is running with core bots + Ollama"
 	@echo "  Run 'make logs' to follow output"
@@ -299,3 +311,40 @@ docker-health: ## Show Docker disk usage and diagnostics
 	@echo "To free up space:"
 	@echo "  make docker-clean       # Stop services, remove exited containers"
 	@echo "  make docker-deep-clean  # Full cleanup (warning: removes images)"
+
+# --- Local Registry ---
+
+registry-setup: ## Start local Docker registry (REGISTRY_PORT=32000)
+	@if curl -s http://localhost:$(REGISTRY_PORT)/v2/_catalog >/dev/null 2>&1; then \
+		echo "✓ Registry already running on port $(REGISTRY_PORT)"; \
+	else \
+		echo "Starting registry on port $(REGISTRY_PORT)..."; \
+		docker run -d \
+			--name bot-army-registry \
+			-p $(REGISTRY_PORT):5000 \
+			-v bot-army-registry-data:/var/lib/registry \
+			--restart unless-stopped \
+			registry:2 >/dev/null; \
+		sleep 2; \
+		if curl -s http://localhost:$(REGISTRY_PORT)/v2/_catalog >/dev/null 2>&1; then \
+			echo "✓ Registry running on port $(REGISTRY_PORT)"; \
+		else \
+			echo "✗ Registry failed to start" >&2; exit 1; \
+		fi; \
+	fi
+	@echo "Images in $(REGISTRY):"
+	@curl -s http://$(REGISTRY)/v2/_catalog | python3 -c "import json,sys; cats=json.load(sys.stdin); [print('  '+r) for r in cats.get('repositories',[])]" 2>/dev/null || echo "  (registry not reachable)"
+
+registry-build: build ## Build all core bot images tagged for local registry
+	@echo "Building core bot images for $(REGISTRY)..."
+	@./scripts/registry-build.sh
+	@echo ""
+	@echo "✓ Images built. Push with: make registry-push"
+
+registry-push: ## Push built images to local registry (REGISTRY=localhost:32000)
+	@echo "Pushing images to $(REGISTRY)..."
+	@./scripts/registry-push.sh
+	@echo ""
+	@echo "✓ Images pushed to $(REGISTRY)"
+
+registry-publish: registry-build registry-push ## Build and push to local registry

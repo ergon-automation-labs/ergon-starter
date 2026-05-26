@@ -18,6 +18,9 @@ fi
 
 GIT_ORG="ergon-automation-labs"
 
+# Docker registry — when set, pull pre-built images instead of building from source
+REGISTRY="${REGISTRY:-}"
+
 # Host ports — high defaults to avoid collisions with local services
 NATS_HOST_PORT="${NATS_HOST_PORT:-54222}"
 NATS_MONITOR_HOST_PORT="${NATS_MONITOR_HOST_PORT:-58222}"
@@ -36,7 +39,11 @@ for b in bots:
         print(remote, b['repo'], b['release_name'], b['name'], str(b.get('needs_db', False)).lower())
 ")
 
-echo "Cloning core bot repos..."
+if [ -n "$REGISTRY" ]; then
+  echo "Using pre-built images from ${REGISTRY} (skipping source clone)..."
+else
+  echo "Cloning core bot repos..."
+fi
 mkdir -p repos
 cat > repos/.dockerignore << 'DOCKERIGNORE'
 **/deps
@@ -49,27 +56,29 @@ cat > repos/.dockerignore << 'DOCKERIGNORE'
 **/*.ez
 DOCKERIGNORE
 
-# Clone library repos (remote names differ from local dir names)
-declare -A lib_remotes=(
-  ["bot_army_runtime"]="ergon-library-runtime"
-  ["bot_army_core"]="ergon-library-core"
-  ["bot_army_learning"]="ergon-library-learning"
-)
-for lib in "${!lib_remotes[@]}"; do
-  remote="${lib_remotes[$lib]}"
-  dest="repos/$lib"
-  if [ ! -d "$dest" ]; then
-    echo "  ⏳ $remote..."
-    if git clone --depth 1 "https://github.com/${GIT_ORG}/${remote}.git" "$dest" 2>&1; then
-      echo "  ✓ $remote"
+if [ -z "$REGISTRY" ]; then
+  # Clone library repos (remote names differ from local dir names)
+  declare -A lib_remotes=(
+    ["bot_army_library_runtime"]="ergon-library-runtime"
+    ["bot_army_library_core"]="ergon-library-core"
+    ["bot_army_library_learning"]="ergon-library-learning"
+  )
+  for lib in "${!lib_remotes[@]}"; do
+    remote="${lib_remotes[$lib]}"
+    dest="repos/$lib"
+    if [ ! -d "$dest" ]; then
+      echo "  ⏳ $remote..."
+      if git clone --depth 1 "https://github.com/${GIT_ORG}/${remote}.git" "$dest" 2>&1; then
+        echo "  ✓ $remote"
+      else
+        echo "  ✗ $remote (clone failed)" >&2
+        exit 1
+      fi
     else
-      echo "  ✗ $remote (clone failed)" >&2
-      exit 1
+      echo "  ✓ $remote (exists)"
     fi
-  else
-    echo "  ✓ $remote (exists)"
-  fi
-done
+  done
+fi
 
 needs_db=false
 bot_services=""
@@ -77,17 +86,34 @@ bot_services=""
 while IFS=' ' read -r remote repo release bot_name db_flag; do
   [ -z "$repo" ] && continue
 
-  dest="repos/$repo"
-  if [ ! -d "$dest" ]; then
-    echo "  ⏳ $remote..."
-    if git clone --depth 1 "https://github.com/${GIT_ORG}/${remote}.git" "$dest" 2>&1; then
-      echo "  ✓ $remote"
-    else
-      echo "  ✗ $remote (clone failed)" >&2
-      exit 1
+  # Libraries are path deps — clone only, no docker-compose service
+  if [[ "$repo" == bot_army_library_* ]]; then
+    if [ -z "$REGISTRY" ]; then
+      if [ ! -d "repos/$repo" ]; then
+        echo "  ⏳ $remote (library)..."
+        git clone --depth 1 "https://github.com/${GIT_ORG}/${remote}.git" "repos/$repo" 2>&1 || { echo "  ✗ $remote (clone failed)" >&2; exit 1; }
+        echo "  ✓ $remote (library)"
+      else
+        echo "  ✓ $remote (library, exists)"
+      fi
     fi
-  else
-    echo "  ✓ $remote (exists)"
+    continue
+  fi
+
+  # Clone source when building from source (no registry)
+  if [ -z "$REGISTRY" ]; then
+    dest="repos/$repo"
+    if [ ! -d "$dest" ]; then
+      echo "  ⏳ $remote..."
+      if git clone --depth 1 "https://github.com/${GIT_ORG}/${remote}.git" "$dest" 2>&1; then
+        echo "  ✓ $remote"
+      else
+        echo "  ✗ $remote (clone failed)" >&2
+        exit 1
+      fi
+    else
+      echo "  ✓ $remote (exists)"
+    fi
   fi
 
   [ "$db_flag" = "true" ] && needs_db=true
@@ -98,7 +124,19 @@ while IFS=' ' read -r remote repo release bot_name db_flag; do
   fi
   dep_block="$dep_block\n      ollama:\n        condition: service_started"
 
-  bot_services+="
+  if [ -n "$REGISTRY" ]; then
+    bot_services+="
+  ${release}:
+    image: ${REGISTRY}/${release}:latest
+    env_file: .env
+    volumes:
+      - ./data/logs/${bot_name}:/var/log/bot_army
+    depends_on:
+$(echo -e "$dep_block")
+    restart: unless-stopped
+"
+  else
+    bot_services+="
   ${release}:
     build:
       context: ./repos
@@ -113,6 +151,7 @@ while IFS=' ' read -r remote repo release bot_name db_flag; do
 $(echo -e "$dep_block")
     restart: unless-stopped
 "
+  fi
 done <<< "$core_bots"
 
 # Create data directories
@@ -151,6 +190,45 @@ ENVEOF
 echo "  ✓ .env"
 
 echo "Generating docker-compose.yml..."
+
+# Build MCP service entry (registry vs build-from-source)
+if [ -n "$REGISTRY" ]; then
+  mcp_service="
+  mcp:
+    image: ${REGISTRY}/elixir_tools_mcp_bot:latest
+    env_file: .env
+    environment:
+      MCP_PORT: \"39900\"
+      MCP_TRANSPORT: \"http\"
+      NATS_SERVERS: \"nats:4222\"
+    ports:
+      - \"${MCP_HOST_PORT}:39900\"
+    depends_on:
+      nats:
+        condition: service_started
+    restart: unless-stopped"
+else
+  mcp_service="
+  mcp:
+    build:
+      context: ./repos
+      dockerfile: ../Dockerfile
+      args:
+        BOT_NAME: elixir_tools_mcp_bot
+        BOT_REPO: bot_army_elixir_tools_mcp
+    env_file: .env
+    environment:
+      MCP_PORT: \"39900\"
+      MCP_TRANSPORT: \"http\"
+      NATS_SERVERS: \"nats:4222\"
+    ports:
+      - \"${MCP_HOST_PORT}:39900\"
+    depends_on:
+      nats:
+        condition: service_started
+    restart: unless-stopped"
+fi
+
 cat > docker-compose.yml << COMPEOF
 # Bot Army — generated by quickstart-default
 # Rebuild: docker compose up -d --build
@@ -190,25 +268,7 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     restart: unless-stopped
-
-  mcp:
-    build:
-      context: ./repos
-      dockerfile: ../Dockerfile
-      args:
-        BOT_NAME: elixir_tools_mcp_bot
-        BOT_REPO: bot_army_elixir_tools_mcp
-    env_file: .env
-    environment:
-      MCP_PORT: "39900"
-      MCP_TRANSPORT: "http"
-      NATS_SERVERS: "nats:4222"
-    ports:
-      - "${MCP_HOST_PORT}:39900"
-    depends_on:
-      nats:
-        condition: service_started
-    restart: unless-stopped
+${mcp_service}
 ${bot_services}
 volumes:
   pgdata:
@@ -232,5 +292,10 @@ echo "  ./data/logs/     Bot logs (mounted from containers)"
 echo "  ./data/para/     PARA output (mount to para_bot)"
 echo "  ./data/backups/  DB backups (mount to backup_bot)"
 echo ""
-echo "To build and start:"
-echo "  DOCKER_BUILDKIT=1 docker compose up -d --build"
+if [ -n "$REGISTRY" ]; then
+  echo "To start (pulling images from ${REGISTRY}):"
+  echo "  docker compose up -d"
+else
+  echo "To build and start:"
+  echo "  DOCKER_BUILDKIT=1 docker compose up -d --build"
+fi

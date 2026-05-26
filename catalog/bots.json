@@ -1,7 +1,7 @@
 [
   {
     "name": "core",
-    "repo": "bot_army_core",
+    "repo": "bot_army_library_core",
     "remote": "ergon-library-core",
     "release_name": "core_bot",
     "category": "core",
@@ -11,7 +11,7 @@
   },
   {
     "name": "runtime",
-    "repo": "bot_army_runtime",
+    "repo": "bot_army_library_runtime",
     "remote": "ergon-library-runtime",
     "release_name": "runtime_bot",
     "category": "core",
@@ -31,7 +31,7 @@
   },
   {
     "name": "learning",
-    "repo": "bot_army_learning",
+    "repo": "bot_army_library_learning",
     "remote": "ergon-library-learning",
     "release_name": "learning_bot",
     "category": "core",

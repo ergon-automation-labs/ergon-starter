@@ -11,13 +11,13 @@ default_channel = "stable"
 # ============================================================================
 
 [[bots]]
-name = "bot_army_core"
+name = "bot_army_library_core"
 remote = "ergon-library-core"
 category = "core"
 channels = { stable = "stable", latest = "latest", nightly = "main" }
 
 [[bots]]
-name = "bot_army_runtime"
+name = "bot_army_library_runtime"
 remote = "ergon-library-runtime"
 category = "core"
 channels = { stable = "stable", latest = "latest", nightly = "main" }
@@ -29,7 +29,7 @@ category = "core"
 channels = { stable = "stable", latest = "latest", nightly = "main" }
 
 [[bots]]
-name = "bot_army_learning"
+name = "bot_army_library_learning"
 remote = "ergon-library-learning"
 category = "core"
 channels = { stable = "stable", latest = "latest", nightly = "main" }

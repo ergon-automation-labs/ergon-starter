@@ -356,6 +356,7 @@ func (w *WizardTUI) stepConfigurePorts() error {
 	form.AddInputField("PostgreSQL port", w.cfg.Ports.Postgres, 10, nil, nil)
 	form.AddInputField("Ollama port", w.cfg.Ports.Ollama, 10, nil, nil)
 	form.AddInputField("MCP server port", w.cfg.Ports.MCP, 10, nil, nil)
+	form.AddInputField("Docker registry port", w.cfg.Ports.Registry, 10, nil, nil)
 
 	form.AddButton("Next", func() {
 		w.cfg.Ports.NATS = form.GetFormItem(0).(*tview.InputField).GetText()
@@ -363,6 +364,7 @@ func (w *WizardTUI) stepConfigurePorts() error {
 		w.cfg.Ports.Postgres = form.GetFormItem(2).(*tview.InputField).GetText()
 		w.cfg.Ports.Ollama = form.GetFormItem(3).(*tview.InputField).GetText()
 		w.cfg.Ports.MCP = form.GetFormItem(4).(*tview.InputField).GetText()
+		w.cfg.Ports.Registry = form.GetFormItem(5).(*tview.InputField).GetText()
 		w.app.Stop()
 	})
 
@@ -571,7 +573,6 @@ func (w *WizardTUI) stepReviewAndConfirm() error {
 	// Build summary text
 	summary := "[yellow]Bot Army Starter Configuration[-]\n\n"
 	summary += "[cyan]Selected Bots[-]\n"
-		summary += "[cyan]Selected Bots[-]\n"
 		for _, b := range w.cfg.SelectedBots {
 			summary += "  • " + b.Name + " (v" + b.Version + ")\n"
 			if b.InstallNote != "" {
@@ -583,6 +584,7 @@ func (w *WizardTUI) stepReviewAndConfirm() error {
 	summary += "  PostgreSQL: " + w.cfg.Ports.Postgres + "\n"
 	summary += "  Ollama: " + w.cfg.Ports.Ollama + "\n"
 	summary += "  MCP server: " + w.cfg.Ports.MCP + "\n"
+	summary += "  Docker registry: " + w.cfg.Ports.Registry + "\n"
 
 	summary += "\n[cyan]LLM Providers[-]\n"
 	for _, p := range w.cfg.SelectedProviders {

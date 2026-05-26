@@ -18,6 +18,7 @@ type PortMap struct {
 	Postgres     string // host:container 5432
 	Ollama       string // host:container 11434
 	MCP          string // host:container 39900
+	Registry     string // host:container 32000
 }
 
 var DefaultPorts = PortMap{
@@ -26,6 +27,7 @@ var DefaultPorts = PortMap{
 	Postgres:    "55432",
 	Ollama:      "51434",
 	MCP:         "39900",
+	Registry:    "32000",
 }
 
 // CustomBot represents a user-defined bot not in the catalog
@@ -209,9 +211,13 @@ func cloneRepos(cfg *Config) error {
 
 	// Clone libraries if in development mode
 	if cfg.DevMode {
-		libraryRepos := []string{"bot_army_library_runtime", "bot_army_library_core", "bot_army_library_learning"}
-		for _, repo := range libraryRepos {
-			if err := cloneRepo(reposDir, repo, cfg.GitOrg); err != nil {
+		libraryRemotes := map[string]string{
+			"bot_army_library_runtime": "ergon-library-runtime",
+			"bot_army_library_core":     "ergon-library-core",
+			"bot_army_library_learning": "ergon-library-learning",
+		}
+		for dest, remote := range libraryRemotes {
+			if err := cloneRepoAs(reposDir, remote, dest, cfg.GitOrg); err != nil {
 				return err
 			}
 		}
@@ -219,12 +225,11 @@ func cloneRepos(cfg *Config) error {
 
 	// Clone selected bots
 	for _, bot := range cfg.SelectedBots {
-		// Use bot.Remote as the repo name if available, otherwise use bot.Repo
-		repoName := bot.Remote
-		if repoName == "" {
-			repoName = bot.Repo
+		remote := bot.Remote
+		if remote == "" {
+			remote = bot.Repo
 		}
-		if err := cloneRepo(reposDir, repoName, cfg.GitOrg); err != nil {
+		if err := cloneRepoAs(reposDir, remote, bot.Repo, cfg.GitOrg); err != nil {
 			return err
 		}
 	}
@@ -240,16 +245,20 @@ func cloneRepos(cfg *Config) error {
 }
 
 func cloneRepo(reposDir, repo, org string) error {
-	dest := filepath.Join(reposDir, repo)
+	return cloneRepoAs(reposDir, repo, repo, org)
+}
+
+func cloneRepoAs(reposDir, remote, destName, org string) error {
+	dest := filepath.Join(reposDir, destName)
 	if _, err := os.Stat(dest); err == nil {
-		fmt.Printf("  ✓ %s (exists)\n", repo)
+		fmt.Printf("  ✓ %s (exists)\n", destName)
 		return nil
 	}
 
-	fmt.Printf("  ⏳ %s...", repo)
+	fmt.Printf("  ⏳ %s...", destName)
 
 	// Try gh first
-	fullRepo := fmt.Sprintf("%s/%s", org, repo)
+	fullRepo := fmt.Sprintf("%s/%s", org, remote)
 	cmd := exec.Command("gh", "repo", "clone", fullRepo, dest, "--", "--depth", "1")
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err == nil {
@@ -258,12 +267,12 @@ func cloneRepo(reposDir, repo, org string) error {
 	}
 
 	// Fall back to git
-	url := fmt.Sprintf("https://github.com/%s/%s.git", org, repo)
+	url := fmt.Sprintf("https://github.com/%s/%s.git", org, remote)
 	cmd = exec.Command("git", "clone", "--depth", "1", url, dest)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		fmt.Println(" ✗")
-		return fmt.Errorf("clone %s: %w", repo, err)
+		return fmt.Errorf("clone %s: %w", destName, err)
 	}
 	fmt.Println(" ✓")
 	return nil
