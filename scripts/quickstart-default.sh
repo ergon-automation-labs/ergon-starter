@@ -83,10 +83,11 @@ while IFS=' ' read -r remote repo release bot_name db_flag; do
   bot_services+="
   ${release}:
     build:
-      context: ./repos/${repo}
-      dockerfile: ../../Dockerfile
+      context: ./repos
+      dockerfile: ../Dockerfile
       args:
         BOT_NAME: ${release}
+        BOT_REPO: ${repo}
     env_file: .env
     volumes:
       - ./data/logs/${bot_name}:/var/log/bot_army
@@ -174,10 +175,11 @@ services:
 
   mcp:
     build:
-      context: ./repos/bot_army_elixir_tools_mcp
-      dockerfile: ../../Dockerfile
+      context: ./repos
+      dockerfile: ../Dockerfile
       args:
         BOT_NAME: elixir_tools_mcp_bot
+        BOT_REPO: bot_army_elixir_tools_mcp
     env_file: .env
     environment:
       MCP_PORT: "39900"
