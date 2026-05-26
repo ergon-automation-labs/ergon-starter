@@ -40,8 +40,8 @@ mkdir -p repos
 
 # Clone library repos (remote names differ from local dir names)
 declare -A lib_remotes=(
-  ["bot_army_runtime"]="ergon-runtime"
-  ["bot_army_core"]="ergon-core"
+  ["bot_army_runtime"]="ergon-library-runtime"
+  ["bot_army_core"]="ergon-library-core"
 )
 for lib in "${!lib_remotes[@]}"; do
   remote="${lib_remotes[$lib]}"
