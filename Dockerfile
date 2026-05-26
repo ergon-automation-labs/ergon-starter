@@ -14,6 +14,9 @@
 # =============================================
 FROM elixir:1.17.3-otp-27-alpine AS base
 
+ARG MIX_ENV=prod
+ENV MIX_ENV=${MIX_ENV}
+
 RUN apk add --no-cache git build-base
 RUN mix local.hex --force && mix local.rebar --force
 
@@ -26,11 +29,11 @@ COPY bot_army_library_learning/mix.exs bot_army_library_learning/mix.lock* bot_a
 
 # Fetch and compile library deps
 WORKDIR /repos/bot_army_library_core
-RUN mix deps.get --only prod && mix deps.compile
+RUN mix deps.get --only ${MIX_ENV} && mix deps.compile
 WORKDIR /repos/bot_army_library_runtime
-RUN mix deps.get --only prod && mix deps.compile
+RUN mix deps.get --only ${MIX_ENV} && mix deps.compile
 WORKDIR /repos/bot_army_library_learning
-RUN mix deps.get --only prod && mix deps.compile
+RUN mix deps.get --only ${MIX_ENV} && mix deps.compile
 
 # Copy full library source and compile
 COPY bot_army_library_core/ bot_army_library_core/
