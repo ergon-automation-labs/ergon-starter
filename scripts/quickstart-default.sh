@@ -42,6 +42,7 @@ mkdir -p repos
 declare -A lib_remotes=(
   ["bot_army_runtime"]="ergon-library-runtime"
   ["bot_army_core"]="ergon-library-core"
+  ["bot_army_learning"]="ergon-library-learning"
 )
 for lib in "${!lib_remotes[@]}"; do
   remote="${lib_remotes[$lib]}"
