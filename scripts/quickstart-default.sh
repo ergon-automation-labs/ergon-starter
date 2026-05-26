@@ -50,8 +50,12 @@ for lib in "${!lib_remotes[@]}"; do
   dest="repos/$lib"
   if [ ! -d "$dest" ]; then
     echo "  ⏳ $remote..."
-    git clone --depth 1 "https://github.com/${GIT_ORG}/${remote}.git" "$dest" 2>/dev/null
-    echo "  ✓ $remote"
+    if git clone --depth 1 "https://github.com/${GIT_ORG}/${remote}.git" "$dest" 2>&1; then
+      echo "  ✓ $remote"
+    else
+      echo "  ✗ $remote (clone failed)" >&2
+      exit 1
+    fi
   else
     echo "  ✓ $remote (exists)"
   fi
@@ -66,8 +70,12 @@ while IFS=' ' read -r remote repo release bot_name db_flag; do
   dest="repos/$repo"
   if [ ! -d "$dest" ]; then
     echo "  ⏳ $remote..."
-    git clone --depth 1 "https://github.com/${GIT_ORG}/${remote}.git" "$dest" 2>/dev/null
-    echo "  ✓ $remote"
+    if git clone --depth 1 "https://github.com/${GIT_ORG}/${remote}.git" "$dest" 2>&1; then
+      echo "  ✓ $remote"
+    else
+      echo "  ✗ $remote (clone failed)" >&2
+      exit 1
+    fi
   else
     echo "  ✓ $remote (exists)"
   fi
