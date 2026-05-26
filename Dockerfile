@@ -67,15 +67,17 @@ WORKDIR /repos/${BOT_REPO}
 # Public bot repos declare libraries as git deps, but libraries reference
 # each other as path deps — Mix can't reconcile the mismatch.
 # In Docker, all repos are siblings under /repos/, so path deps resolve correctly.
-RUN elixir -e '
-  {:ok, content} = File.read("mix.exs")
-  for lib <- ~w(bot_army_library_core bot_army_library_runtime bot_army_library_learning) do
-    re = Regex.compile!("[{:]#{lib},\\s*\\[.*?\\]}", "s")
-    replacement = "{:#{lib}, path: \"../#{lib}\"}"
-    content = Regex.replace(re, content, replacement)
-  end
-  File.write!("mix.exs", content)
-'
+RUN <<BUILDfix
+cat > /tmp/fix_deps.exs << 'ELIXIRSCRIPT'
+{:ok, c} = File.read("mix.exs")
+c = Enum.reduce(~w(bot_army_library_core bot_army_library_runtime bot_army_library_learning), c, fn lib, acc ->
+  re = Regex.compile!("[{:]#{lib},\\s*\\[.*?\\]", "s")
+  Regex.replace(re, acc, "{:#{lib}, path: \"../#{lib}\"}")
+end)
+File.write!("mix.exs", c)
+ELIXIRSCRIPT
+elixir /tmp/fix_deps.exs
+BUILDfix
 
 RUN mix deps.get --only ${MIX_ENV} && mix deps.compile
 
