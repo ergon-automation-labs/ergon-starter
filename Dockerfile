@@ -71,10 +71,16 @@ RUN <<BUILDfix
 cat > /tmp/fix_deps.exs << 'ELIXIRSCRIPT'
 {:ok, c} = File.read("mix.exs")
 c = Enum.reduce(~w(bot_army_library_core bot_army_library_runtime bot_army_library_learning), c, fn lib, acc ->
-  pattern = "\\{:" <> lib <> ",\\s*\\[.*?\\]\\}"
-  {:ok, re} = Regex.compile(pattern, "s")
+  # Match either format:
+  #   {:lib, [env: :prod, git: "...", branch: "main"]}  (with brackets)
+  #   {:lib, git: "...", branch: "main"}                 (without brackets, possibly multiline)
+  re_bracket = Regex.compile!("\\{:" <> lib <> ",\\s*\\[.*?\\]\\}", "s")
+  re_bare = Regex.compile!("\\{:" <> lib <> ",\\s*[^}]+\\}", "s")
   replacement = "{:" <> lib <> ", path: \"../" <> lib <> "\"}"
-  Regex.replace(re, acc, replacement)
+  case Regex.replace(re_bracket, acc, replacement) do
+    ^acc -> Regex.replace(re_bare, acc, replacement)
+    result -> result
+  end
 end)
 File.write!("mix.exs", c)
 ELIXIRSCRIPT
