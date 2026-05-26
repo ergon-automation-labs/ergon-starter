@@ -267,8 +267,15 @@ docker-clean: ## Stop and remove all bot containers (safe)
 	@echo "✓ Docker cleaned (images and volumes preserved)"
 
 docker-deep-clean: ## Remove all docker images and volumes (WARNING: deletes data)
-	@echo "⚠️  This will remove all containers, images, and volumes..."
-	@echo "This is safe only if you're not using Docker for other projects."
+	@echo "⚠️  WARNING: This will PERMANENTLY DELETE all Docker containers, images, and volumes"
+	@echo ""
+	@echo "Data that will be lost:"
+	@echo "  • PostgreSQL databases (all bot data)"
+	@echo "  • NATS message history"
+	@echo "  • Ollama model cache"
+	@echo "  • Any persistent data mounted in volumes (including data from OTHER PROJECTS)"
+	@echo ""
+	@echo "This is only safe if you're NOT using Docker for other projects."
 	@read -p "Continue? [y/N] " -n 1 -r; \
 	echo; \
 	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \

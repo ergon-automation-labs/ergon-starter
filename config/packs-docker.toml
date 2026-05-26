@@ -22,8 +22,8 @@ bots = [
   { repo = "ergon-para", binary = "para_bot", optional = false },
   { repo = "ergon-dispatcher", binary = "dispatcher_bot", optional = false },
   { repo = "ergon-synapse-lite", binary = "synapse_bot", optional = false },
-  { repo = "ergon-claude_bridge", binary = "claude_bridge_bot", optional = true },
-  { repo = "ergon-job_scheduler", binary = "job_scheduler_bot", optional = false },
+  { repo = "ergon-bridge-lite", binary = "bridge_lite", optional = false },
+  { repo = "ergon-job-scheduler", binary = "job_scheduler_bot", optional = false },
   { repo = "ergon-skills-base", binary = "skills_bot", optional = false },
   { repo = "ergon-surface-mcp", binary = "surface_mcp_bot", optional = false }
 ]

@@ -59,8 +59,8 @@ category = "core"
 channels = { stable = "stable", latest = "latest", nightly = "main" }
 
 [[bots]]
-name = "bot_army_claude_bridge"
-remote = "ergon-claude_bridge"
+name = "bot_army_bridge_lite"
+remote = "ergon-bridge-lite"
 category = "core"
 channels = { stable = "stable", latest = "latest", nightly = "main" }
 

@@ -11,7 +11,7 @@
       "core",
       "runtime",
       "skills",
-      "claude_bridge",
+      "bridge_lite",
       "job_scheduler",
       "dispatcher",
       "synapse",

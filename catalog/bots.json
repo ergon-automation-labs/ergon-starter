@@ -6,8 +6,8 @@
     "release_name": "core_bot",
     "category": "core",
     "stability": "stable",
-    "channel": "nightly",
-    "channel_ref": "main"
+    "channel": "stable",
+    "channel_ref": "stable"
   },
   {
     "name": "runtime",
@@ -16,8 +16,8 @@
     "release_name": "runtime_bot",
     "category": "core",
     "stability": "stable",
-    "channel": "nightly",
-    "channel_ref": "main"
+    "channel": "stable",
+    "channel_ref": "stable"
   },
   {
     "name": "llm",
@@ -26,8 +26,8 @@
     "release_name": "llm_bot",
     "category": "core",
     "stability": "stable",
-    "channel": "nightly",
-    "channel_ref": "main"
+    "channel": "stable",
+    "channel_ref": "stable"
   },
   {
     "name": "learning",
@@ -36,8 +36,8 @@
     "release_name": "learning_bot",
     "category": "core",
     "stability": "stable",
-    "channel": "nightly",
-    "channel_ref": "main"
+    "channel": "stable",
+    "channel_ref": "stable"
   },
   {
     "name": "gtd",
@@ -46,8 +46,8 @@
     "release_name": "gtd_bot",
     "category": "core",
     "stability": "stable",
-    "channel": "nightly",
-    "channel_ref": "main"
+    "channel": "stable",
+    "channel_ref": "stable"
   },
   {
     "name": "para",
@@ -56,8 +56,8 @@
     "release_name": "para_bot",
     "category": "core",
     "stability": "stable",
-    "channel": "nightly",
-    "channel_ref": "main"
+    "channel": "stable",
+    "channel_ref": "stable"
   },
   {
     "name": "dispatcher",
@@ -66,8 +66,8 @@
     "release_name": "dispatcher_bot",
     "category": "core",
     "stability": "stable",
-    "channel": "nightly",
-    "channel_ref": "main"
+    "channel": "stable",
+    "channel_ref": "stable"
   },
   {
     "name": "synapse",
@@ -76,28 +76,28 @@
     "release_name": "synapse_bot",
     "category": "core",
     "stability": "stable",
-    "channel": "nightly",
-    "channel_ref": "main"
+    "channel": "stable",
+    "channel_ref": "stable"
   },
   {
-    "name": "claude_bridge",
-    "repo": "bot_army_claude_bridge",
-    "remote": "ergon-claude_bridge",
-    "release_name": "claude_bridge_bot",
+    "name": "bridge_lite",
+    "repo": "bot_army_bridge_lite",
+    "remote": "ergon-bridge-lite",
+    "release_name": "bridge_lite_bot",
     "category": "core",
     "stability": "stable",
-    "channel": "nightly",
-    "channel_ref": "main"
+    "channel": "stable",
+    "channel_ref": "stable"
   },
   {
     "name": "job_scheduler",
     "repo": "bot_army_job_scheduler",
-    "remote": "ergon-job_scheduler",
+    "remote": "ergon-job-scheduler",
     "release_name": "job_scheduler_bot",
     "category": "core",
     "stability": "stable",
-    "channel": "nightly",
-    "channel_ref": "main"
+    "channel": "stable",
+    "channel_ref": "stable"
   },
   {
     "name": "skills",
@@ -106,38 +106,38 @@
     "release_name": "skills_bot",
     "category": "core",
     "stability": "stable",
-    "channel": "nightly",
-    "channel_ref": "main"
+    "channel": "stable",
+    "channel_ref": "stable"
   },
   {
     "name": "surface_mcp",
     "repo": "bot_army_surface_mcp",
-    "remote": "ergon-mcp",
+    "remote": "ergon-surface-mcp",
     "release_name": "surface_mcp_bot",
     "category": "core",
     "stability": "stable",
-    "channel": "nightly",
-    "channel_ref": "main"
+    "channel": "stable",
+    "channel_ref": "stable"
   },
   {
     "name": "youtube_manager",
     "repo": "bot_army_youtube_manager",
-    "remote": "ergon-youtube_manager",
+    "remote": "ergon-youtube-manager",
     "release_name": "youtube_manager_bot",
     "category": "social_media",
     "stability": "experimental",
-    "channel": "nightly",
-    "channel_ref": "main"
+    "channel": "stable",
+    "channel_ref": "stable"
   },
   {
     "name": "media_ingestion",
     "repo": "bot_army_media_ingestion",
-    "remote": "ergon-media_ingestion",
+    "remote": "ergon-media-ingestion",
     "release_name": "media_ingestion_bot",
     "category": "social_media",
     "stability": "experimental",
-    "channel": "nightly",
-    "channel_ref": "main"
+    "channel": "stable",
+    "channel_ref": "stable"
   },
   {
     "name": "terrain",
@@ -146,18 +146,18 @@
     "release_name": "terrain_bot",
     "category": "learning_deepdive",
     "stability": "stable",
-    "channel": "nightly",
-    "channel_ref": "main"
+    "channel": "stable",
+    "channel_ref": "stable"
   },
   {
     "name": "internal_docs",
     "repo": "bot_army_internal_docs",
-    "remote": "ergon-internal_docs",
+    "remote": "ergon-internal-docs",
     "release_name": "internal_docs_bot",
     "category": "learning_deepdive",
     "stability": "stable",
-    "channel": "nightly",
-    "channel_ref": "main"
+    "channel": "stable",
+    "channel_ref": "stable"
   },
   {
     "name": "fitness",
@@ -166,8 +166,8 @@
     "release_name": "fitness_bot",
     "category": "areas",
     "stability": "stable",
-    "channel": "nightly",
-    "channel_ref": "main"
+    "channel": "stable",
+    "channel_ref": "stable"
   },
   {
     "name": "chore",
@@ -176,8 +176,8 @@
     "release_name": "chore_bot",
     "category": "areas",
     "stability": "stable",
-    "channel": "nightly",
-    "channel_ref": "main"
+    "channel": "stable",
+    "channel_ref": "stable"
   },
   {
     "name": "rpg",
@@ -186,8 +186,8 @@
     "release_name": "rpg_bot",
     "category": "areas",
     "stability": "stable",
-    "channel": "nightly",
-    "channel_ref": "main"
+    "channel": "stable",
+    "channel_ref": "stable"
   },
   {
     "name": "feeds",
@@ -196,18 +196,18 @@
     "release_name": "feeds_bot",
     "category": "research",
     "stability": "experimental",
-    "channel": "nightly",
-    "channel_ref": "main"
+    "channel": "stable",
+    "channel_ref": "stable"
   },
   {
     "name": "rss_polling",
     "repo": "bot_army_rss_polling",
-    "remote": "ergon-rss_polling",
+    "remote": "ergon-rss-polling",
     "release_name": "rss_polling_bot",
     "category": "research",
     "stability": "experimental",
-    "channel": "nightly",
-    "channel_ref": "main"
+    "channel": "stable",
+    "channel_ref": "stable"
   },
   {
     "name": "advocacy",
@@ -216,17 +216,17 @@
     "release_name": "advocacy_bot",
     "category": "research",
     "stability": "experimental",
-    "channel": "nightly",
-    "channel_ref": "main"
+    "channel": "stable",
+    "channel_ref": "stable"
   },
   {
     "name": "job_applications",
     "repo": "bot_army_job_applications",
-    "remote": "ergon-job_applications",
+    "remote": "ergon-job-applications",
     "release_name": "job_applications_bot",
     "category": "research",
     "stability": "experimental",
-    "channel": "nightly",
-    "channel_ref": "main"
+    "channel": "stable",
+    "channel_ref": "stable"
   }
 ]
