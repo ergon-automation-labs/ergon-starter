@@ -128,7 +128,7 @@
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable",
-    "install_note": "Requires Elixir/OTP toolchain on host — see wizard setup instructions"
+    "install_note": "HTTP transport on port 39900 via MCP_PORT env — connects Claude Desktop without local Elixir"
   },
   {
     "name": "youtube_manager",
