@@ -1,0 +1,137 @@
+# Multi-stage Dockerfile for Bot Army packs (single BEAM VM per pack).
+#
+# Build context must be the repos/ directory so path deps resolve.
+# The PACK_NAME arg selects which pack release to build.
+#
+# docker compose build --build-arg PACK_NAME=core_pack .
+
+ARG CACHE_BUST=1
+
+# =============================================
+# Phase 1: Base image with shared libraries
+# =============================================
+FROM elixir:1.17.3-otp-27-alpine AS base
+
+ARG CACHE_BUST
+ARG MIX_ENV=prod
+ENV MIX_ENV=${MIX_ENV}
+
+RUN apk add --no-cache git build-base && echo "cache_bust=${CACHE_BUST}"
+RUN mix local.hex --force && mix local.rebar --force
+
+WORKDIR /repos
+
+# Copy library mix.exs + mix.lock first (layer caching)
+COPY bot_army_library_core/mix.exs bot_army_library_core/mix.lock* bot_army_library_core/
+COPY bot_army_library_runtime/mix.exs bot_army_library_runtime/mix.lock* bot_army_library_runtime/
+COPY bot_army_library_learning/mix.exs bot_army_library_learning/mix.lock* bot_army_library_learning/
+
+# Fetch and compile library deps
+WORKDIR /repos/bot_army_library_core
+RUN mix deps.get --only ${MIX_ENV} && mix deps.compile
+WORKDIR /repos/bot_army_library_runtime
+RUN mix deps.get --only ${MIX_ENV} && mix deps.compile
+WORKDIR /repos/bot_army_library_learning
+RUN mix deps.get --only ${MIX_ENV} && mix deps.compile
+
+# Copy full library source and compile
+COPY bot_army_library_core/ bot_army_library_core/
+COPY bot_army_library_runtime/ bot_army_library_runtime/
+COPY bot_army_library_learning/ bot_army_library_learning/
+
+WORKDIR /repos/bot_army_library_core
+RUN mix compile
+WORKDIR /repos/bot_army_library_runtime
+RUN mix compile
+WORKDIR /repos/bot_army_library_learning
+RUN mix compile
+
+# =============================================
+# Phase 2: Pack build (all bots + pack app)
+# =============================================
+FROM base AS build
+
+ARG PACK_NAME
+ARG MIX_ENV=prod
+
+# Core pack bots — copy all source repos needed for the release
+# These must match the applications list in the pack's mix.exs releases config.
+COPY bot_army_gtd/ bot_army_gtd/
+COPY bot_army_llm/ bot_army_llm/
+COPY bot_army_para/ bot_army_para/
+COPY bot_army_bridge_lite/ bot_army_bridge_lite/
+COPY bot_army_synapse/ bot_army_synapse/
+COPY bot_army_dispatcher/ bot_army_dispatcher/
+COPY bot_army_skills/ bot_army_skills/
+COPY bot_army_job_scheduler/ bot_army_job_scheduler/
+
+# Pack repo itself
+COPY ergon-core-pack/ ergon-core-pack/
+
+WORKDIR /repos/ergon-core-pack
+
+# Fix any git-dep → path-dep mismatches (same logic as per-bot Dockerfile)
+RUN <<BUILDfix
+cat > /tmp/fix_deps.exs << 'ELIXIRSCRIPT'
+deps_dirs = File.ls!("/repos") |> Enum.filter(fn d ->
+  File.dir?("/repos/#{d}") and File.exists?("/repos/#{d}/mix.exs")
+end)
+{:ok, c} = File.read("mix.exs")
+c = Enum.reduce(deps_dirs, c, fn dir, acc ->
+  # Replace {:dir, git: ...} or {:dir, path: ...} with {:dir, path: "../dir"}
+  re = Regex.compile!("\\{:" <> dir <> ",\\s*\\[.*?\\]\\}", "s")
+  replacement = "{:" <> dir <> ", path: \"../" <> dir <> "\"}"
+  Regex.replace(re, acc, replacement)
+end)
+# Also handle bare deps like {:dir, "github.com/..."}
+re_bare = Regex.compile!("\\{:" <> dir <> ",\\s*\"[^\"]+\"\\}", "s")
+c = Regex.replace(re_bare, c, replacement)
+File.write!("mix.exs", c)
+ELIXIRSCRIPT
+elixir /tmp/fix_deps.exs
+BUILDfix
+
+# Also fix deps in each bot's mix.exs (they may have git deps to each other)
+RUN <<FIXBOTDEPS
+cat > /tmp/fix_bot_deps.exs << 'ELIXIRSCRIPT'
+bot_dirs = File.ls!("/repos") |> Enum.filter(fn d ->
+  File.dir?("/repos/#{d}") and File.exists?("/repos/#{d}/mix.exs") and d != "ergon-core-pack"
+end)
+Enum.each(bot_dirs, fn dir ->
+  mix_path = "/repos/#{dir}/mix.exs"
+  {:ok, c} = File.read(mix_path)
+  c = Enum.reduce(bot_dirs ++ ~w(bot_army_library_core bot_army_library_runtime bot_army_library_learning), c, fn other_dir, acc ->
+    re = Regex.compile!("\\{:" <> other_dir <> ",\\s*\\[.*?\\]\\}", "s")
+    replacement = "{:" <> other_dir <> ", path: \"../" <> other_dir <> "\"}"
+    case Regex.replace(re, acc, replacement) do
+      ^acc ->
+        re_bare = Regex.compile!("\\{:" <> other_dir <> ",\\s*\"[^\"]+\"\\}", "s")
+        Regex.replace(re_bare, acc, replacement)
+      result -> result
+    end
+  end)
+  File.write!(mix_path, c)
+end)
+ELIXIRSCRIPT
+elixir /tmp/fix_bot_deps.exs
+FIXBOTDEPS
+
+RUN mix deps.get --only ${MIX_ENV} && mix deps.compile
+RUN mix release ${PACK_NAME}
+
+# =============================================
+# Runtime stage
+# =============================================
+FROM alpine:3.20 AS runtime
+
+ARG PACK_NAME
+
+RUN apk add --no-cache libstdc++ openssl ncurses-libs
+
+WORKDIR /app
+
+COPY --from=build /repos/ergon-core-pack/_build/prod/rel/${PACK_NAME} ./
+
+ENV PACK_NAME=${PACK_NAME}
+
+CMD /app/bin/${PACK_NAME} start

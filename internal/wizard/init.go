@@ -223,6 +223,22 @@ func cloneRepos(cfg *Config) error {
 		}
 	}
 
+	// Clone pack repos when packs are selected
+	packRepoMap := map[string]string{
+		"core":              "ergon-core-pack",
+		"areas":             "ergon-areas-pack",
+		"learning_deepdive": "ergon-learning-deepdive-pack",
+		"social_media":      "ergon-social-media-pack",
+		"research":          "ergon-research-pack",
+	}
+	for _, pack := range cfg.SelectedPacks {
+		if remote, ok := packRepoMap[pack.Name]; ok {
+			if err := cloneRepoAs(reposDir, remote, "ergon-"+pack.Name+"-pack", cfg.GitOrg); err != nil {
+				return err
+			}
+		}
+	}
+
 	// Clone selected bots
 	for _, bot := range cfg.SelectedBots {
 		remote := bot.Remote
