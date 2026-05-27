@@ -118,7 +118,7 @@ RUN mix release ${PACK_NAME}
 # =============================================
 # Runtime stage
 # =============================================
-FROM alpine:3.20 AS runtime
+FROM alpine:3.22 AS runtime
 
 ARG PACK_NAME
 ARG PACK_REPO=ergon-pack-core

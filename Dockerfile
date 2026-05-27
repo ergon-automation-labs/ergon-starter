@@ -101,7 +101,7 @@ RUN mix release ${BOT_NAME}
 # =============================================
 # Runtime stage
 # =============================================
-FROM alpine:3.20 AS runtime
+FROM alpine:3.22 AS runtime
 
 ARG BOT_NAME
 ARG BOT_REPO
