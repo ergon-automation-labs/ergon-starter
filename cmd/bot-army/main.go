@@ -40,6 +40,7 @@ func main() {
 			os.Exit(1)
 		}
 	case "dashboard":
+		fmt.Fprintln(os.Stderr, "bot-army: launching dashboard...")
 		if err := dashboard.RunFromDir("."); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)

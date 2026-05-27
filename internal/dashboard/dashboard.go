@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -52,6 +53,7 @@ func NewDashboard(cfg *DashboardConfig) *Dashboard {
 
 // Run starts the dashboard and blocks until the user quits.
 func (d *Dashboard) Run() error {
+	fmt.Fprintln(os.Stderr, "bot-army: starting dashboard...")
 	d.buildLayout()
 	d.initTabs()
 	d.setupKeyCapture()
@@ -67,9 +69,12 @@ func (d *Dashboard) Run() error {
 		d.pigo.Start()
 	}()
 
+	fmt.Fprintln(os.Stderr, "bot-army: entering event loop...")
 	if err := d.app.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "bot-army: event loop error: %v\n", err)
 		return err
 	}
+	fmt.Fprintln(os.Stderr, "bot-army: event loop ended.")
 
 	d.stopTabs()
 	return nil
