@@ -225,15 +225,15 @@ func cloneRepos(cfg *Config) error {
 
 	// Clone pack repos when packs are selected
 	packRepoMap := map[string]string{
-		"core":              "ergon-core-pack",
-		"areas":             "ergon-areas-pack",
-		"learning_deepdive": "ergon-learning-deepdive-pack",
-		"social_media":      "ergon-social-media-pack",
-		"research":          "ergon-research-pack",
+		"core":              "ergon-pack-core",
+		"areas":             "ergon-pack-areas",
+		"learning_deepdive": "ergon-pack-learning-deepdive",
+		"social_media":      "ergon-pack-social-media",
+		"research":          "ergon-pack-research",
 	}
 	for _, pack := range cfg.SelectedPacks {
 		if remote, ok := packRepoMap[pack.Name]; ok {
-			if err := cloneRepoAs(reposDir, remote, "ergon-"+pack.Name+"-pack", cfg.GitOrg); err != nil {
+			if err := cloneRepoAs(reposDir, remote, "ergon-pack-"+pack.Name, cfg.GitOrg); err != nil {
 				return err
 			}
 		}

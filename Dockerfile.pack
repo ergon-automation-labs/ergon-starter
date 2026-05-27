@@ -66,9 +66,9 @@ COPY bot_army_skills/ bot_army_skills/
 COPY bot_army_job_scheduler/ bot_army_job_scheduler/
 
 # Pack repo itself
-COPY ergon-core-pack/ ergon-core-pack/
+COPY ergon-pack-core/ ergon-pack-core/
 
-WORKDIR /repos/ergon-core-pack
+WORKDIR /repos/ergon-pack-core
 
 # Fix any git-dep → path-dep mismatches (same logic as per-bot Dockerfile)
 RUN <<BUILDfix
@@ -95,7 +95,7 @@ BUILDfix
 RUN <<FIXBOTDEPS
 cat > /tmp/fix_bot_deps.exs << 'ELIXIRSCRIPT'
 bot_dirs = File.ls!("/repos") |> Enum.filter(fn d ->
-  File.dir?("/repos/#{d}") and File.exists?("/repos/#{d}/mix.exs") and d != "ergon-core-pack"
+  File.dir?("/repos/#{d}") and File.exists?("/repos/#{d}/mix.exs") and d != "ergon-pack-core"
 end)
 Enum.each(bot_dirs, fn dir ->
   mix_path = "/repos/#{dir}/mix.exs"
@@ -130,7 +130,7 @@ RUN apk add --no-cache libstdc++ openssl ncurses-libs
 
 WORKDIR /app
 
-COPY --from=build /repos/ergon-core-pack/_build/prod/rel/${PACK_NAME} ./
+COPY --from=build /repos/ergon-pack-core/_build/prod/rel/${PACK_NAME} ./
 
 ENV PACK_NAME=${PACK_NAME}
 
