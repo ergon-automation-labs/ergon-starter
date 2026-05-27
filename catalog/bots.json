@@ -57,8 +57,7 @@
     "category": "core",
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable",
-    "volumes": ["./data/para:/opt/app/para"]
+    "channel_ref": "stable"
   },
   {
     "name": "dispatcher",
@@ -141,7 +140,7 @@
     "channel": "stable",
     "channel_ref": "stable",
     "needs_db": false,
-    "volumes": ["./data/graphify:/opt/app/graphify"]
+    "volumes": ["graphify_cache_data:/opt/app/graphify"]
   },
   {
     "name": "youtube_manager",
@@ -182,7 +181,7 @@
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable",
-    "volumes": ["./data/internal_docs/crawl:/opt/app/crawl"]
+    "volumes": ["internal_docs_crawl:/opt/app/crawl"]
   },
   {
     "name": "fitness",

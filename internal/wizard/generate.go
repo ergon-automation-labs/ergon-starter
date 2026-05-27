@@ -73,6 +73,7 @@ func generatePackComposeFile(cfg *Config) error {
 	// Collect unique bot names from all selected packs for data dirs
 	allBotNames := map[string]bool{}
 	needsDB := false
+	namedVols := map[string]bool{}
 	for _, pack := range cfg.SelectedPacks {
 		// Look up bot details for each bot in the pack
 		for _, botName := range pack.Bots {
@@ -95,14 +96,14 @@ func generatePackComposeFile(cfg *Config) error {
 		}
 	}
 
-	// Create directories for custom bot volumes
+	// Create host directories for bind-mount volumes (skip named volumes like "data:/path")
 	for _, pack := range cfg.SelectedPacks {
 		for _, botName := range pack.Bots {
 			for _, bot := range cfg.AllBots {
 				if bot.Name == botName {
 					for _, vol := range bot.Volumes {
 						parts := strings.SplitN(vol, ":", 2)
-						if len(parts) == 2 {
+						if len(parts) == 2 && strings.HasPrefix(parts[0], "./") {
 							hostPath := filepath.Join(cfg.InstallDir, parts[0])
 							os.MkdirAll(hostPath, 0o755)
 						}
@@ -190,7 +191,7 @@ func generatePackComposeFile(cfg *Config) error {
 		b.WriteString("      - para:/opt/app/para\n")
 		b.WriteString("      - state:/opt/app/state\n")
 
-		// Custom volume mounts from bot catalog (deduplicated)
+		// Custom volume mounts from bot catalog (deduplicated per pack)
 		seenVols := map[string]bool{}
 		for _, botName := range pack.Bots {
 			for _, bot := range cfg.AllBots {
@@ -199,6 +200,11 @@ func generatePackComposeFile(cfg *Config) error {
 						if !seenVols[vol] {
 							b.WriteString(fmt.Sprintf("      - %s\n", vol))
 							seenVols[vol] = true
+							// Track named volumes for the volumes: section
+							parts := strings.SplitN(vol, ":", 2)
+							if len(parts) == 2 && !strings.HasPrefix(parts[0], "./") && !strings.HasPrefix(parts[0], "/") {
+								namedVols[parts[0]] = true
+							}
 						}
 					}
 				}
@@ -276,6 +282,10 @@ func generatePackComposeFile(cfg *Config) error {
 	if cfg.SelfHostOllama {
 		b.WriteString("  ollama_data:\n")
 	}
+	// Named volumes from bot catalog entries (e.g. graphify_cache_data, internal_docs_crawl)
+	for volName := range namedVols {
+		b.WriteString(fmt.Sprintf("  %s:\n", volName))
+	}
 
 	composePath := filepath.Join(cfg.InstallDir, "docker-compose.yml")
 	if err := os.WriteFile(composePath, []byte(b.String()), 0o644); err != nil {
@@ -297,11 +307,11 @@ func generateBotComposeFile(cfg *Config) error {
 		}
 	}
 
-	// Create directories for custom bot volumes
+	// Create host directories for bind-mount volumes (skip named volumes like "data:/path")
 	for _, bot := range cfg.SelectedBots {
 		for _, vol := range bot.Volumes {
 			parts := strings.SplitN(vol, ":", 2)
-			if len(parts) == 2 {
+			if len(parts) == 2 && strings.HasPrefix(parts[0], "./") {
 				hostPath := filepath.Join(cfg.InstallDir, parts[0])
 				os.MkdirAll(hostPath, 0o755)
 			}
@@ -369,6 +379,9 @@ func generateBotComposeFile(cfg *Config) error {
 `, cfg.Ports.Ollama))
 	}
 
+	// Collect named volumes from bot catalog entries for the volumes: section
+	namedVols := map[string]bool{}
+
 	// Bots (skip libraries — they're path deps bundled into each bot's release)
 	for _, bot := range cfg.SelectedBots {
 		if strings.HasPrefix(bot.Repo, "bot_army_library_") {
@@ -392,6 +405,11 @@ func generateBotComposeFile(cfg *Config) error {
 		// Custom volume mounts from bot catalog
 		for _, vol := range bot.Volumes {
 			b.WriteString(fmt.Sprintf("      - %s\n", vol))
+			// Track named volumes (no "./" or "/" prefix)
+			parts := strings.SplitN(vol, ":", 2)
+			if len(parts) == 2 && !strings.HasPrefix(parts[0], "./") && !strings.HasPrefix(parts[0], "/") {
+				namedVols[parts[0]] = true
+			}
 		}
 
 		// Development mode: mount library repos for live editing
@@ -476,6 +494,10 @@ func generateBotComposeFile(cfg *Config) error {
 	}
 	if cfg.SelfHostOllama {
 		b.WriteString("  ollama_data:\n")
+	}
+	// Named volumes from bot catalog entries (e.g. graphify_cache_data, internal_docs_crawl)
+	for volName := range namedVols {
+		b.WriteString(fmt.Sprintf("  %s:\n", volName))
 	}
 
 	composePath := filepath.Join(cfg.InstallDir, "docker-compose.yml")
