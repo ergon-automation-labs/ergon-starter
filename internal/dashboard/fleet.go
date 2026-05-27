@@ -88,14 +88,11 @@ func (f *FleetTab) Init(app *tview.Application, cfg *DashboardConfig) {
 
 	// Start NATS health monitor
 	f.healthMon = NewNATSHealthMonitor(cfg.NATSPort)
-
-	// Start background refresh
-	go f.refreshLoop()
 }
 
 // Start triggers the initial data fetch (called after tview event loop starts).
 func (f *FleetTab) Start() {
-	f.refresh()
+	go f.refreshLoop()
 }
 
 // refreshLoop periodically refreshes the fleet list.
@@ -130,9 +127,9 @@ func (f *FleetTab) refresh() {
 		contMap[c.Names] = c
 	}
 
-	// Try to connect/reconnect NATS health monitor
+	// Try to connect/reconnect NATS health monitor (async, don't block)
 	if f.healthMon != nil {
-		f.healthMon.Connect()
+		go f.healthMon.Connect()
 	}
 
 	// Get cached health status
