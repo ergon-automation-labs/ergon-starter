@@ -92,9 +92,18 @@ end)
 Enum.each(bot_dirs, fn dir ->
   mix_path = "/repos/#{dir}/mix.exs"
   {:ok, c} = File.read(mix_path)
-  c = Enum.reduce(bot_dirs ++ ~w(bot_army_library_core bot_army_library_runtime bot_army_library_learning), c, fn other_dir, acc ->
+  # Rewrite inter-bot deps to path deps
+  c = Enum.reduce(bot_dirs, c, fn other_dir, acc ->
     re = Regex.compile!("\\{:" <> other_dir <> ",\\s*[^}]+\\}", "s")
     replacement = "{:" <> other_dir <> ", path: \"../" <> other_dir <> "\"}"
+    Regex.replace(re, acc, replacement)
+  end)
+  # Rewrite library deps (old + new names) to canonical bot_army_library_* path deps
+  c = Enum.reduce(~w(bot_army_core bot_army_library_core bot_army_runtime bot_army_library_runtime bot_army_learning bot_army_library_learning), c, fn dep, acc ->
+    suffix = dep |> String.replace_prefix("bot_army_library_", "") |> String.replace_prefix("bot_army_", "")
+    lib = "bot_army_library_" <> suffix
+    re = Regex.compile!("\\{:" <> dep <> ",\\s*[^}]+\\}", "s")
+    replacement = "{:" <> lib <> ", path: \"../" <> lib <> "\"}"
     Regex.replace(re, acc, replacement)
   end)
   File.write!(mix_path, c)
