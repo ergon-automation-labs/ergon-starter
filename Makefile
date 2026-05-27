@@ -41,7 +41,7 @@ REGISTRY_PORT ?= 32000
 # Elixir builds are memory-heavy — limit parallel builds to avoid OOM
 COMPOSE_BUILD_PARALLEL ?= 3
 
-.PHONY: help quickstart build install sync init add status dashboard up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health clean-images clean-docker-volumes clean-docker-builder clean-logs clean-caches-safe clean-safe clean-disk disk-check test release-check release-test release-create release-list release-latest registry-build registry-push registry-publish registry-images registry-setup setup-tools claude-integrate help-create-bot help-volumes
+.PHONY: help quickstart build install sync init add add-local status dashboard up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health clean-images clean-docker-volumes clean-docker-builder clean-logs clean-caches-safe clean-safe clean-disk disk-check test release-check release-test release-create release-list release-latest registry-build registry-push registry-publish registry-images registry-setup setup-tools claude-integrate help-create-bot help-volumes
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -85,7 +85,8 @@ quickstart: catalog/bots.json ## Full setup: wizard → clone → build → star
 	@echo "  Build & manage:"
 	@echo "    make ps                   Show services"
 	@echo "    make help-create-bot      Create your own bot"
-	@echo "    make add BOT=name         Add another bot"
+	@echo "    make add BOT=name         Add catalog bot"
+	@echo "    make add-local BOT_PATH=  Add your custom bot"
 	@echo "    make down                 Stop everything"
 	@echo "═══════════════════════════════════════════"
 
@@ -209,13 +210,17 @@ catalog/bots.json: scripts/sync-catalog.sh config/repos-public.toml
 	@echo "Bot catalog missing — generating from repos-public.toml (channel: $(CHANNEL))..."
 	./scripts/sync-catalog.sh $(CHANNEL)
 
-add: build ## Add a bot (usage: make add BOT=fitness)
+add: build ## Add a catalog bot (usage: make add BOT=fitness)
 	@test -n "$(BOT)" || (echo "Usage: make add BOT=<name>" && exit 1)
 	docker run --rm \
 		-v $(PWD):/workspace \
 		-v $(HOME)/.config/gh:/root/.config/gh \
 		-v $(DOCKER_SOCK):/var/run/docker.sock \
 		-w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) add $(BOT)
+
+add-local: ## Add your custom bot (usage: make add-local BOT_PATH=/path/to/bot_army_mybot)
+	@test -n "$(BOT_PATH)" || (echo "Usage: make add-local BOT_PATH=/path/to/bot_army_mybot" && exit 1)
+	@./scripts/add-local-bot.sh "$(BOT_PATH)"
 
 status: build ## Show configured services
 	docker run --rm \

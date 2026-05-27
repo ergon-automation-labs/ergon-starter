@@ -438,19 +438,67 @@ IO.puts(reply.body)
 
 ## Step 6: Add to Your Fleet
 
-Once your bot is working locally, add it to docker-compose:
+Once your bot is working locally, add it to your docker-compose.yml.
+
+### Option A: Add Your Local Bot (Recommended for Custom Bots)
+
+Use the Makefile helper to add your locally-created bot:
 
 ```bash
 cd /Users/abby/code/bot-army-starter
-make add BOT=mybot
+
+# Add your bot to the fleet
+make add-local BOT_PATH=/Users/abby/code/elixir_bots/bot_army_mybot
 ```
 
-This updates `docker-compose.yml` to build and run your bot.
+This:
+1. ✅ Validates your bot structure
+2. ✅ Adds a service to `docker-compose.yml`
+3. ✅ Configures volumes and dependencies
+4. ✅ Sets up logging
+5. ✅ Detects if your bot needs PostgreSQL
 
-Verify:
+The helper script handles all the details automatically. Or call the script directly:
+
 ```bash
-docker compose ps
-# You should see mybot_bot starting
+./scripts/add-local-bot.sh /Users/abby/code/elixir_bots/bot_army_mybot
+```
+
+### Option B: Manually Edit docker-compose.yml
+
+If you prefer manual control, add to `docker-compose.yml`:
+
+```yaml
+services:
+  mybot_bot:
+    build:
+      context: ../elixir_bots/bot_army_mybot  # Path to your bot repo
+      dockerfile: Dockerfile
+    image: mybot_bot:latest
+    env_file: .env
+    volumes:
+      - ./data/logs/mybot:/var/log/bot_army  # Logs
+      - para:/opt/app/para                    # Shared PARA
+    depends_on:
+      nats:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  para:  # Already defined, don't duplicate
+```
+
+### Verify It's Added
+
+```bash
+# Check docker-compose.yml
+grep "mybot_bot:" docker-compose.yml
+
+# Or use the status command
+make status
+# Should list mybot_bot under Bots
 ```
 
 ## Step 7: Verify Integration
