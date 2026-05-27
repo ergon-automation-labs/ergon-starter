@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"context"
+	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/rivo/tview"
@@ -12,6 +13,8 @@ type NATSTab struct {
 	widget  *tview.Flex
 	form    *tview.Form
 	output  *tview.TextView
+	app     *tview.Application
+	cfg     *DashboardConfig
 	nc      *nats.Conn
 	ctx     context.Context
 	cancel  context.CancelFunc
@@ -29,6 +32,8 @@ func (n *NATSTab) Widget() tview.Primitive {
 
 // Init initializes the NATS tab.
 func (n *NATSTab) Init(app *tview.Application, cfg *DashboardConfig) {
+	n.app = app
+	n.cfg = cfg
 	n.ctx, n.cancel = context.WithCancel(context.Background())
 
 	// Form for subject/body input
@@ -58,15 +63,36 @@ func (n *NATSTab) Init(app *tview.Application, cfg *DashboardConfig) {
 		AddItem(n.form, 8, 0, true).
 		AddItem(n.output, 0, 1, false)
 
-	// Try to connect to NATS
-	natsURL := "nats://localhost:" + cfg.NATSPort
-	var err error
-	n.nc, err = nats.Connect(natsURL)
-	if err != nil {
-		n.output.SetText("[red]Failed to connect to NATS[-]\nError: " + err.Error())
-	} else {
-		n.output.SetText("[green]Connected to NATS[-]")
+	// NATS connects in Start() to avoid blocking init
+	n.output.SetText("[dim]Connecting to NATS...[-]")
+}
+
+// Start connects to NATS after the tview event loop is running.
+func (n *NATSTab) Start() {
+	go n.connectNATS()
+}
+
+func (n *NATSTab) connectNATS() {
+	urls := []string{
+		"nats://host.docker.internal:" + n.cfg.NATSPort,
+		"nats://localhost:" + n.cfg.NATSPort,
 	}
+
+	for _, url := range urls {
+		nc, err := nats.Connect(url, nats.Timeout(3*time.Second))
+		if err != nil {
+			continue
+		}
+		n.nc = nc
+		n.app.QueueUpdateDraw(func() {
+			n.output.SetText("[green]Connected to NATS[-]")
+		})
+		return
+	}
+
+	n.app.QueueUpdateDraw(func() {
+		n.output.SetText("[red]Failed to connect to NATS[-]")
+	})
 }
 
 // Stop stops the NATS tab.

@@ -107,16 +107,13 @@ func (p *PigoTab) Init(app *tview.Application, cfg *DashboardConfig) {
 		AddItem(p.inputField, 3, 0, true).
 		AddItem(p.statusBar, 1, 0, false)
 
-	// Connect to NATS
-	p.connectNATS()
-
-	// Welcome message
-	p.appendOutput("[cyan]pi-go chat REPL[-]\n")
-	p.appendOutput(fmt.Sprintf("NATS: [dim]%s[-]  |  session: [dim]%s[-]\n", cfg.NATSPort, shortSessionID(p.sessionID)))
-	p.appendOutput("[dim]Type a prompt to send to pi-go. /help for commands.[-]\n\n")
+	// Welcome message (NATS connects in Start() to avoid blocking init)
+	p.outputView.SetText("[dim]Connecting to NATS...[-]\n")
 }
 
-func (p *PigoTab) Start() {}
+func (p *PigoTab) Start() {
+	go p.connectNATS()
+}
 
 func (p *PigoTab) Stop() {
 	if p.sub != nil {
@@ -147,7 +144,7 @@ func (p *PigoTab) connectNATS() {
 
 	if p.nc == nil {
 		p.appendOutput("[red]NATS connection failed[-] — chat unavailable until NATS is reachable\n")
-		p.updateStatusBar()
+		p.app.QueueUpdateDraw(func() { p.updateStatusBar() })
 		return
 	}
 
@@ -158,12 +155,15 @@ func (p *PigoTab) connectNATS() {
 	})
 	if err != nil {
 		p.appendOutput(fmt.Sprintf("[red]NATS subscribe failed: %s[-]\n", err))
-		p.updateStatusBar()
+		p.app.QueueUpdateDraw(func() { p.updateStatusBar() })
 		return
 	}
 	p.sub = sub
 
-	p.updateStatusBar()
+	p.appendOutput(fmt.Sprintf("[cyan]pi-go chat REPL[-]\n"))
+	p.appendOutput(fmt.Sprintf("NATS: [green]connected[-] port %s  |  session: [dim]%s[-]\n", p.cfg.NATSPort, shortSessionID(p.sessionID)))
+	p.appendOutput("[dim]Type a prompt to send to pi-go. /help for commands.[-]\n\n")
+	p.app.QueueUpdateDraw(func() { p.updateStatusBar() })
 }
 
 func (p *PigoTab) handleInput(text string) {
