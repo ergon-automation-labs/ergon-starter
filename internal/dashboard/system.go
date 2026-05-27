@@ -45,14 +45,11 @@ func (s *SystemTab) Init(app *tview.Application, cfg *DashboardConfig) {
 		cell.SetTextColor(3) // Yellow
 		s.widget.SetCell(0, i, cell)
 	}
-
-	// Start refresh loop
-	go s.refreshLoop()
 }
 
 // Start triggers the initial data fetch (called after tview event loop starts).
 func (s *SystemTab) Start() {
-	s.refresh()
+	go s.refreshLoop()
 }
 
 // refreshLoop periodically refreshes stats.

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // DockerContainer represents a container from docker ps.
@@ -35,7 +36,10 @@ type DockerStat struct {
 // DockerPS returns a list of running/stopped containers.
 // Container names are normalized to compose service names.
 func DockerPS() ([]DockerContainer, error) {
-	cmd := exec.Command("docker", "ps", "-a", "--format", "{{json .}}")
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "docker", "ps", "-a", "--format", "{{json .}}")
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, err
@@ -91,7 +95,10 @@ func ComposeServiceName(name string) string {
 // DockerStats returns container resource usage stats.
 // Container names are normalized to compose service names for display.
 func DockerStats() ([]DockerStat, error) {
-	cmd := exec.Command("docker", "stats", "--no-stream", "--format", "{{json .}}")
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "docker", "stats", "--no-stream", "--format", "{{json .}}")
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, err
