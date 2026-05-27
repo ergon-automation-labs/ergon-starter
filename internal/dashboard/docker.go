@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
-	"strconv"
 	"strings"
 )
 
@@ -59,20 +58,34 @@ func DockerPS() ([]DockerContainer, error) {
 }
 
 // ComposeServiceName extracts the service name from a docker compose container name.
-// Docker compose names follow {project}-{service}-{n}, e.g. "workspace-core_pack-1" → "core_pack".
-// Standalone container names (no compose pattern) are returned as-is.
+// Docker compose names follow {project}-{service}-{n}, where the project name
+// can contain hyphens (e.g. "bot-army-core_pack-1"). Service names contain underscores
+// (core_pack, social_media_pack) or are simple words (nats).
+// Returns the service name, e.g. "core_pack", "nats".
 func ComposeServiceName(name string) string {
 	name = strings.TrimPrefix(name, "/")
-	if idx := strings.LastIndex(name, "-"); idx > 0 {
-		if _, err := strconv.Atoi(name[idx+1:]); err == nil {
-			serviceWithProject := name[:idx]
-			if dotIdx := strings.Index(serviceWithProject, "-"); dotIdx >= 0 {
-				return serviceWithProject[dotIdx+1:]
-			}
-			return serviceWithProject
+	// Strip trailing -{replica_number}
+	idx := strings.LastIndex(name, "-")
+	if idx <= 0 {
+		return name
+	}
+	// Check if the part after the last dash is a number (compose replica)
+	for _, c := range name[idx+1:] {
+		if c < '0' || c > '9' {
+			return name // Not a compose name, return as-is
 		}
 	}
-	return name
+	projectService := name[:idx]
+	// Split on dashes and find the first segment containing an underscore —
+	// that's where the service name starts. Services use underscores; project names use dashes.
+	parts := strings.Split(projectService, "-")
+	for i, part := range parts {
+		if strings.Contains(part, "_") {
+			return strings.Join(parts[i:], "-")
+		}
+	}
+	// No underscore found — service is a single word (e.g. "nats"), return last segment
+	return parts[len(parts)-1]
 }
 
 // DockerStats returns container resource usage stats.
