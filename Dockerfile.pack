@@ -1,9 +1,9 @@
 # Multi-stage Dockerfile for Bot Army packs (single BEAM VM per pack).
 #
 # Build context must be the repos/ directory so path deps resolve.
-# The PACK_NAME arg selects which pack release to build.
+# PACK_NAME selects the release name, PACK_REPO selects the pack directory.
 #
-# docker compose build --build-arg PACK_NAME=core_pack .
+# docker compose build --build-arg PACK_NAME=core_pack --build-arg PACK_REPO=ergon-pack-core .
 
 ARG CACHE_BUST=1
 
@@ -52,24 +52,17 @@ RUN mix compile
 FROM base AS build
 
 ARG PACK_NAME
+ARG PACK_REPO=ergon-pack-core
 ARG MIX_ENV=prod
 
-# Core pack bots — copy all source repos needed for the release
-# These must match the applications list in the pack's mix.exs releases config.
-COPY bot_army_gtd/ bot_army_gtd/
-COPY bot_army_llm/ bot_army_llm/
-COPY bot_army_para/ bot_army_para/
-COPY bot_army_bridge_lite/ bot_army_bridge_lite/
-COPY bot_army_synapse/ bot_army_synapse/
-COPY bot_army_dispatcher/ bot_army_dispatcher/
-COPY bot_army_skills/ bot_army_skills/
-COPY bot_army_job_scheduler/ bot_army_job_scheduler/
-COPY bot_army_graphify_cache/ bot_army_graphify_cache/
+# Copy all repos from build context (any pack may need any bot).
+# Restore pre-compiled libraries from base stage afterward.
+COPY . /repos/
+COPY --from=base /repos/bot_army_library_core/ /repos/bot_army_library_core/
+COPY --from=base /repos/bot_army_library_runtime/ /repos/bot_army_library_runtime/
+COPY --from=base /repos/bot_army_library_learning/ /repos/bot_army_library_learning/
 
-# Pack repo itself
-COPY ergon-pack-core/ ergon-pack-core/
-
-WORKDIR /repos/ergon-pack-core
+WORKDIR /repos/${PACK_REPO}
 
 # Fix any git-dep → path-dep mismatches (same logic as per-bot Dockerfile)
 RUN <<BUILDfix
@@ -99,7 +92,7 @@ BUILDfix
 RUN <<FIXBOTDEPS
 cat > /tmp/fix_bot_deps.exs << 'ELIXIRSCRIPT'
 bot_dirs = File.ls!("/repos") |> Enum.filter(fn d ->
-  File.dir?("/repos/#{d}") and File.exists?("/repos/#{d}/mix.exs") and d != "ergon-pack-core"
+  File.dir?("/repos/#{d}") and File.exists?("/repos/#{d}/mix.exs") and not String.starts_with?(d, "ergon-pack-")
 end)
 Enum.each(bot_dirs, fn dir ->
   mix_path = "/repos/#{dir}/mix.exs"
@@ -129,12 +122,13 @@ RUN mix release ${PACK_NAME}
 FROM alpine:3.20 AS runtime
 
 ARG PACK_NAME
+ARG PACK_REPO=ergon-pack-core
 
 RUN apk add --no-cache libstdc++ openssl ncurses-libs
 
 WORKDIR /app
 
-COPY --from=build /repos/ergon-pack-core/_build/prod/rel/${PACK_NAME} ./
+COPY --from=build /repos/${PACK_REPO}/_build/prod/rel/${PACK_NAME} ./
 
 ENV PACK_NAME=${PACK_NAME}
 

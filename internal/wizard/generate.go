@@ -179,6 +179,7 @@ func generatePackComposeFile(cfg *Config) error {
 		b.WriteString("      dockerfile: ../Dockerfile.pack\n")
 		b.WriteString("      args:\n")
 		b.WriteString(fmt.Sprintf("        PACK_NAME: %s\n", pack.ReleaseName))
+		b.WriteString(fmt.Sprintf("        PACK_REPO: ergon-pack-%s\n", pack.Name))
 		b.WriteString("    env_file: .env\n")
 		b.WriteString("    environment:\n")
 		b.WriteString("      PACK_MODE: \"true\"\n")
