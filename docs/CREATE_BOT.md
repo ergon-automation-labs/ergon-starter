@@ -683,6 +683,24 @@ mix test test/handlers/my_logic_handler_test.exs --trace
    nats request --server nats://localhost:54222 bot_army.registry.capabilities.list '{}' --timeout 3s
    ```
 
-4. **Join the community** — Share your bot with the Bot Army team
+4. **Share your bot** — Contribute to the community
+
+## Going Bigger?
+
+Your first bot works great, but now you're thinking about:
+- Complex LLM integrations (multi-model, streaming, vision)
+- Enterprise workflows (compliance, audit trails, multi-tenant)
+- Scaling to production (clustering, high availability, security hardening)
+- Industry-specific templates (HR, sales, compliance, finance)
+- Managed hosting and deployment
+
+**[Ergon Automation Labs](https://ergon-automation-labs.com)** builds sophisticated bots and enterprise systems on Bot Army:
+- 🤖 Custom bot development with advanced patterns
+- 📋 Pre-built templates for common use cases
+- 🏢 Production-grade deployment and scaling
+- 📚 Architecture consulting and optimization
+- 🔧 Turnkey solutions for your industry
+
+**[Schedule a consultation](mailto:contact@ergon-automation-labs.com)** to discuss your needs.
 
 Happy building! 🚀

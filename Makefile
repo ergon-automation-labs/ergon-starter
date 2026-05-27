@@ -41,7 +41,7 @@ REGISTRY_PORT ?= 32000
 # Elixir builds are memory-heavy — limit parallel builds to avoid OOM
 COMPOSE_BUILD_PARALLEL ?= 3
 
-.PHONY: help quickstart build install sync init add add-local status dashboard up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health clean-images clean-docker-volumes clean-docker-builder clean-logs clean-caches-safe clean-safe clean-disk disk-check test release-check release-test release-create release-list release-latest registry-build registry-push registry-publish registry-images registry-setup setup-tools claude-integrate help-create-bot help-volumes health-check help-troubleshoot
+.PHONY: help quickstart build install sync init add add-local status dashboard up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health clean-images clean-docker-volumes clean-docker-builder clean-logs clean-caches-safe clean-safe clean-disk disk-check test release-check release-test release-create release-list release-latest registry-build registry-push registry-publish registry-images registry-setup setup-tools claude-integrate help-create-bot help-volumes health-check help-troubleshoot quick-start
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -76,15 +76,16 @@ quickstart: catalog/bots.json ## Full setup: wizard → clone → build → star
 	@echo "    ~/data/para/              Your notes (PARA)"
 	@echo "    ~/data/logs/              Bot logs"
 	@echo ""
-	@echo "  Verify everything is working:"
-	@echo "    make health-check         System status check"
-	@echo "    make help-troubleshoot    Common issues & fixes"
+	@echo "  Get started:"
+	@echo "    make quick-start          5 demos to learn Bot Army (20 min)"
+	@echo "    make health-check         Verify everything is working"
 	@echo ""
 	@echo "  Explore & learn:"
-	@echo "    make logs                 Follow logs"
+	@echo "    make logs                 Follow bot logs"
 	@echo "    make dashboard            Live monitoring"
-	@echo "    make help-volumes         Configure storage"
-	@echo "    make claude-integrate     Claude setup"
+	@echo "    make help-volumes         Configure storage (PARA)"
+	@echo "    make claude-integrate     Claude Desktop + Code"
+	@echo "    make help-troubleshoot    Common issues & fixes"
 	@echo ""
 	@echo "  Build & manage:"
 	@echo "    make ps                   Show services"
@@ -125,6 +126,9 @@ health-check: ## Verify NATS, Postgres, bots, and Claude are working
 
 help-troubleshoot: ## Common issues and solutions
 	@cat docs/TROUBLESHOOTING.md | less
+
+quick-start: ## 5 demos to learn how Bot Army works (20 min)
+	@cat docs/QUICK_START.md | less
 
 # --- Build ---
 

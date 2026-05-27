@@ -167,6 +167,21 @@ make quickstart --custom-bots custom-bots.json
 
 See `custom-bots.example.json` for a template.
 
+## Professional Services
+
+Building sophisticated custom bots or deploying Bot Army at scale?
+
+**[Ergon Automation Labs](https://ergon-automation-labs.com)** offers:
+- 🤖 Custom bot development (LLM integration, complex workflows, API bridges)
+- 📋 Enterprise templates (sales automation, HR workflows, compliance)
+- 🏢 Multi-tenant SaaS deployment (managed hosting, scaling, security)
+- 📚 Training & consulting (architecture reviews, optimization)
+- 🔧 Turnkey solutions (industry-specific bot packs)
+
+**Ready to scale?** [Schedule a consultation](mailto:contact@ergon-automation-labs.com)
+
+---
+
 ## Architecture
 
 ```
