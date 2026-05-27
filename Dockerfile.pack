@@ -72,16 +72,11 @@ deps_dirs = File.ls!("/repos") |> Enum.filter(fn d ->
 end)
 {:ok, c} = File.read("mix.exs")
 c = Enum.reduce(deps_dirs, c, fn dir, acc ->
-  # Replace {:dir, git: ...} or {:dir, path: ...} with {:dir, path: "../dir"}
-  re = Regex.compile!("\\{:" <> dir <> ",\\s*\\[.*?\\]\\}", "s")
+  # Replace any {:dir, ...} dep spec with {:dir, path: "../dir"}
+  # Matches bracket-form [key: val], bare string "hex", and keyword lists key: val
+  re = Regex.compile!("\\{:" <> dir <> ",\\s*[^}]+\\}", "s")
   replacement = "{:" <> dir <> ", path: \"../" <> dir <> "\"}"
-  case Regex.replace(re, acc, replacement) do
-    ^acc ->
-      # Also handle bare deps like {:dir, "github.com/..."}
-      re_bare = Regex.compile!("\\{:" <> dir <> ",\\s*\"[^\"]+\"\\}", "s")
-      Regex.replace(re_bare, acc, replacement)
-    result -> result
-  end
+  Regex.replace(re, acc, replacement)
 end)
 File.write!("mix.exs", c)
 ELIXIRSCRIPT
@@ -98,14 +93,9 @@ Enum.each(bot_dirs, fn dir ->
   mix_path = "/repos/#{dir}/mix.exs"
   {:ok, c} = File.read(mix_path)
   c = Enum.reduce(bot_dirs ++ ~w(bot_army_library_core bot_army_library_runtime bot_army_library_learning), c, fn other_dir, acc ->
-    re = Regex.compile!("\\{:" <> other_dir <> ",\\s*\\[.*?\\]\\}", "s")
+    re = Regex.compile!("\\{:" <> other_dir <> ",\\s*[^}]+\\}", "s")
     replacement = "{:" <> other_dir <> ", path: \"../" <> other_dir <> "\"}"
-    case Regex.replace(re, acc, replacement) do
-      ^acc ->
-        re_bare = Regex.compile!("\\{:" <> other_dir <> ",\\s*\"[^\"]+\"\\}", "s")
-        Regex.replace(re_bare, acc, replacement)
-      result -> result
-    end
+    Regex.replace(re, acc, replacement)
   end)
   File.write!(mix_path, c)
 end)
