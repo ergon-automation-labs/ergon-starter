@@ -55,8 +55,11 @@ func NewDashboard(cfg *DashboardConfig) *Dashboard {
 func (d *Dashboard) Run() error {
 	fmt.Fprintln(os.Stderr, "bot-army: starting dashboard...")
 	d.buildLayout()
+	fmt.Fprintln(os.Stderr, "bot-army: layout built")
 	d.initTabs()
+	fmt.Fprintln(os.Stderr, "bot-army: tabs initialized")
 	d.setupKeyCapture()
+	fmt.Fprintln(os.Stderr, "bot-army: keys setup")
 
 	// Schedule initial data fetches for after the event loop starts.
 	// The brief delay ensures app.Run() has started the tview event loop
