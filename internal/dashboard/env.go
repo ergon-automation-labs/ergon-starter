@@ -55,7 +55,7 @@ func DashboardConfigFromEnv(dir string) (*DashboardConfig, error) {
 
 	natsPort := env["STARTER_NATS_PORT"]
 	if natsPort == "" {
-		natsPort = "4222"
+		natsPort = "54222"
 	}
 
 	postgresPort := env["STARTER_POSTGRES_PORT"]
