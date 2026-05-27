@@ -141,6 +141,64 @@ func (f *FleetTab) refresh() {
 		natsConnected = f.healthMon.Connected()
 	}
 
+	// Build item list first (before QueueUpdateDraw to avoid callback deadlocks)
+	type botItem struct {
+		label string
+		name  string
+	}
+	var items []botItem
+
+	for _, bot := range f.cfg.Bots {
+		cont, hasContainer := contMap[bot.ReleaseName]
+		h, hasHealth := MatchService(health, bot.ReleaseName)
+
+		var label string
+		if !hasContainer && len(f.cfg.Bots) == 0 {
+			// No bots configured — skip
+			continue
+		} else if !hasContainer {
+			label = fmt.Sprintf("○ %s  [red]not found[-]", bot.Name)
+		} else {
+			var icon, color, statusText string
+			if hasHealth && h.Status == "healthy" {
+				icon = "●"
+				color = "[green]"
+				statusText = h.Status
+			} else if hasHealth && h.Status == "degraded" {
+				icon = "◐"
+				color = "[yellow]"
+				statusText = h.Status
+			} else if strings.Contains(cont.State, "running") {
+				icon = "◐"
+				color = "[yellow]"
+				statusText = "running"
+			} else if strings.Contains(cont.State, "exited") {
+				icon = "○"
+				color = "[red]"
+				statusText = cont.State
+			} else {
+				icon = "◐"
+				color = "[yellow]"
+				statusText = cont.State
+			}
+			label = fmt.Sprintf("%s %s  %s%s[-]", icon, bot.Name, color, statusText)
+		}
+		items = append(items, botItem{label, bot.ReleaseName})
+	}
+
+	// Auto-discover from Docker if no bots configured
+	if len(f.cfg.Bots) == 0 && len(containers) > 0 {
+		for _, c := range containers {
+			name := ComposeServiceName(c.Names)
+			if name == "nats" || name == "postgres" || name == "ollama" {
+				continue
+			}
+			label := fmt.Sprintf("◐ %s  [yellow]%s[-]", name, c.State)
+			items = append(items, botItem{label, name})
+		}
+	}
+
+	// Now update UI with all items at once
 	f.app.QueueUpdateDraw(func() {
 		f.botList.Clear()
 		f.containers = contMap
@@ -150,67 +208,23 @@ func (f *FleetTab) refresh() {
 			f.botDetail.SetText("[yellow]NATS not connected[-]\n\nHealth beacons require a running NATS server.\nEnsure bots are running and NATS is reachable on port " + f.cfg.NATSPort + ".")
 		}
 
-		for _, bot := range f.cfg.Bots {
-			cont, hasContainer := contMap[bot.ReleaseName]
-			h, hasHealth := MatchService(health, bot.ReleaseName)
-
-			var label string
-			if !hasContainer && len(f.cfg.Bots) == 0 {
-				// No bots configured — skip
-				continue
-			} else if !hasContainer {
-				label = fmt.Sprintf("○ %s  [red]not found[-]", bot.Name)
-			} else {
-				var icon, color, statusText string
-				if hasHealth && h.Status == "healthy" {
-					icon = "●"
-					color = "[green]"
-					statusText = h.Status
-				} else if hasHealth && h.Status == "degraded" {
-					icon = "◐"
-					color = "[yellow]"
-					statusText = h.Status
-				} else if strings.Contains(cont.State, "running") {
-					icon = "◐"
-					color = "[yellow]"
-					statusText = "running"
-				} else if strings.Contains(cont.State, "exited") {
-					icon = "○"
-					color = "[red]"
-					statusText = cont.State
-				} else {
-					icon = "◐"
-					color = "[yellow]"
-					statusText = cont.State
-				}
-				label = fmt.Sprintf("%s %s  %s%s[-]", icon, bot.Name, color, statusText)
-			}
-
-			f.botList.AddItem(label, bot.ReleaseName, 0, nil)
+		// Add all items
+		for _, item := range items {
+			f.botList.AddItem(item.label, item.name, 0, nil)
 		}
 
 		// Set first bot as selected if none selected yet
-		if f.selected == "" && len(f.cfg.Bots) > 0 {
-			f.selected = f.cfg.Bots[0].ReleaseName
+		if f.selected == "" && len(items) > 0 {
+			f.selected = items[0].name
 		}
 
-		// If no bots configured, auto-discover from Docker containers
-		if len(f.cfg.Bots) == 0 && len(containers) > 0 {
-			for _, c := range containers {
-				name := ComposeServiceName(c.Names)
-				if name == "nats" || name == "postgres" || name == "ollama" {
-					continue
-				}
-				label := fmt.Sprintf("◐ %s  [yellow]%s[-]", name, c.State)
-				f.botList.AddItem(label, name, 0, nil)
-			}
-			if f.botList.GetItemCount() == 0 {
-				f.botList.AddItem("[dim]No services found[-]", "", 0, nil)
-			}
+		// Show empty state if needed
+		if len(items) == 0 {
+			f.botList.AddItem("[dim]No services found[-]", "", 0, nil)
 			f.botDetail.SetText("[dim]No .env or docker-compose.yml found.\nServices discovered from Docker.[-]")
+		} else {
+			f.updateDetail()
 		}
-
-		f.updateDetail()
 	})
 }
 
