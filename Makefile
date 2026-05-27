@@ -41,7 +41,7 @@ REGISTRY_PORT ?= 32000
 # Elixir builds are memory-heavy — limit parallel builds to avoid OOM
 COMPOSE_BUILD_PARALLEL ?= 3
 
-.PHONY: help quickstart build install sync init add add-local status dashboard up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health clean-images clean-docker-volumes clean-docker-builder clean-logs clean-caches-safe clean-safe clean-disk disk-check test release-check release-test release-create release-list release-latest registry-build registry-push registry-publish registry-images registry-setup setup-tools claude-integrate help-create-bot help-volumes health-check help-troubleshoot quick-start
+.PHONY: help quickstart build install sync init add add-local status dashboard up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health clean-images clean-docker-volumes clean-docker-builder clean-logs clean-caches-safe clean-safe clean-disk disk-check test release-check release-test release-create release-list release-latest registry-build registry-push registry-publish registry-images registry-setup setup-tools claude-integrate help-create-bot help-volumes health-check help-troubleshoot quick-start migrate rollback migrate-status
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -260,14 +260,48 @@ logs: ## Follow all service logs
 ps: ## Show running services
 	docker compose ps
 
-migrate: ## Run database migrations for all bots with DB
-	@for svc in $$(docker compose config --services); do \
-		if docker compose exec $$svc ls /app/bin/* >/dev/null 2>&1; then \
-			bot=$$(basename $$(docker compose exec $$svc ls /app/bin/ 2>/dev/null | head -1) 2>/dev/null); \
-			if [ -n "$$bot" ]; then \
-				echo "Migrating $$svc..."; \
-				docker compose exec $$svc /app/bin/$$bot eval "Application.ensure_all_started(:$$svc) && :ok" 2>/dev/null || true; \
+migrate: ## Run database migrations (usage: make migrate [BOT=name])
+	@if [ -n "$(BOT)" ]; then \
+		echo "Migrating $(BOT)..."; \
+		docker compose exec $(BOT) /app/bin/$(BOT) eval "YourBot.Release.migrate()" || exit 1; \
+	else \
+		echo "Running migrations for all bots with databases..."; \
+		for svc in $$(docker compose config --services); do \
+			if docker compose exec $$svc sh -c 'ls /app/lib/*/release.ex 2>/dev/null' >/dev/null 2>&1; then \
+				echo ""; \
+				echo "→ Migrating $$svc..."; \
+				docker compose exec $$svc sh -c 'RELEASE_MODULE=$$(grep -o "defmodule [A-Za-z_]*\.Release" /app/lib/*/release.ex | head -1 | sed "s/defmodule //") && /app/bin/$$svc eval "$$RELEASE_MODULE.migrate()" || echo "  ✗ Migration failed"' || true; \
 			fi; \
+		done; \
+		echo ""; \
+		echo "✓ Migrations complete"; \
+	fi
+
+rollback: ## Rollback database migrations (usage: make rollback [BOT=name] [STEPS=1])
+	@STEPS=$${STEPS:-1}; \
+	if [ -n "$(BOT)" ]; then \
+		echo "Rolling back $(BOT) ($$STEPS steps)..."; \
+		docker compose exec $(BOT) /app/bin/$(BOT) eval "YourBot.Release.rollback($$STEPS)" || exit 1; \
+	else \
+		echo "Rolling back all bots ($$STEPS steps)..."; \
+		for svc in $$(docker compose config --services); do \
+			if docker compose exec $$svc sh -c 'ls /app/lib/*/release.ex 2>/dev/null' >/dev/null 2>&1; then \
+				echo ""; \
+				echo "→ Rolling back $$svc ($$STEPS steps)..."; \
+				docker compose exec $$svc sh -c 'RELEASE_MODULE=$$(grep -o "defmodule [A-Za-z_]*\.Release" /app/lib/*/release.ex | head -1 | sed "s/defmodule //") && /app/bin/$$svc eval "$$RELEASE_MODULE.rollback($$STEPS)" || echo "  ✗ Rollback failed"' || true; \
+			fi; \
+		done; \
+		echo ""; \
+		echo "✓ Rollbacks complete"; \
+	fi
+
+migrate-status: ## Show migration status for all bots
+	@echo "Migration status:"; \
+	for svc in $$(docker compose config --services); do \
+		if docker compose exec $$svc sh -c 'ls /app/lib/*/release.ex 2>/dev/null' >/dev/null 2>&1; then \
+			echo ""; \
+			echo "→ $$svc:"; \
+			docker compose exec $$svc sh -c 'RELEASE_MODULE=$$(grep -o "defmodule [A-Za-z_]*\.Release" /app/lib/*/release.ex | head -1 | sed "s/defmodule //") && /app/bin/$$svc eval "$$RELEASE_MODULE.migrate_status()" 2>/dev/null || echo "  (status not available)"' || true; \
 		fi; \
 	done
 
