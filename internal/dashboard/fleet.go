@@ -18,7 +18,7 @@ type FleetTab struct {
 	app        *tview.Application
 	cfg        *DashboardConfig
 	containers map[string]DockerContainer
-	health     map[string]HealthStatus
+	healthMon  *NATSHealthMonitor
 	selected   string
 	ctx        context.Context
 	cancel     context.CancelFunc
@@ -28,7 +28,6 @@ type FleetTab struct {
 func NewFleetTab() *FleetTab {
 	return &FleetTab{
 		containers: make(map[string]DockerContainer),
-		health:    make(map[string]HealthStatus),
 	}
 }
 
@@ -87,6 +86,9 @@ func (f *FleetTab) Init(app *tview.Application, cfg *DashboardConfig) {
 		return ev
 	})
 
+	// Start NATS health monitor
+	f.healthMon = NewNATSHealthMonitor(cfg.NATSPort)
+
 	// Start background refresh
 	go f.refreshLoop()
 }
@@ -128,47 +130,50 @@ func (f *FleetTab) refresh() {
 		contMap[c.Names] = c
 	}
 
-	// Check NATS health (2s timeout, non-blocking)
+	// Try to connect/reconnect NATS health monitor
+	if f.healthMon != nil {
+		f.healthMon.Connect()
+	}
+
+	// Get cached health status
 	var health map[string]HealthStatus
-	if f.cfg.NATSPort != "" {
-		natsURL := fmt.Sprintf("nats://localhost:%s", f.cfg.NATSPort)
-		health = CheckNATSHealth(natsURL, 2*time.Second)
+	if f.healthMon != nil {
+		health = f.healthMon.GetHealth()
 	}
 
 	f.app.QueueUpdateDraw(func() {
 		f.botList.Clear()
 		f.containers = contMap
-		f.health = health
 
 		for _, bot := range f.cfg.Bots {
 			cont, hasContainer := contMap[bot.ReleaseName]
-			h, hasHealth := health[bot.ReleaseName]
+			h, hasHealth := MatchService(health, bot.ReleaseName)
 
 			var label string
 			if !hasContainer {
 				label = fmt.Sprintf("○ %s  [red]not found[-]", bot.Name)
 			} else {
-				var icon, color string
+				var icon, color, statusText string
 				if hasHealth && h.Status == "healthy" {
 					icon = "●"
 					color = "[green]"
+					statusText = h.Status
 				} else if hasHealth && h.Status == "degraded" {
 					icon = "◐"
 					color = "[yellow]"
+					statusText = h.Status
 				} else if strings.Contains(cont.State, "running") {
 					icon = "◐"
 					color = "[yellow]"
+					statusText = "starting"
 				} else if strings.Contains(cont.State, "exited") {
 					icon = "○"
 					color = "[red]"
+					statusText = cont.State
 				} else {
 					icon = "◐"
 					color = "[yellow]"
-				}
-
-				statusText := cont.State
-				if hasHealth {
-					statusText = h.Status
+					statusText = cont.State
 				}
 				label = fmt.Sprintf("%s %s  %s%s[-]", icon, bot.Name, color, statusText)
 			}
@@ -187,7 +192,7 @@ func (f *FleetTab) refresh() {
 // updateDetail updates the detail panel for the selected bot.
 func (f *FleetTab) updateDetail() {
 	cont, hasContainer := f.containers[f.selected]
-	h, hasHealth := f.health[f.selected]
+	h, hasHealth := MatchService(f.healthMon.GetHealth(), f.selected)
 
 	if !hasContainer {
 		f.botDetail.SetText("[red]Container not found[-]")
@@ -228,6 +233,9 @@ func formatUptime(seconds int) string {
 
 // Stop stops the fleet tab's background tasks.
 func (f *FleetTab) Stop() {
+	if f.healthMon != nil {
+		f.healthMon.Close()
+	}
 	if f.cancel != nil {
 		f.cancel()
 	}
