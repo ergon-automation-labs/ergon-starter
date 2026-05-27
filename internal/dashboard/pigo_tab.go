@@ -35,10 +35,10 @@ type PigoTab struct {
 	app        *tview.Application
 	cfg        *DashboardConfig
 
-	nc      *nats.Conn
-	sub     *nats.Subscription
-	ctx     context.Context
-	cancel  context.CancelFunc
+	nc     *nats.Conn
+	sub    *nats.Subscription
+	ctx    context.Context
+	cancel context.CancelFunc
 
 	sessionID string
 	command   string
@@ -92,7 +92,7 @@ func (p *PigoTab) Init(app *tview.Application, cfg *DashboardConfig) {
 				return
 			}
 			p.inputField.SetText("")
-			p.handleInput(text)
+			go p.handleInput(text)
 		}
 	})
 
@@ -169,7 +169,7 @@ func (p *PigoTab) connectNATS() {
 	}
 	p.sub = sub
 
-	p.appendOutput(fmt.Sprintf("[cyan]pi-go chat REPL[-]\n"))
+	p.appendOutput("[cyan]pi-go chat REPL[-]\n")
 	p.appendOutput(fmt.Sprintf("NATS: [green]connected[-] port %s  |  session: [dim]%s[-]\n", p.cfg.NATSPort, shortSessionID(p.sessionID)))
 	p.appendOutput("[dim]Type a prompt to send to pi-go. /help for commands.[-]\n\n")
 	p.app.QueueUpdateDraw(func() { p.updateStatusBar() })
@@ -375,7 +375,7 @@ func (p *PigoTab) handleSlash(text string) {
 		if p.nc != nil && p.nc.IsConnected() {
 			natsStatus = "[green]connected[-]"
 		}
-		p.appendOutput(fmt.Sprintf("[cyan]Status[-]\n"))
+		p.appendOutput("[cyan]Status[-]\n")
 		p.appendOutput(fmt.Sprintf("  NATS:    %s (port %s)\n", natsStatus, p.cfg.NATSPort))
 		p.appendOutput(fmt.Sprintf("  session: %s\n", shortSessionID(p.sessionID)))
 		p.appendOutput(fmt.Sprintf("  command: %s\n", p.command))
@@ -398,7 +398,10 @@ func (p *PigoTab) handleSlash(text string) {
 			}
 			p.command = cmd
 			p.appendOutput(fmt.Sprintf("[green]command set to %s[-]\n\n", cmd))
-			p.inputField.SetTitle(fmt.Sprintf(" %s ", cmd))
+			cmdName := cmd
+			p.app.QueueUpdateDraw(func() {
+				p.inputField.SetTitle(fmt.Sprintf(" %s ", cmdName))
+			})
 			p.updateStatusBar()
 			return
 		}
@@ -419,12 +422,12 @@ func (p *PigoTab) runDiag() {
 	p.appendOutput("[dim]Running LLM preflight check...[-]\n")
 
 	payload := map[string]interface{}{
-		"request_id":       nuid.New().Next(),
-		"request_type":     "preflight",
-		"prompt_context":   map[string]interface{}{"prompt": "diag: reply with the single word ok"},
-		"model_preference":  "",
-		"timeout_ms":       10000,
-		"tenant_id":        "dashboard",
+		"request_id":      nuid.New().Next(),
+		"request_type":    "preflight",
+		"prompt_context":  map[string]interface{}{"prompt": "diag: reply with the single word ok"},
+		"model_preference": "",
+		"timeout_ms":      10000,
+		"tenant_id":       "dashboard",
 	}
 
 	data, _ := json.Marshal(payload)
@@ -449,7 +452,7 @@ func (p *PigoTab) runDiag() {
 	if content != "" {
 		p.appendOutput(fmt.Sprintf("[green]LLM responded: %s[-]\n\n", content))
 	} else {
-		p.appendOutput(fmt.Sprintf("[yellow]LLM responded but no text content found[-]\n\n"))
+		p.appendOutput("[yellow]LLM responded but no text content found[-]\n\n")
 	}
 }
 
@@ -467,7 +470,9 @@ func (p *PigoTab) updateStatusBar() {
 		statusText = "[red]NATS ○[-]"
 	}
 	statusText += fmt.Sprintf("  command: [cyan]%s[-]  session: [dim]%s[-]", p.command, shortSessionID(p.sessionID))
-	p.statusBar.SetText(statusText)
+	p.app.QueueUpdateDraw(func() {
+		p.statusBar.SetText(statusText)
+	})
 }
 
 // --- helpers ---
