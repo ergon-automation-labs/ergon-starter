@@ -72,7 +72,7 @@ func generateComposeFile(cfg *Config) error {
 func generatePackComposeFile(cfg *Config) error {
 	// Collect unique bot names from all selected packs for data dirs
 	allBotNames := map[string]bool{}
-	needsDB := false
+	needsDB := len(cfg.SelectedPacks) > 0
 	namedVols := map[string]bool{}
 	for _, pack := range cfg.SelectedPacks {
 		// Look up bot details for each bot in the pack
