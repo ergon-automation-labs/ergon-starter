@@ -77,9 +77,6 @@ func (l *LogsTab) Init(app *tview.Application, cfg *DashboardConfig) {
 		l.selectedBot = i
 		l.loadBotLogs()
 	})
-
-	// Load logs for first bot on init
-	l.loadBotLogs()
 }
 
 // loadBotLogs loads and displays logs for the selected bot.
@@ -193,6 +190,11 @@ func (l *LogsTab) logInputCapture(ev *tcell.EventKey) *tcell.EventKey {
 		return nil
 	}
 	return ev
+}
+
+// Start loads initial logs (must be called after tview event loop starts).
+func (l *LogsTab) Start() {
+	l.loadBotLogs()
 }
 
 // Stop stops the logs tab.

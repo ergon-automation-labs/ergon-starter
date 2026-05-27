@@ -48,6 +48,10 @@ func (s *SystemTab) Init(app *tview.Application, cfg *DashboardConfig) {
 
 	// Start refresh loop
 	go s.refreshLoop()
+}
+
+// Start triggers the initial data fetch (called after tview event loop starts).
+func (s *SystemTab) Start() {
 	s.refresh()
 }
 

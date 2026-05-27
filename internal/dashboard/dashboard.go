@@ -54,6 +54,15 @@ func (d *Dashboard) Run() error {
 	d.initTabs()
 	d.setupKeyCapture()
 
+	// Schedule initial data fetches for after the event loop starts.
+	// QueueUpdateDraw blocks until the loop processes it, so these will
+	// execute once tview is ready — avoiding the Init-time deadlock.
+	go func() {
+		d.fleet.Start()
+		d.logs.Start()
+		d.system.Start()
+	}()
+
 	if err := d.app.Run(); err != nil {
 		return err
 	}
