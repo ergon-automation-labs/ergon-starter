@@ -106,12 +106,18 @@ FROM alpine:3.22 AS runtime
 ARG BOT_NAME
 ARG BOT_REPO
 
-RUN apk add --no-cache libstdc++ openssl ncurses-libs
+RUN apk add --no-cache libstdc++ openssl ncurses-libs netcat-openbsd
 
 WORKDIR /app
 
 COPY --from=build /repos/${BOT_REPO}/_build/prod/rel/${BOT_NAME} ./
 
-ENV BOT_NAME=${BOT_NAME}
+# Copy entrypoint script that handles database creation and migrations
+COPY scripts/docker-entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
-CMD /app/bin/${BOT_NAME} start
+ENV BOT_NAME=${BOT_NAME}
+ENV DB_HOST=${DB_HOST:-postgres}
+ENV DB_PORT=${DB_PORT:-5432}
+
+ENTRYPOINT ["/app/entrypoint.sh"]
