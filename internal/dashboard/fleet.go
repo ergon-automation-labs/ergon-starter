@@ -45,7 +45,7 @@ func (f *FleetTab) Init(app *tview.Application, cfg *DashboardConfig) {
 	// Bot list (left panel)
 	f.botList = tview.NewList()
 	f.botList.SetBorder(true).
-		SetTitle(" Bots  ↑↓:nav  r:restart  Enter:details ").
+		SetTitle(fmt.Sprintf(" Bots (:%s)  ↑↓:nav  Enter:details ", cfg.NATSPort)).
 		SetTitleAlign(tview.AlignLeft)
 
 	// Bot detail (right panel)

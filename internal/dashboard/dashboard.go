@@ -160,9 +160,6 @@ func (d *Dashboard) setupKeyCapture() {
 		case '5':
 			d.switchTab("pigo", d.pigo.Widget())
 			return nil
-		case '?':
-			d.showTemplateGuide()
-			return nil
 		case 'q':
 			d.app.Stop()
 			return nil

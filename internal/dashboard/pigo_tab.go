@@ -96,6 +96,15 @@ func (p *PigoTab) Init(app *tview.Application, cfg *DashboardConfig) {
 		}
 	})
 
+	// Help shortcut from input field
+	p.inputField.SetInputCapture(func(ev *tcell.EventKey) *tcell.EventKey {
+		if ev.Rune() == '?' {
+			p.handleSlash("/help")
+			return nil
+		}
+		return ev
+	})
+
 	// Status bar
 	p.statusBar = tview.NewTextView()
 	p.statusBar.SetDynamicColors(true)
