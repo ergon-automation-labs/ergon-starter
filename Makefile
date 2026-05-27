@@ -41,7 +41,7 @@ REGISTRY_PORT ?= 32000
 # Elixir builds are memory-heavy — limit parallel builds to avoid OOM
 COMPOSE_BUILD_PARALLEL ?= 3
 
-.PHONY: help quickstart build install sync init add add-local status dashboard up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health clean-images clean-docker-volumes clean-docker-builder clean-logs clean-caches-safe clean-safe clean-disk disk-check test release-check release-test release-create release-list release-latest registry-build registry-push registry-publish registry-images registry-setup setup-tools claude-integrate help-create-bot help-volumes health-check help-troubleshoot quick-start migrate rollback migrate-status
+.PHONY: help quickstart build install sync init add add-local status dashboard up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health clean-images clean-docker-volumes clean-docker-builder clean-logs clean-caches-safe clean-safe clean-disk disk-check test release-check release-test release-create release-list release-latest registry-build registry-push registry-publish registry-images registry-setup setup-tools claude-integrate help-create-bot help-volumes health-check help-troubleshoot quick-start migrate rollback migrate-status help-architecture help-bridge-api help-debugging help-testing help-makefile help-environment
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -80,7 +80,15 @@ quickstart: catalog/bots.json ## Full setup: wizard → clone → build → star
 	@echo "    make quick-start          5 demos to learn Bot Army (20 min)"
 	@echo "    make health-check         Verify everything is working"
 	@echo ""
-	@echo "  Explore & learn:"
+	@echo "  Learn & reference:"
+	@echo "    make help-architecture    Why NATS? System design"
+	@echo "    make help-bridge-api      Claude integration API"
+	@echo "    make help-testing         Test subjects + bots"
+	@echo "    make help-debugging       Troubleshooting steps"
+	@echo "    make help-makefile        All make commands"
+	@echo "    make help-environment     Configuration variables"
+	@echo ""
+	@echo "  Explore & configure:"
 	@echo "    make logs                 Follow bot logs"
 	@echo "    make dashboard            Live monitoring"
 	@echo "    make help-volumes         Configure storage (PARA)"
@@ -92,6 +100,7 @@ quickstart: catalog/bots.json ## Full setup: wizard → clone → build → star
 	@echo "    make help-create-bot      Create your own bot"
 	@echo "    make add BOT=name         Add catalog bot"
 	@echo "    make add-local BOT_PATH=  Add your custom bot"
+	@echo "    make migrate              Database migrations"
 	@echo "    make down                 Stop everything"
 	@echo "═══════════════════════════════════════════"
 
@@ -120,6 +129,24 @@ help-create-bot: ## Step-by-step guide to create your own bot
 
 help-volumes: ## Configure PARA, internal docs, and persistent storage
 	@cat docs/VOLUMES_AND_STORAGE.md | less
+
+help-architecture: ## System design, NATS, messaging, data flow
+	@cat docs/ARCHITECTURE.md | less
+
+help-bridge-api: ## Bridge API reference (all subjects, examples, errors)
+	@cat docs/BRIDGE_API_REFERENCE.md | less
+
+help-debugging: ## Troubleshooting flowchart and debugging steps
+	@cat docs/DEBUGGING_GUIDE.md | less
+
+help-testing: ## Test Bot Army subjects and integrations
+	@cat docs/TESTING_GUIDE.md | less
+
+help-makefile: ## Complete Makefile reference and all targets
+	@cat docs/MAKEFILE_REFERENCE.md | less
+
+help-environment: ## All environment variables and configuration
+	@cat docs/ENVIRONMENT_VARIABLES.md | less
 
 health-check: ## Verify NATS, Postgres, bots, and Claude are working
 	@./scripts/health-check.sh
