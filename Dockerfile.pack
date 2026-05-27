@@ -82,11 +82,14 @@ c = Enum.reduce(deps_dirs, c, fn dir, acc ->
   # Replace {:dir, git: ...} or {:dir, path: ...} with {:dir, path: "../dir"}
   re = Regex.compile!("\\{:" <> dir <> ",\\s*\\[.*?\\]\\}", "s")
   replacement = "{:" <> dir <> ", path: \"../" <> dir <> "\"}"
-  Regex.replace(re, acc, replacement)
+  case Regex.replace(re, acc, replacement) do
+    ^acc ->
+      # Also handle bare deps like {:dir, "github.com/..."}
+      re_bare = Regex.compile!("\\{:" <> dir <> ",\\s*\"[^\"]+\"\\}", "s")
+      Regex.replace(re_bare, acc, replacement)
+    result -> result
+  end
 end)
-# Also handle bare deps like {:dir, "github.com/..."}
-re_bare = Regex.compile!("\\{:" <> dir <> ",\\s*\"[^\"]+\"\\}", "s")
-c = Regex.replace(re_bare, c, replacement)
 File.write!("mix.exs", c)
 ELIXIRSCRIPT
 elixir /tmp/fix_deps.exs

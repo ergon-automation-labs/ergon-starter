@@ -104,6 +104,7 @@ RUN mix release ${BOT_NAME}
 FROM alpine:3.20 AS runtime
 
 ARG BOT_NAME
+ARG BOT_REPO
 
 RUN apk add --no-cache libstdc++ openssl ncurses-libs
 
