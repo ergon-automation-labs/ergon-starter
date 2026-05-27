@@ -190,20 +190,10 @@ status: build ## Show configured services
 		-w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) status
 
 dashboard: build ## Launch TUI dashboard (requires interactive terminal)
-	@if [ -t 0 ]; then \
-		docker run --rm -it \
-			-v $(PWD):/workspace \
-			-v $(DOCKER_SOCK):/var/run/docker.sock \
-			-w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) dashboard; \
-	else \
-		echo ""; \
-		echo "Dashboard requires an interactive terminal (TTY)."; \
-		echo "Run directly from your shell:"; \
-		echo ""; \
-		echo "  make dashboard"; \
-		echo ""; \
-		exit 1; \
-	fi
+	docker run --rm -it \
+		-v $(PWD):/workspace \
+		-v $(DOCKER_SOCK):/var/run/docker.sock \
+		-w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) dashboard
 
 # --- Docker Compose ---
 
