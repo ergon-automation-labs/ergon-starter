@@ -57,7 +57,8 @@
     "category": "core",
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": ["./data/para:/opt/app/para"]
   },
   {
     "name": "dispatcher",
@@ -168,7 +169,8 @@
     "category": "learning_deepdive",
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": ["./data/internal_docs/crawl:/opt/app/crawl"]
   },
   {
     "name": "fitness",

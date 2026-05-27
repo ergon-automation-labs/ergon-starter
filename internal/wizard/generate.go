@@ -175,6 +175,21 @@ func generatePackComposeFile(cfg *Config) error {
 		b.WriteString("      - ./data/para:/opt/app/para\n")
 		b.WriteString("      - ./data/state:/opt/app/state\n")
 
+		// Custom volume mounts from bot catalog (deduplicated)
+		seenVols := map[string]bool{}
+		for _, botName := range pack.Bots {
+			for _, bot := range cfg.AllBots {
+				if bot.Name == botName {
+					for _, vol := range bot.Volumes {
+						if !seenVols[vol] {
+							b.WriteString(fmt.Sprintf("      - %s\n", vol))
+							seenVols[vol] = true
+						}
+					}
+				}
+			}
+		}
+
 		// Dependencies
 		deps := []string{"nats"}
 		if needsDB {
@@ -338,6 +353,11 @@ func generateBotComposeFile(cfg *Config) error {
 		b.WriteString(fmt.Sprintf("      - ./data/logs/%s:/var/log/bot_army\n", bot.Name))
 		b.WriteString(fmt.Sprintf("      - ./data/para/%s:/opt/app/para\n", bot.Name))
 		b.WriteString(fmt.Sprintf("      - ./data/state/%s:/opt/app/state\n", bot.Name))
+
+		// Custom volume mounts from bot catalog
+		for _, vol := range bot.Volumes {
+			b.WriteString(fmt.Sprintf("      - %s\n", vol))
+		}
 
 		// Development mode: mount library repos for live editing
 		if cfg.DevMode {

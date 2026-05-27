@@ -18,6 +18,7 @@ type Bot struct {
 	Category    string   `json:"category"`
 	EnvVars     []EnvVar `json:"env_vars"`
 	InstallNote string   `json:"install_note,omitempty"`
+	Volumes     []string `json:"volumes,omitempty"`
 }
 
 func (b Bot) DisplayName() string {
