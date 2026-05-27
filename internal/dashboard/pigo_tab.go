@@ -105,10 +105,10 @@ func (p *PigoTab) Init(app *tview.Application, cfg *DashboardConfig) {
 		return ev
 	})
 
-	// Status bar
+	// Status bar — set initial text directly (QueueUpdateDraw deadlocks before app.Run)
 	p.statusBar = tview.NewTextView()
 	p.statusBar.SetDynamicColors(true)
-	p.updateStatusBar()
+	p.statusBar.SetText("[red]NATS ○[-]  command: [cyan]analyze[-]  session: [dim]" + shortSessionID(p.sessionID) + "[-]")
 
 	// Layout: output (flex 1) + input (3 rows) + status (1 row)
 	p.widget = tview.NewFlex().SetDirection(tview.FlexRow).
