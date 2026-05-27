@@ -81,7 +81,20 @@ Then:
 - Add to your fleet (`make add BOT=mybot`)
 - Deploy automatically via pre-push hooks
 
-### 3. Monitor Your Fleet
+### 3. Configure Your Storage
+→ **[Volumes & Storage Guide](docs/VOLUMES_AND_STORAGE.md)**
+
+Customize where your data lives:
+- PARA (personal knowledge base) — use your own Documents folder
+- Internal docs — index your team's documentation
+- Persistent bot data — backups and syncing
+
+```bash
+make help-volumes
+# Configure storage locations and backups
+```
+
+### 4. Monitor Your Fleet
 → **Dashboard**
 
 ```bash
