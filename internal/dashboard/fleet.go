@@ -122,11 +122,12 @@ func (f *FleetTab) refresh() {
 		return
 	}
 
-	// Build map of containers
-	contMap := make(map[string]DockerContainer)
-	for _, c := range containers {
-		contMap[c.Names] = c
-	}
+	// Build map of containers keyed by compose service name.
+		// DockerPS already normalizes Names to service names (e.g. "core_pack").
+		contMap := make(map[string]DockerContainer)
+		for _, c := range containers {
+			contMap[c.Names] = c
+		}
 
 	f.app.QueueUpdateDraw(func() {
 		f.botList.Clear()

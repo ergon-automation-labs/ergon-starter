@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -33,6 +34,7 @@ type DockerStat struct {
 }
 
 // DockerPS returns a list of running/stopped containers.
+// Container names are normalized to compose service names.
 func DockerPS() ([]DockerContainer, error) {
 	cmd := exec.Command("docker", "ps", "-a", "--format", "{{json .}}")
 	output, err := cmd.Output()
@@ -49,13 +51,32 @@ func DockerPS() ([]DockerContainer, error) {
 		if err := json.Unmarshal([]byte(line), &c); err != nil {
 			continue // skip malformed lines
 		}
+		c.Names = ComposeServiceName(c.Names)
 		containers = append(containers, c)
 	}
 
 	return containers, nil
 }
 
+// ComposeServiceName extracts the service name from a docker compose container name.
+// Docker compose names follow {project}-{service}-{n}, e.g. "workspace-core_pack-1" → "core_pack".
+// Standalone container names (no compose pattern) are returned as-is.
+func ComposeServiceName(name string) string {
+	name = strings.TrimPrefix(name, "/")
+	if idx := strings.LastIndex(name, "-"); idx > 0 {
+		if _, err := strconv.Atoi(name[idx+1:]); err == nil {
+			serviceWithProject := name[:idx]
+			if dotIdx := strings.Index(serviceWithProject, "-"); dotIdx >= 0 {
+				return serviceWithProject[dotIdx+1:]
+			}
+			return serviceWithProject
+		}
+	}
+	return name
+}
+
 // DockerStats returns container resource usage stats.
+// Container names are normalized to compose service names for display.
 func DockerStats() ([]DockerStat, error) {
 	cmd := exec.Command("docker", "stats", "--no-stream", "--format", "{{json .}}")
 	output, err := cmd.Output()
@@ -72,6 +93,7 @@ func DockerStats() ([]DockerStat, error) {
 		if err := json.Unmarshal([]byte(line), &s); err != nil {
 			continue // skip malformed lines
 		}
+		s.Name = ComposeServiceName(s.Name)
 		stats = append(stats, s)
 	}
 
