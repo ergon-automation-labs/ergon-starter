@@ -63,6 +63,7 @@ func (l *LogsTab) Init(app *tview.Application, cfg *DashboardConfig) {
 		SetTitleAlign(tview.AlignLeft)
 	l.logView.SetDynamicColors(true)
 	l.logView.SetInputCapture(l.logInputCapture)
+	l.logView.SetText("[dim]Select a bot to view logs[-]")
 
 	// Layout: bot list (left) + log view (right)
 	flex := tview.NewFlex().
@@ -75,7 +76,7 @@ func (l *LogsTab) Init(app *tview.Application, cfg *DashboardConfig) {
 	// Bot selection callback
 	l.botList.SetSelectedFunc(func(i int, _ string, _ string, _ rune) {
 		l.selectedBot = i
-		l.loadBotLogs()
+		go l.loadBotLogs()
 	})
 }
 
@@ -90,13 +91,16 @@ func (l *LogsTab) loadBotLogs() {
 	l.logLines = l.logLines[:0] // Clear logs
 	l.logsMutex.Unlock()
 
-	// Load initial logs
+	l.app.QueueUpdateDraw(func() {
+		l.logView.SetText("[dim]Loading logs...[-]")
+	})
+
+	// Load initial logs (Docker CLI call — runs outside event loop)
 	logs, err := DockerLogs(bot.ReleaseName, 100)
 	if err != nil {
 		l.app.QueueUpdateDraw(func() {
 			l.logView.SetText("[red]Error loading logs: " + err.Error() + "[-]")
-			title := " Logs: " + bot.Name + "  f:follow  q:quit "
-			l.logView.SetTitle(title)
+			l.logView.SetTitle(" Logs: " + bot.Name + "  f:follow  q:quit ")
 		})
 		return
 	}
@@ -183,7 +187,6 @@ func (l *LogsTab) logInputCapture(ev *tcell.EventKey) *tcell.EventKey {
 	case 'f':
 		l.follow = !l.follow
 		if l.follow && l.selectedBot >= 0 && l.selectedBot < len(l.cfg.Bots) {
-			// Restart tailing when enabling follow
 			go l.tailLogs(l.cfg.Bots[l.selectedBot].ReleaseName)
 		}
 		l.renderLogs()
@@ -192,9 +195,9 @@ func (l *LogsTab) logInputCapture(ev *tcell.EventKey) *tcell.EventKey {
 	return ev
 }
 
-// Start loads initial logs (must be called after tview event loop starts).
+// Start loads initial logs (async, called after tview event loop starts).
 func (l *LogsTab) Start() {
-	l.loadBotLogs()
+	go l.loadBotLogs()
 }
 
 // Stop stops the logs tab.
