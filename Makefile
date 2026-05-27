@@ -41,7 +41,7 @@ REGISTRY_PORT ?= 32000
 # Elixir builds are memory-heavy — limit parallel builds to avoid OOM
 COMPOSE_BUILD_PARALLEL ?= 3
 
-.PHONY: help quickstart build install sync init add add-local status dashboard up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health clean-images clean-docker-volumes clean-docker-builder clean-logs clean-caches-safe clean-safe clean-disk disk-check test release-check release-test release-create release-list release-latest registry-build registry-push registry-publish registry-images registry-setup setup-tools claude-integrate help-create-bot help-volumes health-check help-troubleshoot quick-start migrate rollback migrate-status help-architecture help-bridge-api help-debugging help-testing help-makefile help-environment
+.PHONY: help quickstart build install sync init add add-local status dashboard up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health clean-images clean-docker-volumes clean-docker-builder clean-logs clean-caches-safe clean-safe clean-disk disk-check test release-check release-test release-create release-list release-latest registry-build registry-push registry-publish registry-images registry-setup setup-tools claude-integrate help-create-bot help-volumes health-check help-troubleshoot quick-start migrate rollback migrate-status help-architecture help-bridge-api help-debugging help-testing help-makefile help-environment help-migrations
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -100,7 +100,8 @@ quickstart: catalog/bots.json ## Full setup: wizard → clone → build → star
 	@echo "    make help-create-bot      Create your own bot"
 	@echo "    make add BOT=name         Add catalog bot"
 	@echo "    make add-local BOT_PATH=  Add your custom bot"
-	@echo "    make migrate              Database migrations"
+	@echo "    make migrate              Run database migrations"
+	@echo "    make help-migrations      Migration workflow guide"
 	@echo "    make down                 Stop everything"
 	@echo "═══════════════════════════════════════════"
 
@@ -147,6 +148,9 @@ help-makefile: ## Complete Makefile reference and all targets
 
 help-environment: ## All environment variables and configuration
 	@cat docs/ENVIRONMENT_VARIABLES.md | less
+
+help-migrations: ## Database migrations workflow and troubleshooting
+	@cat docs/MIGRATIONS_GUIDE.md | less
 
 health-check: ## Verify NATS, Postgres, bots, and Claude are working
 	@./scripts/health-check.sh
