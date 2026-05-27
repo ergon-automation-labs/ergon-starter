@@ -13,5 +13,5 @@ RUN CGO_ENABLED=0 go build -o /bot-army ./cmd/bot-army
 FROM alpine:3.20
 RUN apk add --no-cache git wget tar docker-cli docker-compose
 RUN git config --global url."https://github.com/".insteadOf "git@github.com:" && \
-    git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+    git config --global --add url."https://github.com/".insteadOf "ssh://git@github.com/"
 COPY --from=build /bot-army /usr/local/bin/bot-army
