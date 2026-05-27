@@ -186,10 +186,7 @@ func generatePackComposeFile(cfg *Config) error {
 
 		// Volume mounts for all bots in the pack (named volumes for portability)
 		b.WriteString("    volumes:\n")
-		for name := range allBotNames {
-			b.WriteString(fmt.Sprintf("      - logs_%s:/var/log/bot_army\n", name))
-			break // All bots share the same log dir in the container
-		}
+		b.WriteString(fmt.Sprintf("      - logs_%s:/var/log/bot_army\n", pack.ReleaseName))
 		b.WriteString("      - para:/opt/app/para\n")
 		b.WriteString("      - state:/opt/app/state\n")
 
@@ -262,9 +259,14 @@ func generatePackComposeFile(cfg *Config) error {
 
 	// Volumes
 	b.WriteString("volumes:\n")
-	for name := range allBotNames {
-		b.WriteString(fmt.Sprintf("  logs_%s:\n", name))
-		break
+	for _, pack := range cfg.SelectedPacks {
+		if pack.Name == "development" {
+			continue
+		}
+		b.WriteString(fmt.Sprintf("  logs_%s:\n", pack.ReleaseName))
+	}
+	for _, customBot := range cfg.CustomBots {
+		b.WriteString(fmt.Sprintf("  logs_%s:\n", customBot.Name))
 	}
 	b.WriteString("  para:\n")
 	b.WriteString("  state:\n")
