@@ -18,6 +18,7 @@ type FleetTab struct {
 	app        *tview.Application
 	cfg        *DashboardConfig
 	containers map[string]DockerContainer
+	health     map[string]HealthStatus
 	selected   string
 	ctx        context.Context
 	cancel     context.CancelFunc
@@ -27,6 +28,7 @@ type FleetTab struct {
 func NewFleetTab() *FleetTab {
 	return &FleetTab{
 		containers: make(map[string]DockerContainer),
+		health:    make(map[string]HealthStatus),
 	}
 }
 
@@ -76,8 +78,6 @@ func (f *FleetTab) Init(app *tview.Application, cfg *DashboardConfig) {
 		case 'r':
 			// Restart selected bot
 			if f.selected != "" {
-				// docker compose restart <name>
-				// For now, just show a message
 				f.app.QueueUpdateDraw(func() {
 					f.botDetail.SetText(fmt.Sprintf("[yellow]Restarting %s...[-]", f.selected))
 				})
@@ -111,7 +111,7 @@ func (f *FleetTab) refreshLoop() {
 	}
 }
 
-// refresh gets the current container list and updates the UI.
+// refresh gets the current container list and NATS health, then updates the UI.
 func (f *FleetTab) refresh() {
 	containers, err := DockerPS()
 	if err != nil {
@@ -123,29 +123,41 @@ func (f *FleetTab) refresh() {
 	}
 
 	// Build map of containers keyed by compose service name.
-		// DockerPS already normalizes Names to service names (e.g. "core_pack").
-		contMap := make(map[string]DockerContainer)
-		for _, c := range containers {
-			contMap[c.Names] = c
-		}
+	contMap := make(map[string]DockerContainer)
+	for _, c := range containers {
+		contMap[c.Names] = c
+	}
+
+	// Check NATS health (2s timeout, non-blocking)
+	var health map[string]HealthStatus
+	if f.cfg.NATSPort != "" {
+		natsURL := fmt.Sprintf("nats://localhost:%s", f.cfg.NATSPort)
+		health = CheckNATSHealth(natsURL, 2*time.Second)
+	}
 
 	f.app.QueueUpdateDraw(func() {
 		f.botList.Clear()
 		f.containers = contMap
+		f.health = health
 
 		for _, bot := range f.cfg.Bots {
-			cont, ok := contMap[bot.ReleaseName]
-			var label string
+			cont, hasContainer := contMap[bot.ReleaseName]
+			h, hasHealth := health[bot.ReleaseName]
 
-			if !ok {
+			var label string
+			if !hasContainer {
 				label = fmt.Sprintf("○ %s  [red]not found[-]", bot.Name)
 			} else {
-				// Determine status icon and color
-				var icon string
-				var color string
-				if strings.Contains(cont.State, "running") {
+				var icon, color string
+				if hasHealth && h.Status == "healthy" {
 					icon = "●"
 					color = "[green]"
+				} else if hasHealth && h.Status == "degraded" {
+					icon = "◐"
+					color = "[yellow]"
+				} else if strings.Contains(cont.State, "running") {
+					icon = "◐"
+					color = "[yellow]"
 				} else if strings.Contains(cont.State, "exited") {
 					icon = "○"
 					color = "[red]"
@@ -153,7 +165,12 @@ func (f *FleetTab) refresh() {
 					icon = "◐"
 					color = "[yellow]"
 				}
-				label = fmt.Sprintf("%s %s  %s%s[-]", icon, bot.Name, color, cont.State)
+
+				statusText := cont.State
+				if hasHealth {
+					statusText = h.Status
+				}
+				label = fmt.Sprintf("%s %s  %s%s[-]", icon, bot.Name, color, statusText)
 			}
 
 			f.botList.AddItem(label, bot.ReleaseName, 0, nil)
@@ -169,20 +186,44 @@ func (f *FleetTab) refresh() {
 
 // updateDetail updates the detail panel for the selected bot.
 func (f *FleetTab) updateDetail() {
-	cont, ok := f.containers[f.selected]
-	if !ok {
+	cont, hasContainer := f.containers[f.selected]
+	h, hasHealth := f.health[f.selected]
+
+	if !hasContainer {
 		f.botDetail.SetText("[red]Container not found[-]")
 		return
 	}
 
 	detail := fmt.Sprintf("[cyan]%s[-]\n\n", f.selected)
-	detail += fmt.Sprintf("State: %s\n", cont.State)
+
+	if hasHealth {
+		detail += fmt.Sprintf("NATS: [green]%s[-]\n", h.Status)
+		detail += fmt.Sprintf("Uptime: %s\n", formatUptime(h.Uptime))
+	}
+
+	detail += fmt.Sprintf("\nContainer: %s\n", cont.State)
 	detail += fmt.Sprintf("Status: %s\n", cont.Status)
 	detail += fmt.Sprintf("Image: %s\n", cont.Image)
-	detail += fmt.Sprintf("Ports: %s\n", cont.Ports)
+	if cont.Ports != "" {
+		detail += fmt.Sprintf("Ports: %s\n", cont.Ports)
+	}
 	detail += fmt.Sprintf("Created: %s\n", cont.Created)
 
 	f.botDetail.SetText(detail)
+}
+
+// formatUptime formats seconds into a human-readable duration.
+func formatUptime(seconds int) string {
+	if seconds < 60 {
+		return fmt.Sprintf("%ds", seconds)
+	}
+	if seconds < 3600 {
+		return fmt.Sprintf("%dm", seconds/60)
+	}
+	if seconds < 86400 {
+		return fmt.Sprintf("%dh%dm", seconds/3600, (seconds%3600)/60)
+	}
+	return fmt.Sprintf("%dd%dh", seconds/86400, (seconds%86400)/3600)
 }
 
 // Stop stops the fleet tab's background tasks.
