@@ -137,20 +137,30 @@ func (f *FleetTab) refresh() {
 
 	// Get cached health status
 	var health map[string]HealthStatus
+	natsConnected := false
 	if f.healthMon != nil {
 		health = f.healthMon.GetHealth()
+		natsConnected = f.healthMon.Connected()
 	}
 
 	f.app.QueueUpdateDraw(func() {
 		f.botList.Clear()
 		f.containers = contMap
 
+		// Show NATS connection status
+		if !natsConnected {
+			f.botDetail.SetText("[yellow]NATS not connected[-]\n\nHealth beacons require a running NATS server.\nEnsure bots are running and NATS is reachable on port " + f.cfg.NATSPort + ".")
+		}
+
 		for _, bot := range f.cfg.Bots {
 			cont, hasContainer := contMap[bot.ReleaseName]
 			h, hasHealth := MatchService(health, bot.ReleaseName)
 
 			var label string
-			if !hasContainer {
+			if !hasContainer && len(f.cfg.Bots) == 0 {
+				// No bots configured — skip
+				continue
+			} else if !hasContainer {
 				label = fmt.Sprintf("○ %s  [red]not found[-]", bot.Name)
 			} else {
 				var icon, color, statusText string
@@ -165,7 +175,7 @@ func (f *FleetTab) refresh() {
 				} else if strings.Contains(cont.State, "running") {
 					icon = "◐"
 					color = "[yellow]"
-					statusText = "starting"
+					statusText = "running"
 				} else if strings.Contains(cont.State, "exited") {
 					icon = "○"
 					color = "[red]"
@@ -185,6 +195,23 @@ func (f *FleetTab) refresh() {
 		if f.selected == "" && len(f.cfg.Bots) > 0 {
 			f.selected = f.cfg.Bots[0].ReleaseName
 		}
+
+		// If no bots configured, auto-discover from Docker containers
+		if len(f.cfg.Bots) == 0 && len(containers) > 0 {
+			for _, c := range containers {
+				name := ComposeServiceName(c.Names)
+				if name == "nats" || name == "postgres" || name == "ollama" {
+					continue
+				}
+				label := fmt.Sprintf("◐ %s  [yellow]%s[-]", name, c.State)
+				f.botList.AddItem(label, name, 0, nil)
+			}
+			if f.botList.GetItemCount() == 0 {
+				f.botList.AddItem("[dim]No services found[-]", "", 0, nil)
+			}
+			f.botDetail.SetText("[dim]No .env or docker-compose.yml found.\nServices discovered from Docker.[-]")
+		}
+
 		f.updateDetail()
 	})
 }

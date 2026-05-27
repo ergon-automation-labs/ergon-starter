@@ -184,11 +184,9 @@ func (p *PigoTab) handleInput(text string) {
 
 	// Ensure NATS connection
 	if p.nc == nil || !p.nc.IsConnected() {
-		p.connectNATS()
-		if p.nc == nil {
-			p.appendOutput("[red]Not connected to NATS[-]\n")
-			return
-		}
+		p.appendOutput("[yellow]Reconnecting to NATS...[-]\n")
+		go p.connectNATS()
+		return
 	}
 
 	// Generate correlation ID
