@@ -184,14 +184,14 @@ func generatePackComposeFile(cfg *Config) error {
 		b.WriteString("    environment:\n")
 		b.WriteString("      PACK_MODE: \"true\"\n")
 
-		// Volume mounts for all bots in the pack
+		// Volume mounts for all bots in the pack (named volumes for portability)
 		b.WriteString("    volumes:\n")
 		for name := range allBotNames {
-			b.WriteString(fmt.Sprintf("      - ./data/logs/%s:/var/log/bot_army\n", name))
+			b.WriteString(fmt.Sprintf("      - logs_%s:/var/log/bot_army\n", name))
 			break // All bots share the same log dir in the container
 		}
-		b.WriteString("      - ./data/para:/opt/app/para\n")
-		b.WriteString("      - ./data/state:/opt/app/state\n")
+		b.WriteString("      - para:/opt/app/para\n")
+		b.WriteString("      - state:/opt/app/state\n")
 
 		// Custom volume mounts from bot catalog (deduplicated)
 		seenVols := map[string]bool{}
@@ -246,9 +246,9 @@ func generatePackComposeFile(cfg *Config) error {
 		}
 
 		b.WriteString("    volumes:\n")
-		b.WriteString(fmt.Sprintf("      - ./data/logs/%s:/var/log/bot_army\n", customBot.Name))
-		b.WriteString(fmt.Sprintf("      - ./data/para/%s:/opt/app/para\n", customBot.Name))
-		b.WriteString(fmt.Sprintf("      - ./data/state/%s:/opt/app/state\n", customBot.Name))
+		b.WriteString(fmt.Sprintf("      - logs_%s:/var/log/bot_army\n", customBot.Name))
+		b.WriteString("      - para:/opt/app/para\n")
+		b.WriteString("      - state:/opt/app/state\n")
 
 		for _, mount := range cfg.CustomMounts {
 			b.WriteString(fmt.Sprintf("      - %s:%s\n", mount.Source, mount.Destination))
@@ -261,14 +261,18 @@ func generatePackComposeFile(cfg *Config) error {
 	}
 
 	// Volumes
-	if needsDB || cfg.SelfHostOllama {
-		b.WriteString("volumes:\n")
-		if needsDB {
-			b.WriteString("  pgdata:\n")
-		}
-		if cfg.SelfHostOllama {
-			b.WriteString("  ollama_data:\n")
-		}
+	b.WriteString("volumes:\n")
+	for name := range allBotNames {
+		b.WriteString(fmt.Sprintf("  logs_%s:\n", name))
+		break
+	}
+	b.WriteString("  para:\n")
+	b.WriteString("  state:\n")
+	if needsDB {
+		b.WriteString("  pgdata:\n")
+	}
+	if cfg.SelfHostOllama {
+		b.WriteString("  ollama_data:\n")
 	}
 
 	composePath := filepath.Join(cfg.InstallDir, "docker-compose.yml")
@@ -379,9 +383,9 @@ func generateBotComposeFile(cfg *Config) error {
 
 		// Mounted volumes for log/PARA output and persistent data
 		b.WriteString("    volumes:\n")
-		b.WriteString(fmt.Sprintf("      - ./data/logs/%s:/var/log/bot_army\n", bot.Name))
-		b.WriteString(fmt.Sprintf("      - ./data/para/%s:/opt/app/para\n", bot.Name))
-		b.WriteString(fmt.Sprintf("      - ./data/state/%s:/opt/app/state\n", bot.Name))
+		b.WriteString(fmt.Sprintf("      - logs_%s:/var/log/bot_army\n", bot.Name))
+		b.WriteString("      - para:/opt/app/para\n")
+		b.WriteString("      - state:/opt/app/state\n")
 
 		// Custom volume mounts from bot catalog
 		for _, vol := range bot.Volumes {
@@ -436,9 +440,9 @@ func generateBotComposeFile(cfg *Config) error {
 
 		// Standard volumes
 		b.WriteString("    volumes:\n")
-		b.WriteString(fmt.Sprintf("      - ./data/logs/%s:/var/log/bot_army\n", customBot.Name))
-		b.WriteString(fmt.Sprintf("      - ./data/para/%s:/opt/app/para\n", customBot.Name))
-		b.WriteString(fmt.Sprintf("      - ./data/state/%s:/opt/app/state\n", customBot.Name))
+		b.WriteString(fmt.Sprintf("      - logs_%s:/var/log/bot_army\n", customBot.Name))
+		b.WriteString("      - para:/opt/app/para\n")
+		b.WriteString("      - state:/opt/app/state\n")
 
 		// Custom mounts
 		for _, mount := range cfg.CustomMounts {
@@ -452,15 +456,24 @@ func generateBotComposeFile(cfg *Config) error {
 		b.WriteString("\n")
 	}
 
-	// Volumes (only if needed)
-	if needsDB || cfg.SelfHostOllama {
-		b.WriteString("volumes:\n")
-		if needsDB {
-			b.WriteString("  pgdata:\n")
+	// Volumes
+	b.WriteString("volumes:\n")
+	for _, bot := range cfg.SelectedBots {
+		if strings.HasPrefix(bot.Repo, "bot_army_library_") {
+			continue
 		}
-		if cfg.SelfHostOllama {
-			b.WriteString("  ollama_data:\n")
-		}
+		b.WriteString(fmt.Sprintf("  logs_%s:\n", bot.Name))
+	}
+	for _, customBot := range cfg.CustomBots {
+		b.WriteString(fmt.Sprintf("  logs_%s:\n", customBot.Name))
+	}
+	b.WriteString("  para:\n")
+	b.WriteString("  state:\n")
+	if needsDB {
+		b.WriteString("  pgdata:\n")
+	}
+	if cfg.SelfHostOllama {
+		b.WriteString("  ollama_data:\n")
 	}
 
 	composePath := filepath.Join(cfg.InstallDir, "docker-compose.yml")
