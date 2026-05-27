@@ -36,6 +36,7 @@ type Dashboard struct {
 	logs   *LogsTab
 	nats   *NATSTab
 	system *SystemTab
+	pigo   *PigoTab
 
 	activeTab string
 }
@@ -63,6 +64,7 @@ func (d *Dashboard) Run() error {
 		d.fleet.Start()
 		d.logs.Start()
 		d.system.Start()
+		d.pigo.Start()
 	}()
 
 	if err := d.app.Run(); err != nil {
@@ -97,7 +99,7 @@ func (d *Dashboard) buildLayout() {
 	d.app.SetRoot(d.root, true)
 }
 
-// initTabs initializes all 4 tabs.
+// initTabs initializes all tabs.
 func (d *Dashboard) initTabs() {
 	d.fleet = NewFleetTab()
 	d.fleet.Init(d.app, d.cfg)
@@ -111,11 +113,15 @@ func (d *Dashboard) initTabs() {
 	d.system = NewSystemTab()
 	d.system.Init(d.app, d.cfg)
 
+	d.pigo = NewPigoTab()
+	d.pigo.Init(d.app, d.cfg)
+
 	// Add pages in order
 	d.pages.AddPage("fleet", d.fleet.Widget(), true, true)
 	d.pages.AddPage("logs", d.logs.Widget(), true, false)
 	d.pages.AddPage("nats", d.nats.Widget(), true, false)
 	d.pages.AddPage("system", d.system.Widget(), true, false)
+	d.pages.AddPage("pigo", d.pigo.Widget(), true, false)
 
 	// Start the fleet tab first
 	d.app.SetFocus(d.fleet.Widget())
@@ -127,6 +133,7 @@ func (d *Dashboard) stopTabs() {
 	d.logs.Stop()
 	d.nats.Stop()
 	d.system.Stop()
+	d.pigo.Stop()
 }
 
 // setupKeyCapture sets up global key bindings.
@@ -144,6 +151,9 @@ func (d *Dashboard) setupKeyCapture() {
 			return nil
 		case '4':
 			d.switchTab("system", d.system.Widget())
+			return nil
+		case '5':
+			d.switchTab("pigo", d.pigo.Widget())
 			return nil
 		case '?':
 			d.showTemplateGuide()
@@ -164,6 +174,8 @@ func (d *Dashboard) setupKeyCapture() {
 			case "nats":
 				d.switchTab("system", d.system.Widget())
 			case "system":
+				d.switchTab("pigo", d.pigo.Widget())
+			case "pigo":
 				d.switchTab("fleet", d.fleet.Widget())
 			}
 			return nil
@@ -171,13 +183,15 @@ func (d *Dashboard) setupKeyCapture() {
 		case tcell.KeyBacktab: // Shift+Tab
 			switch d.activeTab {
 			case "fleet":
-				d.switchTab("system", d.system.Widget())
+				d.switchTab("pigo", d.pigo.Widget())
 			case "logs":
 				d.switchTab("fleet", d.fleet.Widget())
 			case "nats":
 				d.switchTab("logs", d.logs.Widget())
 			case "system":
 				d.switchTab("nats", d.nats.Widget())
+			case "pigo":
+				d.switchTab("system", d.system.Widget())
 			}
 			return nil
 		}
@@ -196,7 +210,7 @@ func (d *Dashboard) switchTab(name string, widget tview.Primitive) {
 
 // updateHeader updates the header with the current tab.
 func (d *Dashboard) updateHeader() {
-	tabs := []string{"fleet", "logs", "nats", "system"}
+	tabs := []string{"fleet", "logs", "nats", "system", "pigo"}
 	header := "🤖 Bot Army  "
 
 	for _, tab := range tabs {
