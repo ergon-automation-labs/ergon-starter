@@ -196,14 +196,18 @@ func runSetup(cfg *Config) error {
 	}
 
 	// Launch dashboard (this will block until user quits)
+	// In pack mode, only show pack containers (not individual bots within packs).
+	// In per-bot mode, show individual bot containers.
 	var dashboardNames []string
 	var dashboardReleaseNames []string
-	for _, pack := range cfg.SelectedPacks {
-		if pack.Name == "development" {
-			continue
+	if len(cfg.SelectedPacks) > 0 {
+		for _, pack := range cfg.SelectedPacks {
+			if pack.Name == "development" {
+				continue
+			}
+			dashboardNames = append(dashboardNames, pack.Name)
+			dashboardReleaseNames = append(dashboardReleaseNames, pack.ReleaseName)
 		}
-		dashboardNames = append(dashboardNames, pack.Name)
-		dashboardReleaseNames = append(dashboardReleaseNames, pack.ReleaseName)
 	}
 	for _, bot := range cfg.SelectedBots {
 		dashboardNames = append(dashboardNames, bot.Name)
