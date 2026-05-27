@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -55,9 +56,10 @@ func (d *Dashboard) Run() error {
 	d.setupKeyCapture()
 
 	// Schedule initial data fetches for after the event loop starts.
-	// QueueUpdateDraw blocks until the loop processes it, so these will
-	// execute once tview is ready — avoiding the Init-time deadlock.
+	// The brief delay ensures app.Run() has started the tview event loop
+	// before QueueUpdateDraw is called, avoiding the Init-time deadlock.
 	go func() {
+		time.Sleep(100 * time.Millisecond)
 		d.fleet.Start()
 		d.logs.Start()
 		d.system.Start()

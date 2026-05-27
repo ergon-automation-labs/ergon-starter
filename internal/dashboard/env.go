@@ -65,9 +65,11 @@ func DashboardConfigFromEnv(dir string) (*DashboardConfig, error) {
 				continue
 			}
 
-			// Extract bot info from service name (e.g., "gtd_bot" → name="gtd", releaseName="gtd_bot")
+			// Extract bot info from service name
+			// e.g. "gtd_bot" → name="gtd", "core_pack" → name="core"
 			parts := strings.Split(serviceName, "_")
-			if len(parts) >= 2 && parts[len(parts)-1] == "bot" {
+			suffix := parts[len(parts)-1]
+			if suffix == "bot" || suffix == "pack" {
 				name := strings.Join(parts[:len(parts)-1], "_")
 				bots = append(bots, BotInfo{
 					Name:        name,
