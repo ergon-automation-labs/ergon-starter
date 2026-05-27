@@ -57,6 +57,30 @@ cat > repos/.dockerignore << 'DOCKERIGNORE'
 DOCKERIGNORE
 
 if [ -z "$REGISTRY" ]; then
+
+# Helper: clone repo using gh auth when available, fallback to HTTPS
+clone_repo() {
+  local remote="$1"
+  local dest="$2"
+  if [ -d "$dest" ]; then
+    echo "  ✓ $remote (exists)"
+    return 0
+  fi
+  echo "  ⏳ $remote..."
+  if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+    if gh repo clone "${GIT_ORG}/${remote}" "$dest" -- --depth 1 2>&1; then
+      echo "  ✓ $remote"
+      return 0
+    fi
+  fi
+  if git clone --depth 1 "https://github.com/${GIT_ORG}/${remote}.git" "$dest" 2>&1; then
+    echo "  ✓ $remote"
+    return 0
+  fi
+  echo "  ✗ $remote (clone failed)" >&2
+  return 1
+}
+
   # Clone library repos (remote names differ from local dir names)
   declare -A lib_remotes=(
     ["bot_army_library_runtime"]="ergon-library-runtime"
@@ -65,18 +89,7 @@ if [ -z "$REGISTRY" ]; then
   )
   for lib in "${!lib_remotes[@]}"; do
     remote="${lib_remotes[$lib]}"
-    dest="repos/$lib"
-    if [ ! -d "$dest" ]; then
-      echo "  ⏳ $remote..."
-      if git clone --depth 1 "https://github.com/${GIT_ORG}/${remote}.git" "$dest" 2>&1; then
-        echo "  ✓ $remote"
-      else
-        echo "  ✗ $remote (clone failed)" >&2
-        exit 1
-      fi
-    else
-      echo "  ✓ $remote (exists)"
-    fi
+    clone_repo "$remote" "repos/$lib" || exit 1
   done
 fi
 
@@ -89,31 +102,14 @@ while IFS=' ' read -r remote repo release bot_name db_flag; do
   # Libraries are path deps — clone only, no docker-compose service
   if [[ "$repo" == bot_army_library_* ]]; then
     if [ -z "$REGISTRY" ]; then
-      if [ ! -d "repos/$repo" ]; then
-        echo "  ⏳ $remote (library)..."
-        git clone --depth 1 "https://github.com/${GIT_ORG}/${remote}.git" "repos/$repo" 2>&1 || { echo "  ✗ $remote (clone failed)" >&2; exit 1; }
-        echo "  ✓ $remote (library)"
-      else
-        echo "  ✓ $remote (library, exists)"
-      fi
+      clone_repo "$remote" "repos/$repo" || exit 1
     fi
     continue
   fi
 
   # Clone source when building from source (no registry)
   if [ -z "$REGISTRY" ]; then
-    dest="repos/$repo"
-    if [ ! -d "$dest" ]; then
-      echo "  ⏳ $remote..."
-      if git clone --depth 1 "https://github.com/${GIT_ORG}/${remote}.git" "$dest" 2>&1; then
-        echo "  ✓ $remote"
-      else
-        echo "  ✗ $remote (clone failed)" >&2
-        exit 1
-      fi
-    else
-      echo "  ✓ $remote (exists)"
-    fi
+    clone_repo "$remote" "repos/$repo" || exit 1
   fi
 
   [ "$db_flag" = "true" ] && needs_db=true

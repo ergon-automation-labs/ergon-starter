@@ -273,7 +273,19 @@ func cloneRepoAs(reposDir, remote, destName, org string) error {
 
 	fmt.Printf("  ⏳ %s...", destName)
 
-	// Use explicit HTTPS URL to avoid SSH fallback in containers
+	// Prefer `gh repo clone` which uses gh auth credentials automatically
+	if hasGhAuth() {
+		fullName := fmt.Sprintf("%s/%s", org, remote)
+		cmd := exec.Command("gh", "repo", "clone", fullName, dest, "--", "--depth", "1")
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err == nil {
+			fmt.Println(" ✓")
+			return nil
+		}
+		// Fall through to plain git clone if gh fails
+	}
+
+	// Fallback: HTTPS clone (works for public repos)
 	url := fmt.Sprintf("https://github.com/%s/%s.git", org, remote)
 	cmd := exec.Command("git", "clone", "--depth", "1", url, dest)
 	cmd.Stderr = os.Stderr
@@ -283,6 +295,17 @@ func cloneRepoAs(reposDir, remote, destName, org string) error {
 	}
 	fmt.Println(" ✓")
 	return nil
+}
+
+// hasGhAuth checks if gh CLI is installed and authenticated
+func hasGhAuth() bool {
+	if err := exec.Command("which", "gh").Run(); err != nil {
+		return false
+	}
+	cmd := exec.Command("gh", "auth", "status")
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	return cmd.Run() == nil
 }
 
 // cloneCustomRepo clones a custom bot repository (URL or local path)
