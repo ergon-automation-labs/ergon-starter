@@ -189,7 +189,7 @@ status: build ## Show configured services
 		-v $(DOCKER_SOCK):/var/run/docker.sock \
 		-w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) status
 
-dashboard: build ## Launch TUI dashboard to monitor fleet health and logs
+dashboard: ## Launch TUI dashboard to monitor fleet health and logs
 	docker run --rm -it \
 		-v $(PWD):/workspace \
 		-v $(DOCKER_SOCK):/var/run/docker.sock \
