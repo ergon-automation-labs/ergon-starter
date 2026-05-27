@@ -55,16 +55,39 @@ The wizard saves your configuration to `.bot-army.json` for future restarts. To 
 make quickstart
 ```
 
-## After Quickstart: Claude Integration
+## After Quickstart: What's Next?
 
-Once Bot Army is running, integrate with **Claude Desktop** and **Claude Code** for AI-assisted development and task management:
+Once Bot Army is running, you have three paths:
 
-→ **[Read the Claude Integration Guide](docs/CLAUDE_INTEGRATION.md)**
+### 1. Integrate with Claude Desktop & Code
+→ **[Claude Integration Guide](docs/CLAUDE_INTEGRATION.md)**
 
-This covers:
-- Setting up Claude Desktop to read/write GTD tasks
-- Using Claude Code to develop features with NATS integration
-- Available MCP skills and workflows
+Connect your AI IDE to Bot Army:
+- Read/write GTD tasks from Claude
+- Use Claude Code to develop features
+- Run available skills (/graphify, /synapse-gtd-create-safe)
+
+### 2. Create Your Own Bot
+→ **[Create Bot Guide](docs/CREATE_BOT.md)**
+
+Build a custom bot from the minimal template:
+```bash
+cd /Users/abby/code/elixir_bots/bot_template
+./setup_new_bot.sh bot_army_mybot mybot_bot mybot "My Bot"
+```
+
+Then:
+- Implement handlers and test locally
+- Add to your fleet (`make add BOT=mybot`)
+- Deploy automatically via pre-push hooks
+
+### 3. Monitor Your Fleet
+→ **Dashboard**
+
+```bash
+make dashboard
+# Live Fleet, Logs, NATS, System stats
+```
 
 ## Commands
 

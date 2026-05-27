@@ -41,7 +41,7 @@ REGISTRY_PORT ?= 32000
 # Elixir builds are memory-heavy — limit parallel builds to avoid OOM
 COMPOSE_BUILD_PARALLEL ?= 3
 
-.PHONY: help quickstart build install sync init add status dashboard up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health clean-images clean-docker-volumes clean-docker-builder clean-logs clean-caches-safe clean-safe clean-disk disk-check test release-check release-test release-create release-list release-latest registry-build registry-push registry-publish registry-images registry-setup setup-tools claude-integrate
+.PHONY: help quickstart build install sync init add status dashboard up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health clean-images clean-docker-volumes clean-docker-builder clean-logs clean-caches-safe clean-safe clean-disk disk-check test release-check release-test release-create release-list release-latest registry-build registry-push registry-publish registry-images registry-setup setup-tools claude-integrate help-create-bot
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -72,11 +72,16 @@ quickstart: catalog/bots.json ## Full setup: wizard → clone → build → star
 	@echo "═══════════════════════════════════════════"
 	@echo "  ✓ Bot Army is running!"
 	@echo ""
-	@echo "  Useful commands:"
-	@echo "    make logs       Follow logs"
-	@echo "    make ps         Show services"
-	@echo "    make add BOT=x  Add another bot"
-	@echo "    make down       Stop everything"
+	@echo "  Next steps:"
+	@echo "    make logs                 Follow logs"
+	@echo "    make dashboard            Live monitoring (Fleet, Logs, NATS)"
+	@echo "    make claude-integrate     Claude Desktop + Code setup"
+	@echo ""
+	@echo "  Manage bots:"
+	@echo "    make ps                   Show services"
+	@echo "    make add BOT=name         Add another bot"
+	@echo "    make help-create-bot      Create your own bot"
+	@echo "    make down                 Stop everything"
 	@echo "═══════════════════════════════════════════"
 
 quickstart-default: catalog/bots.json ## Headless: core bots + Ollama, no prompts
@@ -98,6 +103,9 @@ quickstart-default: catalog/bots.json ## Headless: core bots + Ollama, no prompt
 
 claude-integrate: ## Show Claude Desktop + Claude Code integration guide
 	@cat docs/CLAUDE_INTEGRATION.md | less
+
+help-create-bot: ## Step-by-step guide to create your own bot
+	@cat docs/CREATE_BOT.md | less
 
 # --- Build ---
 
