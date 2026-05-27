@@ -92,7 +92,7 @@ func (f *FleetTab) Init(app *tview.Application, cfg *DashboardConfig) {
 
 // Start triggers the initial data fetch (called after tview event loop starts).
 func (f *FleetTab) Start() {
-	f.refresh()
+	go f.refresh()
 	go f.refreshLoop()
 }
 
