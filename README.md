@@ -55,6 +55,17 @@ The wizard saves your configuration to `.bot-army.json` for future restarts. To 
 make quickstart
 ```
 
+## After Quickstart: Claude Integration
+
+Once Bot Army is running, integrate with **Claude Desktop** and **Claude Code** for AI-assisted development and task management:
+
+→ **[Read the Claude Integration Guide](docs/CLAUDE_INTEGRATION.md)**
+
+This covers:
+- Setting up Claude Desktop to read/write GTD tasks
+- Using Claude Code to develop features with NATS integration
+- Available MCP skills and workflows
+
 ## Commands
 
 | Command | What it does |
