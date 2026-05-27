@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/abby/bot-army-starter/internal/dashboard"
 )
@@ -205,25 +206,33 @@ func runSetup(cfg *Config) error {
 	return dashboard.RunFromWizardConfig(cfg.Ports.NATS, botNames, botReleaseNames, "./data/logs/")
 }
 
+type cloneTask struct {
+	remote   string
+	destName string
+	org      string
+	isCustom bool
+}
+
 func cloneRepos(cfg *Config) error {
 	reposDir := filepath.Join(cfg.InstallDir, "repos")
 	os.MkdirAll(reposDir, 0o755)
 
-	// Clone libraries if in development mode
+	// Collect all repos to clone
+	var tasks []cloneTask
+
+	// Libraries if in development mode
 	if cfg.DevMode {
 		libraryRemotes := map[string]string{
 			"bot_army_library_runtime": "ergon-library-runtime",
-			"bot_army_library_core":     "ergon-library-core",
+			"bot_army_library_core":    "ergon-library-core",
 			"bot_army_library_learning": "ergon-library-learning",
 		}
 		for dest, remote := range libraryRemotes {
-			if err := cloneRepoAs(reposDir, remote, dest, cfg.GitOrg); err != nil {
-				return err
-			}
+			tasks = append(tasks, cloneTask{remote: remote, destName: dest, org: cfg.GitOrg})
 		}
 	}
 
-	// Clone pack repos when packs are selected
+	// Pack repos
 	packRepoMap := map[string]string{
 		"core":              "ergon-pack-core",
 		"areas":             "ergon-pack-areas",
@@ -233,31 +242,67 @@ func cloneRepos(cfg *Config) error {
 	}
 	for _, pack := range cfg.SelectedPacks {
 		if remote, ok := packRepoMap[pack.Name]; ok {
-			if err := cloneRepoAs(reposDir, remote, "ergon-pack-"+pack.Name, cfg.GitOrg); err != nil {
-				return err
-			}
+			tasks = append(tasks, cloneTask{remote: remote, destName: "ergon-pack-" + pack.Name, org: cfg.GitOrg})
 		}
 	}
 
-	// Clone selected bots
+	// Selected bots
 	for _, bot := range cfg.SelectedBots {
 		remote := bot.Remote
 		if remote == "" {
 			remote = bot.Repo
 		}
-		if err := cloneRepoAs(reposDir, remote, bot.Repo, cfg.GitOrg); err != nil {
-			return err
-		}
+		tasks = append(tasks, cloneTask{remote: remote, destName: bot.Repo, org: cfg.GitOrg})
 	}
 
-	// Clone custom bots
+	// Custom bots
 	for _, customBot := range cfg.CustomBots {
-		if err := cloneCustomRepo(reposDir, customBot.Repo, customBot.Name); err != nil {
-			return err
-		}
+		tasks = append(tasks, cloneTask{remote: customBot.Repo, destName: customBot.Name, org: cfg.GitOrg, isCustom: true})
 	}
 
-	return nil
+	// Clone all repos concurrently (up to 6 parallel)
+	return cloneParallel(reposDir, tasks, 6)
+}
+
+func cloneParallel(reposDir string, tasks []cloneTask, maxConcurrent int) error {
+	type result struct {
+		task cloneTask
+		err  error
+	}
+
+	sem := make(chan struct{}, maxConcurrent)
+	results := make(chan result, len(tasks))
+	var wg sync.WaitGroup
+
+	for _, t := range tasks {
+		wg.Add(1)
+		go func(task cloneTask) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			var err error
+			if task.isCustom {
+				err = cloneCustomRepo(reposDir, task.remote, task.destName)
+			} else {
+				err = cloneRepoAs(reposDir, task.remote, task.destName, task.org)
+			}
+			results <- result{task: task, err: err}
+		}(t)
+	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	var firstErr error
+	for r := range results {
+		if r.err != nil && firstErr == nil {
+			firstErr = r.err
+		}
+	}
+	return firstErr
 }
 
 func cloneRepo(reposDir, repo, org string) error {
