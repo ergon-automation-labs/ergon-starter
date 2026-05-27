@@ -41,7 +41,7 @@ REGISTRY_PORT ?= 32000
 # Elixir builds are memory-heavy — limit parallel builds to avoid OOM
 COMPOSE_BUILD_PARALLEL ?= 3
 
-.PHONY: help quickstart build install sync init add status dashboard up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health test release-check release-test release-create release-list release-latest registry-build registry-push registry-publish registry-images registry-setup setup-tools
+.PHONY: help quickstart build install sync init add status dashboard up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health clean-images clean-docker-volumes clean-docker-builder clean-logs clean-caches-safe clean-safe clean-disk disk-check test release-check release-test release-create release-list release-latest registry-build registry-push registry-publish registry-images registry-setup setup-tools
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -283,7 +283,56 @@ nuke: ## Remove everything including cloned repos
 	docker compose down -v 2>/dev/null || true
 	@echo "✓ Nuked"
 
-docker-clean: ## Stop and remove all bot containers (safe)
+# --- Disk Cleanup ---
+# Granular cleanup targets adapted from the Bot Army ops Makefile.
+# All destructive targets default to dry-run. Use APPLY=1 to execute.
+
+disk-check: ## Show disk usage summary
+	@echo "═══════════════════════════════════════"
+	@echo "  Disk Usage Summary"
+	@echo "═══════════════════════════════════════"
+	@echo ""
+	@echo "Docker:"
+	@docker system df 2>/dev/null || echo "  (docker not running)"
+	@echo ""
+	@echo "Project:"
+	@du -sh . 2>/dev/null || echo "  (not in project dir)"
+	@if [ -d repos/ ]; then du -sh repos/ 2>/dev/null; fi
+	@if [ -d data/ ]; then du -sh data/ 2>/dev/null; fi
+	@echo ""
+	@echo "System (macOS):"
+	@if [ "$$UNAME_S" = "Darwin" ]; then \
+		echo "  Caches:  $$(du -sh $$HOME/Library/Caches 2>/dev/null | awk '{print $$1}')"; \
+		echo "  Logs:    $$(du -sh $$HOME/Library/Logs 2>/dev/null | awk '{print $$1}')"; \
+	fi
+	@echo ""
+	@echo "Quick wins:"
+	@echo "  make clean-images          Remove unused Docker images"
+	@echo "  make clean-docker           Full Docker cleanup (images+volumes+builder)"
+	@echo "  make clean-logs            Remove old log files (dry-run)"
+	@echo "  make clean-caches-safe      Remove safe caches (dry-run)"
+	@echo "  make clean-safe             Docker + safe caches + logs (executes immediately)"
+	@echo "  make clean-disk             Full cleanup (Docker + caches)"
+
+clean-images: ## Remove unused Docker images
+	@echo "Removing unused Docker images..."
+	@docker image prune -a -f
+	@echo "✓ Docker images cleaned"
+
+clean-docker-volumes: ## Remove unused Docker volumes
+	@echo "Removing unused Docker volumes..."
+	@docker volume prune -f
+	@echo "✓ Docker volumes cleaned"
+
+clean-docker-builder: ## Remove Docker build cache
+	@echo "Removing Docker builder cache..."
+	@docker builder prune -f
+	@echo "✓ Docker builder cache cleaned"
+
+clean-docker: clean-images clean-docker-volumes clean-docker-builder ## Full Docker cleanup (images + volumes + builder)
+	@echo "✓ Docker cleanup complete"
+
+docker-clean: ## Stop and remove all bot containers (safe, preserves data)
 	@echo "Stopping docker compose services..."
 	docker compose down 2>/dev/null || true
 	@echo "Removing exited containers..."
@@ -313,6 +362,74 @@ docker-deep-clean: ## Remove all docker images and volumes (WARNING: deletes dat
 		echo "Cancelled"; \
 	fi
 
+clean-logs: ## Remove old logs (dry-run by default; LOG_RETENTION_DAYS=14 CLEAN_LOGS_APPLY=1)
+	@DAYS="$${LOG_RETENTION_DAYS:-14}"; \
+	APPLY="$${CLEAN_LOGS_APPLY:-0}"; \
+	echo "Scanning logs older than $$DAYS day(s)..."; \
+	files="$$( \
+		( \
+			find "$$HOME/Library/Logs" -type f -mtime +$$DAYS 2>/dev/null; \
+			find /tmp -maxdepth 1 -type f -name '*.log' -mtime +$$DAYS 2>/dev/null \
+		) | awk 'NF' \
+	)"; \
+	if [ -z "$$files" ]; then \
+		echo "✓ No matching old logs found."; \
+		exit 0; \
+	fi; \
+	count="$$(printf "%s\n" "$$files" | awk 'NF' | wc -l | tr -d ' ')"; \
+	echo "Found $$count old log file(s)."; \
+	echo "$$files" | sed 's/^/  - /'; \
+	if [ "$$APPLY" != "1" ]; then \
+		echo ""; \
+		echo "Dry-run only. To delete, run:"; \
+		echo "  CLEAN_LOGS_APPLY=1 make clean-logs LOG_RETENTION_DAYS=$$DAYS"; \
+		exit 0; \
+	fi; \
+	echo ""; \
+	echo "Deleting listed log files..."; \
+	printf "%s\n" "$$files" | while IFS= read -r file; do rm -f "$$file"; done; \
+	echo "✓ Old logs removed."
+
+clean-caches-safe: ## Remove safe cache folders (dry-run by default; CLEAN_CACHES_APPLY=1)
+	@APPLY="$${CLEAN_CACHES_APPLY:-0}"; \
+	CACHE_DIRS="$$HOME/Library/Caches/go-build $$HOME/Library/Caches/Homebrew $$HOME/Library/Caches/ms-playwright $$HOME/.cache/go-build"; \
+	echo "Scanning safe cache targets..."; \
+	for d in $$CACHE_DIRS; do \
+		if [ -d "$$d" ]; then \
+			size="$$(du -sh "$$d" 2>/dev/null | awk '{print $$1}')"; \
+			echo "  - $$d ($$size)"; \
+		fi; \
+	done; \
+	if [ "$$APPLY" != "1" ]; then \
+		echo ""; \
+		echo "Dry-run only. To clear, run:"; \
+		echo "  CLEAN_CACHES_APPLY=1 make clean-caches-safe"; \
+		exit 0; \
+	fi; \
+	echo ""; \
+	echo "Clearing cache directory contents..."; \
+	for d in $$CACHE_DIRS; do \
+		if [ -d "$$d" ]; then \
+			rm -rf "$$d"/*; \
+			echo "  ✓ Cleared $$d"; \
+		fi; \
+	done; \
+	echo "✓ Safe caches removed."
+
+clean-safe: ## Docker + safe caches + old logs (no app state reset)
+	@echo "Running safe cleanup (Docker + safe caches + old logs)..."
+	@$(MAKE) clean-docker
+	@$(MAKE) clean-caches-safe CLEAN_CACHES_APPLY=1
+	@$(MAKE) clean-logs CLEAN_LOGS_APPLY=1 LOG_RETENTION_DAYS="$${LOG_RETENTION_DAYS:-14}"
+	@echo "✓ Safe cleanup complete."
+
+clean-disk: clean-docker clean-caches-safe ## Full disk cleanup (Docker + safe caches)
+	@CLEAN_CACHES_APPLY=1 $(MAKE) clean-caches-safe
+	@echo ""
+	@echo "═══════════════════════════════════════"
+	@echo "  ✓ Full disk cleanup complete!"
+	@echo "═══════════════════════════════════════"
+
 docker-health: ## Show Docker disk usage and diagnostics
 	@echo "Docker Disk Usage:"
 	docker system df
@@ -321,8 +438,12 @@ docker-health: ## Show Docker disk usage and diagnostics
 	docker ps --format "table {{.Names}}\t{{.Status}}"
 	@echo ""
 	@echo "To free up space:"
-	@echo "  make docker-clean       # Stop services, remove exited containers"
-	@echo "  make docker-deep-clean  # Full cleanup (warning: removes images)"
+	@echo "  make disk-check           # Full disk usage summary"
+	@echo "  make docker-clean         # Stop services, remove exited containers"
+	@echo "  make clean-images         # Remove unused Docker images"
+	@echo "  make clean-docker         # Full Docker cleanup"
+	@echo "  make clean-safe           # Docker + safe caches + logs"
+	@echo "  make docker-deep-clean    # Remove everything (warning: deletes data)"
 
 # --- Local Registry ---
 
