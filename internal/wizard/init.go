@@ -196,14 +196,25 @@ func runSetup(cfg *Config) error {
 	}
 
 	// Launch dashboard (this will block until user quits)
-	botNames := make([]string, len(cfg.SelectedBots))
-	botReleaseNames := make([]string, len(cfg.SelectedBots))
-	for i, bot := range cfg.SelectedBots {
-		botNames[i] = bot.Name
-		botReleaseNames[i] = bot.ReleaseName
+	var dashboardNames []string
+	var dashboardReleaseNames []string
+	for _, pack := range cfg.SelectedPacks {
+		if pack.Name == "development" {
+			continue
+		}
+		dashboardNames = append(dashboardNames, pack.Name)
+		dashboardReleaseNames = append(dashboardReleaseNames, pack.ReleaseName)
+	}
+	for _, bot := range cfg.SelectedBots {
+		dashboardNames = append(dashboardNames, bot.Name)
+		dashboardReleaseNames = append(dashboardReleaseNames, bot.ReleaseName)
+	}
+	for _, customBot := range cfg.CustomBots {
+		dashboardNames = append(dashboardNames, customBot.Name)
+		dashboardReleaseNames = append(dashboardReleaseNames, customBot.ReleaseName)
 	}
 
-	return dashboard.RunFromWizardConfig(cfg.Ports.NATS, botNames, botReleaseNames, "./data/logs/")
+	return dashboard.RunFromWizardConfig(cfg.Ports.NATS, dashboardNames, dashboardReleaseNames, "./data/logs/")
 }
 
 type cloneTask struct {
