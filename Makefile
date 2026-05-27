@@ -98,13 +98,29 @@ quickstart-default: catalog/bots.json ## Headless: core bots + Ollama, no prompt
 
 # --- Build ---
 
-build: ## Build the bot-army CLI binary
+# Detect host platform for cross-compilation
+HOST_OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
+HOST_ARCH := $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
+
+build: ## Build the bot-army CLI binary (Linux, inside Docker)
 	docker build -f Dockerfile.build -t $(BUILD_IMAGE) .
 	docker create --name bot-army-extract $(BUILD_IMAGE) 2>/dev/null || true
 	docker cp bot-army-extract:/usr/local/bin/bot-army ./$(BINARY)
 	docker rm bot-army-extract
 	chmod +x ./$(BINARY)
 	@echo "✓ Built ./$(BINARY)"
+
+build-native: ## Build native binary for the host OS (for running dashboard locally)
+	docker build -f Dockerfile.build \
+		--build-arg GOOS=$(HOST_OS) \
+		--build-arg GOARCH=$(HOST_ARCH) \
+		--target build \
+		-t $(BUILD_IMAGE)-native .
+	docker create --name bot-army-extract-native $(BUILD_IMAGE)-native 2>/dev/null || true
+	docker cp bot-army-extract-native:/bot-army ./$(BINARY)-native
+	docker rm bot-army-extract-native 2>/dev/null || true
+	chmod +x ./$(BINARY)-native
+	@echo "✓ Built ./$(BINARY)-native ($(HOST_OS)/$(HOST_ARCH))"
 
 install: build ## Build and install to /usr/local/bin
 	cp ./$(BINARY) /usr/local/bin/$(BINARY)
@@ -189,11 +205,8 @@ status: build ## Show configured services
 		-v $(DOCKER_SOCK):/var/run/docker.sock \
 		-w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) status
 
-dashboard: build ## Launch TUI dashboard (requires interactive terminal)
-	docker run --rm -it \
-		-v $(PWD):/workspace \
-		-v $(DOCKER_SOCK):/var/run/docker.sock \
-		-w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) dashboard
+dashboard: build-native ## Launch TUI dashboard (runs natively, requires terminal)
+	./$(BINARY)-native dashboard
 
 # --- Docker Compose ---
 

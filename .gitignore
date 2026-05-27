@@ -1,5 +1,6 @@
 # Generated
 /bot-army
+/bot-army-native
 docker-compose.yml
 .env
 

@@ -1,5 +1,9 @@
 # Build the bot-army CLI tool inside Docker (Go not required on host).
+# Supports cross-compilation via GOOS/GOARCH build args for native dashboard binary.
 FROM golang:1.25-alpine AS build
+
+ARG GOOS=linux
+ARG GOARCH=arm64
 
 RUN apk add --no-cache git
 
@@ -8,7 +12,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 go build -o /bot-army ./cmd/bot-army
+RUN CGO_ENABLED=0 GOOS=${GOOS} GOARCH=${GOARCH} go build -o /bot-army ./cmd/bot-army
 
 FROM alpine:3.20
 RUN apk add --no-cache git wget tar docker-cli docker-compose
