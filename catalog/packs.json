@@ -58,9 +58,7 @@
     "release_name": "research_pack",
     "bots": [
       "feeds",
-      "rss_polling",
-      "advocacy",
-      "job_applications"
+      "rss_polling"
     ]
   },
   {
