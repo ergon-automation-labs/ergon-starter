@@ -206,7 +206,7 @@ status: build ## Show configured services
 		-w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) status
 
 dashboard: build-native ## Launch TUI dashboard (runs natively, requires terminal)
-	./$(BINARY)-native dashboard
+	exec ./$(BINARY)-native dashboard
 
 # --- Docker Compose ---
 
