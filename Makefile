@@ -41,7 +41,7 @@ REGISTRY_PORT ?= 32000
 # Elixir builds are memory-heavy — limit parallel builds to avoid OOM
 COMPOSE_BUILD_PARALLEL ?= 3
 
-.PHONY: help quickstart build install sync init add status up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health test release-check release-test release-create release-list release-latest registry-build registry-push registry-publish registry-images registry-setup setup-tools
+.PHONY: help quickstart build install sync init add status dashboard up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health test release-check release-test release-create release-list release-latest registry-build registry-push registry-publish registry-images registry-setup setup-tools
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -188,6 +188,12 @@ status: build ## Show configured services
 		-v $(HOME)/.config/gh:/root/.config/gh \
 		-v $(DOCKER_SOCK):/var/run/docker.sock \
 		-w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) status
+
+dashboard: build ## Launch TUI dashboard to monitor fleet health and logs
+	docker run --rm -it \
+		-v $(PWD):/workspace \
+		-v $(DOCKER_SOCK):/var/run/docker.sock \
+		-w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) dashboard
 
 # --- Docker Compose ---
 
