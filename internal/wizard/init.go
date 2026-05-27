@@ -208,10 +208,11 @@ func runSetup(cfg *Config) error {
 			dashboardNames = append(dashboardNames, pack.Name)
 			dashboardReleaseNames = append(dashboardReleaseNames, pack.ReleaseName)
 		}
-	}
-	for _, bot := range cfg.SelectedBots {
-		dashboardNames = append(dashboardNames, bot.Name)
-		dashboardReleaseNames = append(dashboardReleaseNames, bot.ReleaseName)
+	} else {
+		for _, bot := range cfg.SelectedBots {
+			dashboardNames = append(dashboardNames, bot.Name)
+			dashboardReleaseNames = append(dashboardReleaseNames, bot.ReleaseName)
+		}
 	}
 	for _, customBot := range cfg.CustomBots {
 		dashboardNames = append(dashboardNames, customBot.Name)
