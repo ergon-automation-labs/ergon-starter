@@ -292,6 +292,14 @@ echo "  ./data/logs/     Bot logs (mounted from containers)"
 echo "  ./data/para/     PARA output (mount to para_bot)"
 echo "  ./data/backups/  DB backups (mount to backup_bot)"
 echo ""
+
+# Install host-side tools (graphify + ripgrep)
+if [ -z "$REGISTRY" ]; then
+  echo "Installing host-side tools..."
+  "$SCRIPT_DIR/install-tools.sh" || echo "  Warning: some tools failed to install (non-fatal)"
+  echo ""
+fi
+
 if [ -n "$REGISTRY" ]; then
   echo "To start (pulling images from ${REGISTRY}):"
   echo "  docker compose up -d"
@@ -299,3 +307,7 @@ else
   echo "To build and start:"
   echo "  DOCKER_BUILDKIT=1 docker compose up -d --build"
 fi
+echo ""
+echo "After services are up:"
+echo "  1. Run 'make setup-tools' to install graphify + ripgrep (if skipped above)"
+echo "  2. Run 'make graphify-refresh' to generate knowledge graphs (requires LLM bot running)"

@@ -132,6 +132,18 @@
     "install_note": "HTTP transport on port 39900 via MCP_PORT env — connects Claude Desktop without local Elixir"
   },
   {
+    "name": "graphify_cache",
+    "repo": "bot_army_graphify_cache",
+    "remote": "ergon-graphify-cache",
+    "release_name": "graphify_cache_bot",
+    "category": "core",
+    "stability": "stable",
+    "channel": "stable",
+    "channel_ref": "stable",
+    "needs_db": false,
+    "volumes": ["./data/graphify:/opt/app/graphify"]
+  },
+  {
     "name": "youtube_manager",
     "repo": "bot_army_youtube_manager",
     "remote": "ergon-youtube_manager",

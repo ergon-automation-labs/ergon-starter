@@ -64,6 +64,7 @@ COPY bot_army_synapse/ bot_army_synapse/
 COPY bot_army_dispatcher/ bot_army_dispatcher/
 COPY bot_army_skills/ bot_army_skills/
 COPY bot_army_job_scheduler/ bot_army_job_scheduler/
+COPY bot_army_graphify_cache/ bot_army_graphify_cache/
 
 # Pack repo itself
 COPY ergon-pack-core/ ergon-pack-core/

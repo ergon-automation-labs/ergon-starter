@@ -41,7 +41,7 @@ REGISTRY_PORT ?= 32000
 # Elixir builds are memory-heavy — limit parallel builds to avoid OOM
 COMPOSE_BUILD_PARALLEL ?= 3
 
-.PHONY: help quickstart build install sync init add status up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health test release-check release-test release-create release-list release-latest registry-build registry-push registry-publish registry-images registry-setup
+.PHONY: help quickstart build install sync init add status up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health test release-check release-test release-create release-list release-latest registry-build registry-push registry-publish registry-images registry-setup setup-tools
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -254,6 +254,9 @@ release-latest: ## Show latest release version
 	@git tag -l 'v*' | sort -V | tail -1
 
 # --- Maintenance ---
+
+setup-tools: ## Install host-side tools (graphify + ripgrep)
+	@./scripts/install-tools.sh
 
 rebuild: ## Force rebuild all images (no cache)
 	docker compose build --no-cache
