@@ -109,21 +109,27 @@ func (d *Dashboard) buildLayout() {
 
 // initTabs initializes all tabs.
 func (d *Dashboard) initTabs() {
+	fmt.Fprintln(os.Stderr, "bot-army: init fleet tab...")
 	d.fleet = NewFleetTab()
 	d.fleet.Init(d.app, d.cfg)
 
+	fmt.Fprintln(os.Stderr, "bot-army: init logs tab...")
 	d.logs = NewLogsTab()
 	d.logs.Init(d.app, d.cfg)
 
+	fmt.Fprintln(os.Stderr, "bot-army: init nats tab...")
 	d.nats = NewNATSTab()
 	d.nats.Init(d.app, d.cfg)
 
+	fmt.Fprintln(os.Stderr, "bot-army: init system tab...")
 	d.system = NewSystemTab()
 	d.system.Init(d.app, d.cfg)
 
+	fmt.Fprintln(os.Stderr, "bot-army: init pigo tab...")
 	d.pigo = NewPigoTab()
 	d.pigo.Init(d.app, d.cfg)
 
+	fmt.Fprintln(os.Stderr, "bot-army: adding pages...")
 	// Add pages in order
 	d.pages.AddPage("fleet", d.fleet.Widget(), true, true)
 	d.pages.AddPage("logs", d.logs.Widget(), true, false)
@@ -131,7 +137,7 @@ func (d *Dashboard) initTabs() {
 	d.pages.AddPage("system", d.system.Widget(), true, false)
 	d.pages.AddPage("pigo", d.pigo.Widget(), true, false)
 
-	// Start the fleet tab first
+	fmt.Fprintln(os.Stderr, "bot-army: setting focus...")
 	d.app.SetFocus(d.fleet.Widget())
 }
 

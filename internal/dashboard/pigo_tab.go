@@ -71,11 +71,6 @@ func (p *PigoTab) Init(app *tview.Application, cfg *DashboardConfig) {
 		SetTitleAlign(tview.AlignLeft)
 	p.outputView.SetDynamicColors(true)
 	p.outputView.SetScrollable(true)
-	p.outputView.SetChangedFunc(func() {
-		p.app.QueueUpdateDraw(func() {
-			p.outputView.ScrollToEnd()
-		})
-	})
 
 	// Input field (bottom)
 	p.inputField = tview.NewInputField()
