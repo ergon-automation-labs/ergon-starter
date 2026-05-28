@@ -2,92 +2,111 @@ package dashboard
 
 import (
 	"fmt"
+	"os"
 	"strings"
-)
 
-func logDebug(msg string) {
-	// No-op for CLI version
-}
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
+)
 
 // DashboardConfig holds the configuration for the dashboard.
 type DashboardConfig struct {
 	NATSPort     string
 	PostgresPort string
 	Bots         []BotInfo
-	DataDir      string // "./data/logs/"
+	DataDir      string
 }
 
 // BotInfo describes a bot service.
 type BotInfo struct {
-	Name        string // "gtd"
-	ReleaseName string // "gtd_bot" (container name)
-	Repo        string // "bot_army_gtd"
+	Name        string
+	ReleaseName string
+	Repo        string
 }
 
-// Dashboard shows bot status via CLI
+// Dashboard is the main dashboard application.
 type Dashboard struct {
-	cfg *DashboardConfig
+	app         *tview.Application
+	cfg         *DashboardConfig
+	header      *tview.TextView
+	statusBar   *tview.TextView
+	contentArea *tview.TextView
+	root        tview.Primitive
 }
 
 // NewDashboard creates a new dashboard.
 func NewDashboard(cfg *DashboardConfig) *Dashboard {
-	return &Dashboard{cfg: cfg}
+	d := &Dashboard{
+		cfg: cfg,
+	}
+
+	// Create views BEFORE app exists (like GTD does)
+	d.header = tview.NewTextView()
+	d.header.SetDynamicColors(true)
+	d.header.SetText("🤖 Bot Army Dashboard  [q:quit]")
+
+	d.contentArea = tview.NewTextView()
+	d.contentArea.SetDynamicColors(true)
+	d.contentArea.SetBorder(true)
+	d.contentArea.SetTitle(" Fleet ")
+
+	d.statusBar = tview.NewTextView()
+	d.statusBar.SetDynamicColors(true)
+	d.statusBar.SetText("Loading...")
+
+	// Build layout NOW, before app exists
+	d.buildLayout()
+
+	return d
 }
 
-// Run shows a simple CLI status display of running bots and services
-func (d *Dashboard) Run() error {
-	// Get Docker containers
+// buildLayout builds the tview hierarchy
+func (d *Dashboard) buildLayout() {
+	flex := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(d.header, 1, 0, false).
+		AddItem(d.contentArea, 0, 1, true).
+		AddItem(d.statusBar, 1, 0, false)
+
+	d.root = flex
+	d.updateContent()
+}
+
+// updateContent refreshes the main content area
+func (d *Dashboard) updateContent() {
 	containers, err := DockerPS()
 	if err != nil {
-		fmt.Printf("❌ Docker not running: %v\n", err)
-		return err
+		d.contentArea.SetText("[red]Docker not running[-]")
+		return
 	}
 
-	if len(containers) == 0 {
-		fmt.Println("No containers running. Start with: docker compose up -d")
-		return nil
-	}
-
-	// Print header
-	fmt.Println("\n🤖 Bot Army Status")
-	fmt.Println(strings.Repeat("─", 60))
-
-	// Group containers by type
+	text := "\n"
 	natsRunning := false
 	postgresRunning := false
-	bots := []DockerContainer{}
 
+	// Check services
 	for _, c := range containers {
-		switch {
-		case strings.Contains(c.Names, "nats"):
+		if strings.Contains(c.Names, "nats") {
 			natsRunning = true
-		case strings.Contains(c.Names, "postgres"):
+		}
+		if strings.Contains(c.Names, "postgres") {
 			postgresRunning = true
-		default:
-			bots = append(bots, c)
 		}
 	}
 
-	// Print services
-	fmt.Println("\n📋 Services")
-	fmt.Printf("  NATS:     %s\n", statusIcon(natsRunning))
-	fmt.Printf("  Postgres: %s\n", statusIcon(postgresRunning))
+	text += "Services:\n"
+	text += fmt.Sprintf("  NATS:     %s\n", statusIcon(natsRunning))
+	text += fmt.Sprintf("  Postgres: %s\n\n", statusIcon(postgresRunning))
 
-	// Print bots
-	fmt.Println("\n🤖 Bots")
-	for _, bot := range bots {
-		running := strings.Contains(bot.State, "running")
-		fmt.Printf("  %s %s (%s)\n", statusIcon(running), bot.Names, bot.State)
+	text += "Bots:\n"
+	for _, c := range containers {
+		if strings.Contains(c.Names, "nats") || strings.Contains(c.Names, "postgres") {
+			continue
+		}
+		running := strings.Contains(c.State, "running")
+		text += fmt.Sprintf("  %s %s (%s)\n", statusIcon(running), c.Names, c.State)
 	}
 
-	// Print info
-	fmt.Println("\n📚 Commands")
-	fmt.Println("  docker compose logs <service>     - View logs")
-	fmt.Println("  docker compose restart <service>  - Restart service")
-	fmt.Println("  docker compose down               - Stop all services")
-	fmt.Println("\n")
-
-	return nil
+	d.contentArea.SetText(text)
 }
 
 func statusIcon(running bool) string {
@@ -97,14 +116,82 @@ func statusIcon(running bool) string {
 	return "✗"
 }
 
-// RunFromWizardConfig launches the dashboard with a wizard Config.
+// SetApp sets the tview application (called from main after New())
+func (d *Dashboard) SetApp(app *tview.Application) {
+	d.app = app
+}
+
+// OnActivate is called when the app starts
+func (d *Dashboard) OnActivate() {
+	d.statusBar.SetText("Ready. Press q to quit or Tab for menu.")
+	if d.app != nil {
+		d.app.SetFocus(d.contentArea)
+	}
+}
+
+// HandleKey processes keyboard input
+func (d *Dashboard) HandleKey(ev *tcell.EventKey) *tcell.EventKey {
+	switch ev.Rune() {
+	case 'q':
+		if d.app != nil {
+			d.app.Stop()
+		}
+		return nil
+	case 'r':
+		d.updateContent()
+		if d.app != nil {
+			d.app.QueueUpdateDraw(func() {
+				d.statusBar.SetText("Refreshed")
+			})
+		}
+		return nil
+	}
+	return ev
+}
+
+// Root returns the root widget
+func (d *Dashboard) Root() tview.Primitive {
+	return d.root
+}
+
+// Run starts the dashboard
+func (d *Dashboard) Run() error {
+	// Redirect stderr to avoid corrupting tview
+	logFile, err := os.OpenFile("/tmp/bot-army-dashboard.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err == nil {
+		defer logFile.Close()
+		oldStderr := os.Stderr
+		os.Stderr = logFile
+		defer func() { os.Stderr = oldStderr }()
+	}
+
+	// Create app
+	app := tview.NewApplication()
+	d.SetApp(app)
+	d.OnActivate()
+
+	// Set up input capture - delegate to HandleKey like GTD does
+	app.SetInputCapture(func(ev *tcell.EventKey) *tcell.EventKey {
+		return d.HandleKey(ev)
+	})
+
+	// Set root and run
+	app.SetRoot(d.Root(), true)
+	if err := app.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		return err
+	}
+
+	return nil
+}
+
+// RunFromWizardConfig launches dashboard with wizard config
 func RunFromWizardConfig(natsPort string, botNames []string, botReleaseNames []string, dataDir string) error {
 	bots := make([]BotInfo, len(botNames))
 	for i, name := range botNames {
-		releaseName := botReleaseNames[i]
 		bots[i] = BotInfo{
 			Name:        name,
-			ReleaseName: releaseName,
+			ReleaseName: botReleaseNames[i],
 		}
 	}
 
@@ -118,7 +205,7 @@ func RunFromWizardConfig(natsPort string, botNames []string, botReleaseNames []s
 	return d.Run()
 }
 
-// RunFromDir launches the dashboard from a directory with .env and docker-compose.yml.
+// RunFromDir launches dashboard from docker-compose directory
 func RunFromDir(dir string) error {
 	cfg, err := DashboardConfigFromEnv(dir)
 	if err != nil {
