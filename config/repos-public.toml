@@ -88,6 +88,12 @@ remote = "ergon-elixir-tools-mcp_server"
 category = "core"
 channels = { stable = "stable", latest = "latest", nightly = "main" }
 
+[[bots]]
+name = "bot_army_general"
+remote = "ergon-general"
+category = "core"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
 # ============================================================================
 # SOCIAL_MEDIA PACK (Experimental)
 # ============================================================================
