@@ -199,16 +199,15 @@ func (d *Dashboard) buildREPLLayout() {
 	d.replView.SetText("[cyan]REPL Console[yellow]\n\nAvailable commands:\n  list-bots     - Show all bots\n  health <bot>   - Check bot health\n  status         - Show system status\n\n[gray]Type a command below and press Enter[-]")
 
 	d.replInput = tview.NewInputField()
-	d.replInput.SetLabel("> ")
+	d.replInput.SetLabel("[yellow]>[-] ")
 	d.replInput.SetFieldBackgroundColor(tcell.ColorBlack)
-	d.replInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		if event.Key() == tcell.KeyEnter {
+	d.replInput.SetFieldTextColor(tcell.ColorWhite)
+	d.replInput.SetDoneFunc(func(key tcell.Key) {
+		if key == tcell.KeyEnter {
 			cmd := d.replInput.GetText()
 			d.executeREPLCommand(cmd)
 			d.replInput.SetText("")
-			return nil
 		}
-		return event
 	})
 
 	flex := tview.NewFlex().SetDirection(tview.FlexRow).
@@ -648,6 +647,17 @@ func (d *Dashboard) OnActivate() {
 
 // HandleKey processes keyboard input
 func (d *Dashboard) HandleKey(ev *tcell.EventKey) *tcell.EventKey {
+	// In REPL mode, let the input field handle most keys
+	if d.currentTab == "repl" {
+		switch ev.Rune() {
+		case 'q', '1', '2', '3', '4', '5', '6', '7':
+			// Handle tab/quit keys even in REPL mode
+		default:
+			// Pass all other keys to the REPL input field
+			return ev
+		}
+	}
+
 	switch ev.Rune() {
 	case 'q':
 		if d.app != nil {
