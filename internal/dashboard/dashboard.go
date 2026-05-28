@@ -198,20 +198,21 @@ func (d *Dashboard) buildREPLLayout() {
 	d.replView.SetTitle(" REPL Output ")
 	d.replView.SetText("[cyan]REPL Console[yellow]\n\nAvailable commands:\n  list-bots     - Show all bots\n  health <bot>   - Check bot health\n  status         - Show system status\n\n[gray]Type command below[-]")
 
-	d.replInput = tview.NewInputField()
-	d.replInput.SetLabel("[yellow]Command:[-] ")
-	d.replInput.SetBorder(true)
-	d.replInput.SetFieldBackgroundColor(tcell.ColorDarkGray)
-	d.replInput.SetFieldTextColor(tcell.ColorWhite)
-	d.replInput.SetPlaceholder("list-bots | health <bot> | status")
-	d.replInput.SetPlaceholderTextColor(tcell.ColorGray)
+	d.replInput = tview.NewInputField().
+		SetLabel("> ").
+		SetFieldWidth(0)
+	d.replInput.SetBorder(true).
+		SetTitle(" Command ")
 	d.replInput.SetDoneFunc(func(key tcell.Key) {
-		if key == tcell.KeyEnter {
-			cmd := d.replInput.GetText()
+		switch key {
+		case tcell.KeyEnter:
+			cmd := strings.TrimSpace(d.replInput.GetText())
 			if cmd != "" {
 				d.executeREPLCommand(cmd)
 				d.replInput.SetText("")
 			}
+		case tcell.KeyEsc:
+			d.switchTab("fleet")
 		}
 	})
 
