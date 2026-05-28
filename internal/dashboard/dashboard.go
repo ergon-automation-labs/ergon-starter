@@ -2,19 +2,11 @@ package dashboard
 
 import (
 	"fmt"
-	"os"
-	"time"
-
-	"github.com/gdamore/tcell/v2"
-	"github.com/rivo/tview"
+	"strings"
 )
 
 func logDebug(msg string) {
-	f, err := os.OpenFile("/tmp/dashboard-debug.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
-	if err == nil {
-		defer f.Close()
-		fmt.Fprintf(f, "[%d] %s\n", time.Now().UnixMilli(), msg)
-	}
+	// No-op for CLI version
 }
 
 // DashboardConfig holds the configuration for the dashboard.
@@ -32,241 +24,80 @@ type BotInfo struct {
 	Repo        string // "bot_army_gtd"
 }
 
-// Dashboard is the main dashboard application.
+// Dashboard shows bot status via CLI
 type Dashboard struct {
-	app    *tview.Application
-	cfg    *DashboardConfig
-	header *tview.TextView
-	status *tview.TextView
-	pages  *tview.Pages
-	root   *tview.Flex
-
-	fleet  *FleetTab
-	logs   *LogsTab
-	nats   *NATSTab
-	system *SystemTab
-	pigo   *PigoTab
-
-	activeTab string
+	cfg *DashboardConfig
 }
 
 // NewDashboard creates a new dashboard.
 func NewDashboard(cfg *DashboardConfig) *Dashboard {
-	return &Dashboard{
-		app:       tview.NewApplication(),
-		cfg:       cfg,
-		activeTab: "fleet",
-	}
+	return &Dashboard{cfg: cfg}
 }
 
-// Run starts the dashboard and blocks until the user quits.
+// Run shows a simple CLI status display of running bots and services
 func (d *Dashboard) Run() error {
-	// Redirect stderr to a file to avoid corrupting tview's terminal
-	logFile, err := os.OpenFile("/tmp/bot-army-dashboard.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-	if err == nil {
-		defer logFile.Close()
-		oldStderr := os.Stderr
-		os.Stderr = logFile
-		defer func() { os.Stderr = oldStderr }()
-	}
-
-	fmt.Fprintln(os.Stderr, "bot-army: starting dashboard...")
-	d.buildLayout()
-	fmt.Fprintln(os.Stderr, "bot-army: layout built")
-	d.initTabs()
-	fmt.Fprintln(os.Stderr, "bot-army: tabs initialized")
-	d.setupKeyCapture()
-	fmt.Fprintln(os.Stderr, "bot-army: keys setup")
-
-	// Start background data fetches after a short delay to allow the event
-	// loop to fully initialize before queuing UI updates.
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		logDebug("background init: starting background tasks...")
-		d.fleet.Start()
-		d.logs.Start()
-		d.system.Start()
-		d.pigo.Start()
-		logDebug("background init: started goroutines")
-		d.app.QueueUpdateDraw(func() {
-			d.setStatus("↑↓:nav  Tab:cycle  1-5:tabs  q:quit")
-			logDebug("background init: updated status bar")
-		})
-	}()
-
-	fmt.Fprintln(os.Stderr, "bot-army: entering event loop...")
-	logDebug("BEFORE: app.Run()")
-	if err := d.app.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "bot-army: event loop error: %v\n", err)
+	// Get Docker containers
+	containers, err := DockerPS()
+	if err != nil {
+		fmt.Printf("❌ Docker not running: %v\n", err)
 		return err
 	}
-	logDebug("AFTER: app.Run()")
-	fmt.Fprintln(os.Stderr, "bot-army: event loop ended.")
 
-	d.stopTabs()
+	if len(containers) == 0 {
+		fmt.Println("No containers running. Start with: docker compose up -d")
+		return nil
+	}
+
+	// Print header
+	fmt.Println("\n🤖 Bot Army Status")
+	fmt.Println(strings.Repeat("─", 60))
+
+	// Group containers by type
+	natsRunning := false
+	postgresRunning := false
+	bots := []DockerContainer{}
+
+	for _, c := range containers {
+		switch {
+		case strings.Contains(c.Names, "nats"):
+			natsRunning = true
+		case strings.Contains(c.Names, "postgres"):
+			postgresRunning = true
+		default:
+			bots = append(bots, c)
+		}
+	}
+
+	// Print services
+	fmt.Println("\n📋 Services")
+	fmt.Printf("  NATS:     %s\n", statusIcon(natsRunning))
+	fmt.Printf("  Postgres: %s\n", statusIcon(postgresRunning))
+
+	// Print bots
+	fmt.Println("\n🤖 Bots")
+	for _, bot := range bots {
+		running := strings.Contains(bot.State, "running")
+		fmt.Printf("  %s %s (%s)\n", statusIcon(running), bot.Names, bot.State)
+	}
+
+	// Print info
+	fmt.Println("\n📚 Commands")
+	fmt.Println("  docker compose logs <service>     - View logs")
+	fmt.Println("  docker compose restart <service>  - Restart service")
+	fmt.Println("  docker compose down               - Stop all services")
+	fmt.Println("\n")
+
 	return nil
 }
 
-// buildLayout creates the root layout: header + pages + status.
-func (d *Dashboard) buildLayout() {
-	// Header
-	d.header = tview.NewTextView()
-	d.header.SetDynamicColors(true)
-	d.updateHeader()
-
-	// Status bar
-	d.status = tview.NewTextView()
-	d.status.SetDynamicColors(true)
-	d.setStatus("Initializing...")
-
-	// Pages container for tabs
-	d.pages = tview.NewPages()
-
-	// Root layout
-	d.root = tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(d.header, 1, 0, false).
-		AddItem(d.pages, 0, 1, true).
-		AddItem(d.status, 1, 0, false)
-
-	d.app.SetRoot(d.root, true)
-}
-
-// initTabs initializes all tabs.
-func (d *Dashboard) initTabs() {
-	fmt.Fprintln(os.Stderr, "bot-army: init fleet tab...")
-	d.fleet = NewFleetTab()
-	d.fleet.Init(d.app, d.cfg)
-
-	fmt.Fprintln(os.Stderr, "bot-army: init logs tab...")
-	d.logs = NewLogsTab()
-	d.logs.Init(d.app, d.cfg)
-
-	fmt.Fprintln(os.Stderr, "bot-army: init nats tab...")
-	d.nats = NewNATSTab()
-	d.nats.Init(d.app, d.cfg)
-
-	fmt.Fprintln(os.Stderr, "bot-army: init system tab...")
-	d.system = NewSystemTab()
-	d.system.Init(d.app, d.cfg)
-
-	fmt.Fprintln(os.Stderr, "bot-army: init pigo tab...")
-	d.pigo = NewPigoTab()
-	d.pigo.Init(d.app, d.cfg)
-
-	fmt.Fprintln(os.Stderr, "bot-army: adding pages...")
-	// Add pages in order
-	d.pages.AddPage("fleet", d.fleet.Widget(), true, true)
-	d.pages.AddPage("logs", d.logs.Widget(), true, false)
-	d.pages.AddPage("nats", d.nats.Widget(), true, false)
-	d.pages.AddPage("system", d.system.Widget(), true, false)
-	d.pages.AddPage("pigo", d.pigo.Widget(), true, false)
-
-	fmt.Fprintln(os.Stderr, "bot-army: setting focus...")
-	d.app.SetFocus(d.fleet.Widget())
-}
-
-// stopTabs stops all background goroutines in tabs.
-func (d *Dashboard) stopTabs() {
-	d.fleet.Stop()
-	d.logs.Stop()
-	d.nats.Stop()
-	d.system.Stop()
-	d.pigo.Stop()
-}
-
-// setupKeyCapture sets up global key bindings.
-func (d *Dashboard) setupKeyCapture() {
-	d.app.SetInputCapture(func(ev *tcell.EventKey) *tcell.EventKey {
-		switch ev.Rune() {
-		case '1':
-			d.switchTab("fleet", d.fleet.Widget())
-			return nil
-		case '2':
-			d.switchTab("logs", d.logs.Widget())
-			return nil
-		case '3':
-			d.switchTab("nats", d.nats.Widget())
-			return nil
-		case '4':
-			d.switchTab("system", d.system.Widget())
-			return nil
-		case '5':
-			d.switchTab("pigo", d.pigo.Widget())
-			return nil
-		case 'q':
-			d.app.Stop()
-			return nil
-		}
-
-		// Tab key: cycle through tabs
-		switch ev.Key() {
-		case tcell.KeyTab:
-			switch d.activeTab {
-			case "fleet":
-				d.switchTab("logs", d.logs.Widget())
-			case "logs":
-				d.switchTab("nats", d.nats.Widget())
-			case "nats":
-				d.switchTab("system", d.system.Widget())
-			case "system":
-				d.switchTab("pigo", d.pigo.Widget())
-			case "pigo":
-				d.switchTab("fleet", d.fleet.Widget())
-			}
-			return nil
-
-		case tcell.KeyBacktab: // Shift+Tab
-			switch d.activeTab {
-			case "fleet":
-				d.switchTab("pigo", d.pigo.Widget())
-			case "logs":
-				d.switchTab("fleet", d.fleet.Widget())
-			case "nats":
-				d.switchTab("logs", d.logs.Widget())
-			case "system":
-				d.switchTab("nats", d.nats.Widget())
-			case "pigo":
-				d.switchTab("system", d.system.Widget())
-			}
-			return nil
-		}
-
-		return ev
-	})
-}
-
-// switchTab switches to the given tab.
-func (d *Dashboard) switchTab(name string, widget tview.Primitive) {
-	d.activeTab = name
-	d.pages.SwitchToPage(name)
-	d.updateHeader()
-	d.app.SetFocus(widget)
-}
-
-// updateHeader updates the header with the current tab.
-func (d *Dashboard) updateHeader() {
-	tabs := []string{"fleet", "logs", "nats", "system", "pigo"}
-	header := "🤖 Bot Army  "
-
-	for _, tab := range tabs {
-		if tab == d.activeTab {
-			header += fmt.Sprintf("[yellow][%s][-] ", tab)
-		} else {
-			header += fmt.Sprintf("[%s] ", tab)
-		}
+func statusIcon(running bool) string {
+	if running {
+		return "✓"
 	}
-
-	header += "  q:quit"
-	d.header.SetText(header)
+	return "✗"
 }
 
-// setStatus updates the status bar.
-func (d *Dashboard) setStatus(msg string) {
-	d.status.SetText(msg)
-}
-
-// RunFromConfig launches the dashboard with a wizard Config.
-// Note: This requires importing the wizard package; kept minimal to avoid cycles.
+// RunFromWizardConfig launches the dashboard with a wizard Config.
 func RunFromWizardConfig(natsPort string, botNames []string, botReleaseNames []string, dataDir string) error {
 	bots := make([]BotInfo, len(botNames))
 	for i, name := range botNames {
@@ -296,55 +127,4 @@ func RunFromDir(dir string) error {
 
 	d := NewDashboard(cfg)
 	return d.Run()
-}
-
-// showTemplateGuide displays the Build Your Own Bot guide as an overlay.
-func (d *Dashboard) showTemplateGuide() {
-	guide := "[yellow]Build Your Own Bot[-]\n\n"
-	guide += "A Bot Army bot is an Elixir/OTP GenServer app that subscribes to\n"
-	guide += "NATS subjects and responds to messages from other bots and surfaces.\n\n"
-	guide += "[cyan]Quick start (one command):[-]\n"
-	guide += "  cd ~/code/elixir_bots/bot_template\n"
-	guide += "  ./setup_new_bot.sh bot_army_mybot mybot_bot ergon-mybot\n\n"
-	guide += "This scaffolds a full project with:\n"
-	guide += "  • NATS consumer (subscribe + reply)\n"
-	guide += "  • PulsePublisher (health signal every 30 min)\n"
-	guide += "  • HTTP client with Mox injection for testing\n"
-	guide += "  • Pre-push hook: compile → test → GitHub Release\n"
-	guide += "  • Makefile targets: test, format, deploy, logs\n\n"
-	guide += "[cyan]Key patterns:[-]\n"
-	guide += "  1. Health — publish bot.<service>.pulse every 30 min\n"
-	guide += "  2. HTTP — use HTTPClient behaviour + Mox in tests\n"
-	guide += "  3. Env gating — @env Mix.env() to skip DB/workers in test\n"
-	guide += "  4. Test tagging — @moduletag :handlers, :stores, :skills\n"
-	guide += "  5. Skills — lib/.../skills/ modules with validate/1 + execute/2\n"
-	guide += "  6. Deploy — bump mix.exs version to trigger GitHub Release\n\n"
-	guide += "[cyan]Add to your fleet:[-]\n"
-	guide += "  ./bot-army add mybot\n"
-	guide += "  docker compose up -d --build\n\n"
-	guide += "[cyan]Reference:[-]\n"
-	guide += "  bot_template/docs/BEST_PRACTICES.md\n"
-	guide += "  bot_template/UPDATES.md\n\n"
-	guide += "[dim]Press Esc to close[-]"
-
-	guideView := tview.NewTextView()
-	guideView.SetBorder(true).
-		SetTitle(" Build Your Own Bot  Esc:close ").
-		SetTitleAlign(tview.AlignLeft)
-	guideView.SetDynamicColors(true)
-	guideView.SetText(guide)
-
-	guideView.SetInputCapture(func(ev *tcell.EventKey) *tcell.EventKey {
-		switch ev.Key() {
-		case tcell.KeyEscape:
-			// Return to previous tab
-			d.pages.RemovePage("guide")
-			d.app.SetFocus(d.pages)
-			return nil
-		}
-		return ev
-	})
-
-	d.pages.AddPage("guide", guideView, true, true)
-	d.app.SetFocus(guideView)
 }
