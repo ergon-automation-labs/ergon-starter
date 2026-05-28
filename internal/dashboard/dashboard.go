@@ -100,24 +100,11 @@ func (d *Dashboard) Run() error {
 
 // buildLayout creates the root layout: header + pages + status.
 func (d *Dashboard) buildLayout() {
-	// Header
-	d.header = tview.NewTextView()
-	d.header.SetDynamicColors(true)
-	d.updateHeader()
-
-	// Status bar
-	d.status = tview.NewTextView()
-	d.status.SetDynamicColors(true)
-	d.setStatus("Initializing...")
-
-	// Pages container for tabs
-	d.pages = tview.NewPages()
-
-	// Root layout
-	d.root = tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(d.header, 1, 0, false).
-		AddItem(d.pages, 0, 1, true).
-		AddItem(d.status, 1, 0, false)
+	// MINIMAL TEST: Just a single text view
+	d.root = tview.NewTextView()
+	d.root.SetText("Dashboard\nPress q to quit")
+	d.root.SetBorder(true)
+	d.root.SetTitle(" Test ")
 
 	d.app.SetRoot(d.root, true)
 }
