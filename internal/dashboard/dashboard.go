@@ -64,8 +64,8 @@ func (d *Dashboard) Run() error {
 	fmt.Fprintln(os.Stderr, "bot-army: starting dashboard...")
 	d.buildLayout()
 	fmt.Fprintln(os.Stderr, "bot-army: layout built")
-	d.initTabs()
-	fmt.Fprintln(os.Stderr, "bot-army: tabs initialized")
+	// d.initTabs()
+	fmt.Fprintln(os.Stderr, "bot-army: tabs initialization SKIPPED for debug")
 	d.setupKeyCapture()
 	fmt.Fprintln(os.Stderr, "bot-army: keys setup")
 
