@@ -24,7 +24,8 @@ bots = [
   { repo = "ergon-skills-base", binary = "skills_bot", optional = false },
   { repo = "ergon-mcp", binary = "surface_mcp_bot", optional = false },
   { repo = "ergon-elixir-tools-mcp_server", binary = "elixir_tools_mcp_bot", optional = true },
-  { repo = "ergon-general", binary = "general_purpose_bot", optional = false }
+  { repo = "ergon-general", binary = "general_purpose_bot", optional = false },
+  { repo = "ergon-graphify-cache", binary = "graphify_cache_bot", optional = false }
 ]
 
 # ============================================================================

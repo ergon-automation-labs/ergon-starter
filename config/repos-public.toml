@@ -94,6 +94,12 @@ remote = "ergon-general"
 category = "core"
 channels = { stable = "stable", latest = "latest", nightly = "main" }
 
+[[bots]]
+name = "bot_army_graphify_cache"
+remote = "ergon-graphify-cache"
+category = "core"
+channels = { stable = "stable", latest = "latest", nightly = "main" }
+
 # ============================================================================
 # SOCIAL_MEDIA PACK (Experimental)
 # ============================================================================
