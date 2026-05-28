@@ -48,7 +48,7 @@ type Dashboard struct {
 	systemView  *tview.TextView
 	trafficView *tview.TextView
 	replView    *tview.TextView
-	replForm    *tview.Form
+	replInput   *tview.InputField
 	claudeView  *tview.TextView
 
 	// Layouts
@@ -196,27 +196,29 @@ func (d *Dashboard) buildREPLLayout() {
 	d.replView.SetDynamicColors(true)
 	d.replView.SetBorder(true)
 	d.replView.SetTitle(" REPL Output ")
-	d.replView.SetText("[cyan]REPL Console[yellow]\n\nAvailable commands:\n  list-bots     - Show all bots\n  health <bot>   - Check bot health\n  status         - Show system status\n\n[gray]Enter command below and press Enter to execute[-]")
+	d.replView.SetText("[cyan]REPL Console[yellow]\n\nAvailable commands:\n  list-bots     - Show all bots\n  health <bot>   - Check bot health\n  status         - Show system status\n\n[gray]Type command below[-]")
 
-	d.replForm = tview.NewForm()
-	d.replForm.SetBorder(false)
-	d.replForm.SetButtonsAlign(tview.AlignLeft)
-	d.replForm.AddInputField("", "", 80, nil, nil)
-
-	// Get the input field and set it up
-	inputField := d.replForm.GetFormItem(0).(*tview.InputField)
-	inputField.SetDoneFunc(func(key tcell.Key) {
+	d.replInput = tview.NewInputField()
+	d.replInput.SetLabel("[yellow]Command:[-] ")
+	d.replInput.SetBorder(true)
+	d.replInput.SetFieldBackgroundColor(tcell.ColorDarkGray)
+	d.replInput.SetFieldTextColor(tcell.ColorWhite)
+	d.replInput.SetPlaceholder("list-bots | health <bot> | status")
+	d.replInput.SetPlaceholderTextColor(tcell.ColorGray)
+	d.replInput.SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyEnter {
-			cmd := inputField.GetText()
-			d.executeREPLCommand(cmd)
-			inputField.SetText("")
+			cmd := d.replInput.GetText()
+			if cmd != "" {
+				d.executeREPLCommand(cmd)
+				d.replInput.SetText("")
+			}
 		}
 	})
 
 	flex := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(d.header, 1, 0, false).
 		AddItem(d.replView, 0, 1, false).
-		AddItem(d.replForm, 2, 0, true).
+		AddItem(d.replInput, 3, 0, true).
 		AddItem(d.statusBar, 1, 0, false)
 
 	d.replFlex = flex
@@ -624,7 +626,7 @@ func (d *Dashboard) switchTab(tab string) {
 	case "repl":
 		newRoot = d.replFlex
 		if d.app != nil {
-			d.app.SetFocus(d.replForm)
+			d.app.SetFocus(d.replInput)
 		}
 	case "claude":
 		d.updateClaude()
