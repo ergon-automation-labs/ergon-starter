@@ -15,6 +15,7 @@ import (
 type DashboardConfig struct {
 	NATSPort     string
 	PostgresPort string
+	MCPPort      string
 	Bots         []BotInfo
 	DataDir      string
 }
@@ -204,21 +205,31 @@ func (d *Dashboard) buildClaudeLayout() {
 
 // updateClaude refreshes the Claude setup view
 func (d *Dashboard) updateClaude() {
-	text := "\n[cyan]Claude Code Setup[yellow]\n\n"
+	text := "\n[cyan]Claude Code MCP Setup[yellow]\n\n"
 	text += "[yellow]1. Install Claude Code CLI:[]\n"
 	text += "   npm install -g @anthropic-ai/claude\n\n"
 	text += "[yellow]2. Authenticate:[]\n"
 	text += "   claude auth login\n\n"
-	text += "[yellow]3. Install in your project:[]\n"
-	text += "   claude install\n\n"
-	text += "[yellow]4. Available Commands:[]\n"
-	text += "   claude <task>     - Start working on a task\n"
-	text += "   claude /help      - Get help\n"
-	text += "   claude /clear     - Clear context\n"
-	text += "   claude /fast      - Enable fast mode\n\n"
-	text += "[yellow]5. Documentation:[]\n"
-	text += "   https://github.com/anthropics/claude-code\n"
-	text += "   https://claude.ai/code\n"
+	text += "[yellow]3. Configure MCP Bridge Connection:[]\n"
+	text += "   Edit ~/.claude/claude.json:\n"
+	text += "   {\n"
+	text += "     \"mcp_servers\": {\n"
+	text += "       \"bot_army\": {\n"
+	text += "         \"url\": \"http://localhost:" + d.cfg.MCPPort + "/mcp\"\n"
+	text += "       }\n"
+	text += "     }\n"
+	text += "   }\n\n"
+	text += "[yellow]4. System Services:[]\n"
+	text += "   NATS: localhost:" + d.cfg.NATSPort + "\n"
+	text += "   MCP Bridge: http://localhost:" + d.cfg.MCPPort + "/mcp\n"
+	text += "   PostgreSQL: localhost:" + d.cfg.PostgresPort + "\n\n"
+	text += "[yellow]5. Available Bots:[]\n"
+	for _, bot := range d.cfg.Bots {
+		text += fmt.Sprintf("     • %s\n", bot.Name)
+	}
+	text += "\n[yellow]6. Start working:[]\n"
+	text += "   claude <your task>\n"
+	text += "   Claude will connect to Bot Army bridge for MCP tools\n"
 	text += "\n[gray]Press [r] to refresh[-]"
 	d.claudeView.SetText(text)
 }

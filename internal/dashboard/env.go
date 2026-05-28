@@ -63,6 +63,11 @@ func DashboardConfigFromEnv(dir string) (*DashboardConfig, error) {
 		postgresPort = "5432"
 	}
 
+	mcpPort := env["STARTER_MCP_PORT"]
+	if mcpPort == "" {
+		mcpPort = "39900"
+	}
+
 	var bots []BotInfo
 
 	composeData, err := os.ReadFile(composePath)
@@ -92,6 +97,7 @@ func DashboardConfigFromEnv(dir string) (*DashboardConfig, error) {
 	return &DashboardConfig{
 		NATSPort:     natsPort,
 		PostgresPort: postgresPort,
+		MCPPort:      mcpPort,
 		Bots:         bots,
 		DataDir:      dir + "/data/logs/",
 	}, nil

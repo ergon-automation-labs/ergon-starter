@@ -18,6 +18,7 @@ func generateEnvFile(cfg *Config) error {
 	b.WriteString(fmt.Sprintf("STARTER_NATS_MONITOR_PORT=%s\n", cfg.Ports.NATSMonitor))
 	b.WriteString(fmt.Sprintf("STARTER_POSTGRES_PORT=%s\n", cfg.Ports.Postgres))
 	b.WriteString(fmt.Sprintf("STARTER_OLLAMA_PORT=%s\n", cfg.Ports.Ollama))
+	b.WriteString(fmt.Sprintf("STARTER_MCP_PORT=%s\n", cfg.Ports.MCP))
 	b.WriteString("\n")
 
 	// Postgres (internal — bots use these inside Docker network)
