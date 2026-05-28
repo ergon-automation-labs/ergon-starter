@@ -61,11 +61,20 @@ func NewDashboard(cfg *DashboardConfig) *Dashboard {
 
 // Run starts the dashboard and blocks until the user quits.
 func (d *Dashboard) Run() error {
+	// Redirect stderr to a file to avoid corrupting tview's terminal
+	logFile, err := os.OpenFile("/tmp/bot-army-dashboard.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err == nil {
+		defer logFile.Close()
+		oldStderr := os.Stderr
+		os.Stderr = logFile
+		defer func() { os.Stderr = oldStderr }()
+	}
+
 	fmt.Fprintln(os.Stderr, "bot-army: starting dashboard...")
 	d.buildLayout()
 	fmt.Fprintln(os.Stderr, "bot-army: layout built")
-	// d.initTabs()
-	fmt.Fprintln(os.Stderr, "bot-army: tabs initialization SKIPPED for debug")
+	d.initTabs()
+	fmt.Fprintln(os.Stderr, "bot-army: tabs initialized")
 	d.setupKeyCapture()
 	fmt.Fprintln(os.Stderr, "bot-army: keys setup")
 
@@ -100,11 +109,24 @@ func (d *Dashboard) Run() error {
 
 // buildLayout creates the root layout: header + pages + status.
 func (d *Dashboard) buildLayout() {
-	// MINIMAL TEST: Just a single text view
-	d.root = tview.NewTextView()
-	d.root.SetText("Dashboard\nPress q to quit")
-	d.root.SetBorder(true)
-	d.root.SetTitle(" Test ")
+	// Header
+	d.header = tview.NewTextView()
+	d.header.SetDynamicColors(true)
+	d.updateHeader()
+
+	// Status bar
+	d.status = tview.NewTextView()
+	d.status.SetDynamicColors(true)
+	d.setStatus("Initializing...")
+
+	// Pages container for tabs
+	d.pages = tview.NewPages()
+
+	// Root layout
+	d.root = tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(d.header, 1, 0, false).
+		AddItem(d.pages, 0, 1, true).
+		AddItem(d.status, 1, 0, false)
 
 	d.app.SetRoot(d.root, true)
 }
