@@ -65,11 +65,18 @@ func (d *Dashboard) Run() error {
 	// The brief delay ensures app.Run() has started the tview event loop
 	// before QueueUpdateDraw is called, avoiding the Init-time deadlock.
 	go func() {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
+		fmt.Fprintln(os.Stderr, "bot-army: starting background data fetches...")
 		d.fleet.Start()
 		d.logs.Start()
 		d.system.Start()
 		d.pigo.Start()
+		fmt.Fprintln(os.Stderr, "bot-army: background tasks started")
+
+		// Update status to show we're ready
+		d.app.QueueUpdateDraw(func() {
+			d.setStatus("↑↓:nav  Tab:cycle  1-5:tabs  q:quit")
+		})
 	}()
 
 	fmt.Fprintln(os.Stderr, "bot-army: entering event loop...")
