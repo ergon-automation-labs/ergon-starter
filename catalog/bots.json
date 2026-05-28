@@ -1,19 +1,19 @@
 [
   {
-    "name": "core",
+    "name": "library_core",
     "repo": "bot_army_library_core",
     "remote": "ergon-library-core",
-    "release_name": "core_bot",
+    "release_name": "library_core_bot",
     "category": "core",
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable"
   },
   {
-    "name": "runtime",
+    "name": "library_runtime",
     "repo": "bot_army_library_runtime",
     "remote": "ergon-library-runtime",
-    "release_name": "runtime_bot",
+    "release_name": "library_runtime_bot",
     "category": "core",
     "stability": "stable",
     "channel": "stable",
@@ -30,10 +30,10 @@
     "channel_ref": "stable"
   },
   {
-    "name": "learning",
+    "name": "library_learning",
     "repo": "bot_army_library_learning",
     "remote": "ergon-library-learning",
-    "release_name": "learning_bot",
+    "release_name": "library_learning_bot",
     "category": "core",
     "stability": "stable",
     "channel": "stable",
@@ -127,20 +127,17 @@
     "category": "core",
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable",
-    "install_note": "HTTP transport on port 39900 via MCP_PORT env — connects Claude Desktop without local Elixir"
+    "channel_ref": "stable"
   },
   {
-    "name": "graphify_cache",
-    "repo": "bot_army_graphify_cache",
-    "remote": "ergon-graphify-cache",
-    "release_name": "graphify_cache_bot",
+    "name": "general",
+    "repo": "bot_army_general",
+    "remote": "ergon-general",
+    "release_name": "general_bot",
     "category": "core",
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable",
-    "needs_db": false,
-    "volumes": ["graphify_cache_data:/opt/app/graphify"]
+    "channel_ref": "stable"
   },
   {
     "name": "youtube_manager",
@@ -180,8 +177,7 @@
     "category": "learning_deepdive",
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable",
-    "volumes": ["internal_docs_crawl:/opt/app/crawl"]
+    "channel_ref": "stable"
   },
   {
     "name": "fitness",
@@ -228,16 +224,6 @@
     "repo": "bot_army_rss_polling",
     "remote": "ergon-rss_polling",
     "release_name": "rss_polling_bot",
-    "category": "research",
-    "stability": "experimental",
-    "channel": "stable",
-    "channel_ref": "stable"
-  },
-  {
-    "name": "advocacy",
-    "repo": "bot_army_advocacy",
-    "remote": "ergon-advocacy",
-    "release_name": "advocacy_bot",
     "category": "research",
     "stability": "experimental",
     "channel": "stable",
