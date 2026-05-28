@@ -27,6 +27,12 @@ type BotInfo struct {
 	Repo        string
 }
 
+// PackInfo describes a bot pack and its constituent bots
+type PackInfo struct {
+	Name string
+	Bots []string
+}
+
 // Dashboard is the main dashboard application.
 type Dashboard struct {
 	app       *tview.Application
@@ -56,6 +62,7 @@ type Dashboard struct {
 	currentTab string
 	messages   []string
 	maxMessages int
+	packs      []PackInfo
 }
 
 // NewDashboard creates a new dashboard.
@@ -121,6 +128,7 @@ func NewDashboard(cfg *DashboardConfig) *Dashboard {
 
 	d.messages = make([]string, 0)
 	d.maxMessages = 50
+	d.loadPacks()
 	d.startTrafficMonitor()
 
 	return d
@@ -223,9 +231,13 @@ func (d *Dashboard) updateClaude() {
 	text += "   NATS: localhost:" + d.cfg.NATSPort + "\n"
 	text += "   MCP Bridge: http://localhost:" + d.cfg.MCPPort + "/mcp\n"
 	text += "   PostgreSQL: localhost:" + d.cfg.PostgresPort + "\n\n"
-	text += "[yellow]5. Available Bots:[]\n"
-	for _, bot := range d.cfg.Bots {
-		text += fmt.Sprintf("     • %s\n", bot.Name)
+	text += "[yellow]5. Deployed Bot Packs:[]\n"
+	if len(d.packs) > 0 {
+		for _, pack := range d.packs {
+			text += fmt.Sprintf("     • %s\n", pack.Name)
+		}
+	} else {
+		text += "     (No packs deployed yet)\n"
 	}
 	text += "\n[yellow]6. Start working:[]\n"
 	text += "   claude <your task>\n"
@@ -318,14 +330,28 @@ func (d *Dashboard) checkBotHealth(botName string) bool {
 
 // updateLogs refreshes the logs view
 func (d *Dashboard) updateLogs() {
-	text := "\n[cyan]Recent Logs[yellow]\n"
-	text += "  • NATS: " + d.cfg.NATSPort + "\n"
-	text += "  • Postgres: " + d.cfg.PostgresPort + "\n"
-	text += "  • Data dir: " + d.cfg.DataDir + "\n\n"
-	text += "[cyan]Bots[yellow]\n"
-	for _, bot := range d.cfg.Bots {
-		text += fmt.Sprintf("  • %s (%s)\n", bot.Name, bot.ReleaseName)
+	text := "\n[cyan]Deployed Bot Packs[yellow]\n\n"
+
+	if len(d.packs) == 0 {
+		text += "[gray]No packs deployed yet[-]\n"
+		d.logsView.SetText(text)
+		return
 	}
+
+	for _, pack := range d.packs {
+		text += fmt.Sprintf("[cyan]%s[yellow]\n", pack.Name)
+		if len(pack.Bots) > 0 {
+			for _, bot := range pack.Bots {
+				text += fmt.Sprintf("  • %s\n", bot)
+			}
+		} else {
+			text += "  (no bots)\n"
+		}
+		text += "\n"
+	}
+
+	text += "[gray]View detailed logs:[]\n"
+	text += "  docker logs <service_name> -f\n"
 	text += "\n[yellow]Press [r] to refresh[-]"
 	d.logsView.SetText(text)
 }
@@ -433,6 +459,28 @@ func (d *Dashboard) addMessage(msg string) {
 	if d.app != nil && d.currentTab == "traffic" {
 		d.app.QueueUpdateDraw(func() {
 			d.updateTraffic()
+		})
+	}
+}
+
+// loadPacks loads pack information from catalog if available
+func (d *Dashboard) loadPacks() {
+	// Try to read packs from catalog directory
+	packsCatalogPath := d.cfg.DataDir + "/../../../catalog/packs.json"
+
+	// For now, infer packs from bot names based on naming convention
+	// Pack names are the release names, individual bots are the Names
+	packMap := make(map[string][]string)
+
+	for _, bot := range d.cfg.Bots {
+		// ReleaseName like "core_pack" or just service name
+		packMap[bot.ReleaseName] = append(packMap[bot.ReleaseName], bot.Name)
+	}
+
+	for packName, botNames := range packMap {
+		d.packs = append(d.packs, PackInfo{
+			Name: packName,
+			Bots: botNames,
 		})
 	}
 }
