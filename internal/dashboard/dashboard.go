@@ -69,24 +69,21 @@ func (d *Dashboard) Run() error {
 	d.setupKeyCapture()
 	fmt.Fprintln(os.Stderr, "bot-army: keys setup")
 
-	// Schedule background data fetches after event loop starts (100ms delay)
-	// This ensures the tview event loop is fully initialized before calling Start()
-	// and queuing UI updates
-	d.app.SetAfterFunc(100*time.Millisecond, func() {
-		logDebug("SetAfterFunc: starting background tasks...")
-
+	// Start background data fetches after a short delay to allow the event
+	// loop to fully initialize before queuing UI updates.
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		logDebug("background init: starting background tasks...")
 		d.fleet.Start()
 		d.logs.Start()
 		d.system.Start()
 		d.pigo.Start()
-		logDebug("SetAfterFunc: started goroutines")
-
-		// Update status bar through the queue (safe from within event loop)
+		logDebug("background init: started goroutines")
 		d.app.QueueUpdateDraw(func() {
 			d.setStatus("↑↓:nav  Tab:cycle  1-5:tabs  q:quit")
-			logDebug("SetAfterFunc: updated status bar")
+			logDebug("background init: updated status bar")
 		})
-	})
+	}()
 
 	fmt.Fprintln(os.Stderr, "bot-army: entering event loop...")
 	logDebug("BEFORE: app.Run()")
