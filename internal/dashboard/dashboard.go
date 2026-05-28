@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/nats-io/nats.go"
 	"github.com/rivo/tview"
 )
 
@@ -189,10 +191,34 @@ func (d *Dashboard) updateFleet() {
 			continue
 		}
 		running := strings.Contains(c.State, "running")
-		text += fmt.Sprintf("  %s %s (%s)\n", statusIcon(running), c.Names, c.State)
+		health := "unknown"
+		if running {
+			if d.checkBotHealth(c.Names) {
+				health = "[green]healthy[-]"
+			} else {
+				health = "[yellow]running (no response)[-]"
+			}
+		} else {
+			health = "[red]stopped[-]"
+		}
+		text += fmt.Sprintf("  %s %s - %s\n", statusIcon(running), c.Names, health)
 	}
 
 	d.fleetView.SetText(text)
+}
+
+// checkBotHealth checks if a bot is responding on NATS
+func (d *Dashboard) checkBotHealth(botName string) bool {
+	natsURL := "nats://localhost:" + d.cfg.NATSPort
+	nc, err := nats.Connect(natsURL, nats.Timeout(1*time.Second))
+	if err != nil {
+		return false
+	}
+	defer nc.Close()
+
+	subject := "system.health." + botName
+	_, err = nc.Request(subject, []byte("{}"), 500*time.Millisecond)
+	return err == nil
 }
 
 // updateLogs refreshes the logs view
@@ -252,10 +278,16 @@ func (d *Dashboard) updateSystem() {
 	text += fmt.Sprintf("[cyan]Containers: %d total[yellow]\n", len(containers))
 	for _, c := range containers {
 		state := "[red]stopped[-]"
+		healthInfo := ""
 		if strings.Contains(c.State, "running") {
 			state = "[green]running[-]"
+			if d.checkBotHealth(c.Names) {
+				healthInfo = " [green]✓[-]"
+			} else if !strings.Contains(c.Names, "nats") && !strings.Contains(c.Names, "postgres") {
+				healthInfo = " [yellow]⚠[-]"
+			}
 		}
-		text += fmt.Sprintf("  %s %s\n", state, c.Names)
+		text += fmt.Sprintf("  %s %s%s\n", state, c.Names, healthInfo)
 	}
 
 	text += "\n[yellow]Press [r] to refresh[-]"
