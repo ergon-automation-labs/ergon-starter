@@ -9,6 +9,14 @@ import (
 	"github.com/rivo/tview"
 )
 
+func logDebug(msg string) {
+	f, err := os.OpenFile("/tmp/dashboard-debug.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err == nil {
+		defer f.Close()
+		fmt.Fprintf(f, "[%d] %s\n", time.Now().UnixMilli(), msg)
+	}
+}
+
 // DashboardConfig holds the configuration for the dashboard.
 type DashboardConfig struct {
 	NATSPort     string
@@ -64,8 +72,11 @@ func (d *Dashboard) Run() error {
 	// Schedule initial data fetches for after the event loop starts.
 	// The brief delay ensures app.Run() has started the tview event loop
 	// before QueueUpdateDraw is called, avoiding the Init-time deadlock.
+	logDebug("BEFORE: creating goroutine")
 	go func() {
+		logDebug("GOROUTINE: started")
 		time.Sleep(500 * time.Millisecond)
+		logDebug("GOROUTINE: woke from sleep")
 		fmt.Fprintln(os.Stderr, "bot-army: starting background data fetches...")
 		d.fleet.Start()
 		d.logs.Start()
@@ -77,13 +88,17 @@ func (d *Dashboard) Run() error {
 		d.app.QueueUpdateDraw(func() {
 			d.setStatus("↑↓:nav  Tab:cycle  1-5:tabs  q:quit")
 		})
+		logDebug("GOROUTINE: finished")
 	}()
+	logDebug("AFTER: goroutine created")
 
 	fmt.Fprintln(os.Stderr, "bot-army: entering event loop...")
+	logDebug("BEFORE: app.Run()")
 	if err := d.app.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "bot-army: event loop error: %v\n", err)
 		return err
 	}
+	logDebug("AFTER: app.Run()")
 	fmt.Fprintln(os.Stderr, "bot-army: event loop ended.")
 
 	d.stopTabs()
