@@ -193,7 +193,6 @@ func (d *Dashboard) buildTrafficLayout() {
 
 // buildREPLLayout builds the REPL tab
 func (d *Dashboard) buildREPLLayout() {
-	d.replView = tview.NewTextView()
 	d.replView.SetDynamicColors(true)
 	d.replView.SetBorder(true)
 	d.replView.SetTitle(" REPL Output ")
@@ -201,12 +200,15 @@ func (d *Dashboard) buildREPLLayout() {
 
 	d.replInput = tview.NewInputField()
 	d.replInput.SetLabel("> ")
-	d.replInput.SetDoneFunc(func(key tcell.Key) {
-		if key == tcell.KeyEnter {
+	d.replInput.SetFieldBackgroundColor(tcell.ColorBlack)
+	d.replInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEnter {
 			cmd := d.replInput.GetText()
 			d.executeREPLCommand(cmd)
 			d.replInput.SetText("")
+			return nil
 		}
+		return event
 	})
 
 	flex := tview.NewFlex().SetDirection(tview.FlexRow).
