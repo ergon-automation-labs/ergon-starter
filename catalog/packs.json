@@ -18,7 +18,8 @@
       "llm",
       "surface_mcp",
       "elixir_tools_mcp",
-      "graphify_cache"
+      "graphify_cache",
+      "general"
     ]
   },
   {
