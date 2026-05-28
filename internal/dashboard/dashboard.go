@@ -66,8 +66,14 @@ func (d *Dashboard) Run() error {
 	fmt.Fprintln(os.Stderr, "bot-army: layout built")
 	d.initTabs()
 	fmt.Fprintln(os.Stderr, "bot-army: tabs initialized")
-	// d.setupKeyCapture()  // TODO: debug - temporarily disabled
-	fmt.Fprintln(os.Stderr, "bot-army: keys setup (disabled for debug)")
+	// Minimal input capture - just handle 'q' to quit
+	d.app.SetInputCapture(func(ev *tcell.EventKey) *tcell.EventKey {
+		if ev.Rune() == 'q' {
+			d.app.Stop()
+		}
+		return ev
+	})
+	fmt.Fprintln(os.Stderr, "bot-army: keys setup (minimal)")
 
 	// Update status bar directly (don't queue - we haven't started event loop yet)
 	d.setStatus("↑↓:nav  Tab:cycle  1-5:tabs  q:quit")
@@ -105,13 +111,21 @@ func (d *Dashboard) buildLayout() {
 	// Pages container for tabs
 	d.pages = tview.NewPages()
 
-	// Root layout
+	// TEST: Simple placeholder instead of complex layout
+	placeholder := tview.NewTextView()
+	placeholder.SetText("Dashboard loaded. Press q to quit.")
+
+	// Root layout - simplified for debug
 	d.root = tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(d.header, 1, 0, false).
-		AddItem(d.pages, 0, 1, true).
+		AddItem(placeholder, 0, 1, true).
 		AddItem(d.status, 1, 0, false)
 
+	fmt.Fprintln(os.Stderr, "bot-army: [DEBUG] about to SetRoot")
+	os.Stderr.Sync()
 	d.app.SetRoot(d.root, true)
+	fmt.Fprintln(os.Stderr, "bot-army: [DEBUG] SetRoot completed")
+	os.Stderr.Sync()
 }
 
 // initTabs initializes all tabs.
