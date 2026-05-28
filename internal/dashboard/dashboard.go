@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -47,6 +48,7 @@ type Dashboard struct {
 	systemView  *tview.TextView
 	trafficView *tview.TextView
 	replView    *tview.TextView
+	replInput   *tview.InputField
 	claudeView  *tview.TextView
 
 	// Layouts
@@ -191,13 +193,93 @@ func (d *Dashboard) buildTrafficLayout() {
 
 // buildREPLLayout builds the REPL tab
 func (d *Dashboard) buildREPLLayout() {
+	d.replView = tview.NewTextView()
+	d.replView.SetDynamicColors(true)
+	d.replView.SetBorder(true)
+	d.replView.SetTitle(" REPL Output ")
+	d.replView.SetText("[cyan]REPL Console[yellow]\n\nAvailable commands:\n  list-bots     - Show all bots\n  health <bot>   - Check bot health\n  status         - Show system status\n\n[gray]Type a command below and press Enter[-]")
+
+	d.replInput = tview.NewInputField()
+	d.replInput.SetLabel("> ")
+	d.replInput.SetDoneFunc(func(key tcell.Key) {
+		if key == tcell.KeyEnter {
+			cmd := d.replInput.GetText()
+			d.executeREPLCommand(cmd)
+			d.replInput.SetText("")
+		}
+	})
+
 	flex := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(d.header, 1, 0, false).
-		AddItem(d.replView, 0, 1, true).
+		AddItem(d.replView, 0, 1, false).
+		AddItem(d.replInput, 1, 0, true).
 		AddItem(d.statusBar, 1, 0, false)
 
 	d.replFlex = flex
-	d.replView.SetText("[cyan]REPL Console[yellow]\n\nAvailable commands:\n  list-bots     - Show all bots\n  health <bot>   - Check bot health\n  clear          - Clear traffic log\n\n[gray]Type a command and press Enter to execute[-]")
+}
+
+// executeREPLCommand processes REPL commands
+func (d *Dashboard) executeREPLCommand(cmd string) {
+	cmd = strings.TrimSpace(cmd)
+	output := ""
+
+	parts := strings.Fields(cmd)
+	if len(parts) == 0 {
+		return
+	}
+
+	switch parts[0] {
+	case "list-bots":
+		output = "[cyan]Deployed Bots:[]\n"
+		if len(d.packs) == 0 {
+			output += "[gray]No packs deployed[-]"
+		} else {
+			for _, pack := range d.packs {
+				output += fmt.Sprintf("[yellow]%s:[]\n", pack.Name)
+				for _, bot := range pack.Bots {
+					output += fmt.Sprintf("  • %s\n", bot)
+				}
+			}
+		}
+
+	case "health":
+		if len(parts) < 2 {
+			output = "[red]Usage: health <bot_name>[-]"
+		} else {
+			botName := parts[1]
+			if d.checkBotHealth(botName) {
+				output = fmt.Sprintf("[green]%s is healthy[-]", botName)
+			} else {
+				output = fmt.Sprintf("[yellow]%s is not responding[-]", botName)
+			}
+		}
+
+	case "status":
+		output = "[cyan]System Status:[]\n"
+		containers, err := DockerPS()
+		if err != nil {
+			output += "[red]Docker not available[-]"
+		} else {
+			running := 0
+			for _, c := range containers {
+				if strings.Contains(c.State, "running") {
+					running++
+				}
+			}
+			output += fmt.Sprintf("  Containers: %d total, %d running\n", len(containers), running)
+		}
+
+	default:
+		output = fmt.Sprintf("[red]Unknown command: %s[-]\nAvailable: list-bots, health, status", parts[0])
+	}
+
+	current := d.replView.GetText(false)
+	d.replView.SetText(current + "\n\n[gray]>[-] " + cmd + "\n" + output)
+	d.replView.ScrollToEnd()
+
+	if d.app != nil {
+		d.app.QueueUpdateDraw(func() {})
+	}
 }
 
 // buildClaudeLayout builds the Claude setup tab
@@ -463,22 +545,42 @@ func (d *Dashboard) addMessage(msg string) {
 	}
 }
 
-// loadPacks loads pack information from catalog if available
+// loadPacks loads pack information from catalog JSON
 func (d *Dashboard) loadPacks() {
-	// Infer packs from bot names based on naming convention
-	// Pack names are the release names, individual bots are the Names
-	packMap := make(map[string][]string)
-
-	for _, bot := range d.cfg.Bots {
-		// ReleaseName like "core_pack" or just service name
-		packMap[bot.ReleaseName] = append(packMap[bot.ReleaseName], bot.Name)
+	// Try to load packs from catalog/packs.json
+	data, err := os.ReadFile("catalog/packs.json")
+	if err != nil {
+		return
 	}
 
-	for packName, botNames := range packMap {
-		d.packs = append(d.packs, PackInfo{
-			Name: packName,
-			Bots: botNames,
-		})
+	var catalogPacks []map[string]interface{}
+	if err := json.Unmarshal(data, &catalogPacks); err != nil {
+		return
+	}
+
+	// Match deployed services to catalog packs
+	deployedPacks := make(map[string]bool)
+	for _, bot := range d.cfg.Bots {
+		deployedPacks[bot.ReleaseName] = true
+	}
+
+	// Add deployed packs with their bot lists
+	for _, packData := range catalogPacks {
+		releaseName, _ := packData["release_name"].(string)
+		if deployedPacks[releaseName] {
+			name, _ := packData["name"].(string)
+			botsRaw, _ := packData["bots"].([]interface{})
+			var bots []string
+			for _, b := range botsRaw {
+				if botName, ok := b.(string); ok {
+					bots = append(bots, botName)
+				}
+			}
+			d.packs = append(d.packs, PackInfo{
+				Name: name,
+				Bots: bots,
+			})
+		}
 	}
 }
 
@@ -517,6 +619,9 @@ func (d *Dashboard) switchTab(tab string) {
 		newRoot = d.trafficFlex
 	case "repl":
 		newRoot = d.replFlex
+		if d.app != nil {
+			d.app.SetFocus(d.replInput)
+		}
 	case "claude":
 		d.updateClaude()
 		newRoot = d.claudeFlex
