@@ -182,6 +182,13 @@ func generatePackComposeFile(cfg *Config) error {
 		b.WriteString(fmt.Sprintf("        PACK_NAME: %s\n", pack.ReleaseName))
 		b.WriteString(fmt.Sprintf("        PACK_REPO: ergon-pack-%s\n", pack.Name))
 		b.WriteString("    env_file: .env\n")
+		for _, botName := range pack.Bots {
+			if botName == "surface_mcp" {
+				b.WriteString("    ports:\n")
+				b.WriteString(fmt.Sprintf("      - \"%s:39900\"\n", cfg.Ports.MCP))
+				break
+			}
+		}
 		b.WriteString("    environment:\n")
 		b.WriteString("      PACK_MODE: \"true\"\n")
 
@@ -395,6 +402,10 @@ func generateBotComposeFile(cfg *Config) error {
 		b.WriteString(fmt.Sprintf("        BOT_REPO: %s\n", bot.Repo))
 		b.WriteString(fmt.Sprintf("        BOT_NAME: %s\n", bot.ReleaseName))
 		b.WriteString("    env_file: .env\n")
+		if bot.Name == "surface_mcp" {
+			b.WriteString("    ports:\n")
+			b.WriteString(fmt.Sprintf("      - \"%s:39900\"\n", cfg.Ports.MCP))
+		}
 
 		// Mounted volumes for log/PARA output and persistent data
 		b.WriteString("    volumes:\n")

@@ -17,24 +17,19 @@ Download from [claude.ai/download](https://claude.ai/download) and install.
 
 ### 2. Configure MCP Servers
 
-Claude Desktop reads MCP server configs from `~/.claude/claude.json`. Add your Bot Army bridge:
+Claude Desktop reads MCP server configs from (macOS) `~/Library/Application Support/Claude/claude_desktop_config.json`. Add your Bot Army bridge:
 
 ```json
 {
   "mcpServers": {
     "bot-army": {
-      "command": "curl",
-      "args": [
-        "-s",
-        "http://localhost:4222/mcp",
-        "--connect-timeout", "2"
-      ]
+      "url": "http://localhost:39900/mcp"
     }
   }
 }
 ```
 
-**Note:** This assumes your NATS port is `4222` (production) or `54222` (dev). Adjust if needed.
+**Note:** Port `39900` is the default MCP host port. If you changed it during `make quickstart`, use that value instead.
 
 ### 3. Restart Claude Desktop
 
@@ -202,8 +197,8 @@ make test
 
 **Claude Desktop doesn't see MCP server:**
 ```bash
-# Check if bridge is running
-curl http://localhost:4222/mcp
+# Check if MCP server is running
+curl http://localhost:39900/mcp
 
 # If no response, ensure bots are up:
 docker compose ps | grep bridge
