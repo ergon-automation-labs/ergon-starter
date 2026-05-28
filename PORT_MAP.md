@@ -11,6 +11,7 @@ Inside Docker, all services use standard ports.
 | NATS Monitor | 58222 | 8222 | `NATS_MONITOR_HOST_PORT` |
 | PostgreSQL | 55432 | 5432 | `POSTGRES_HOST_PORT` |
 | Ollama | 51434 | 11434 | `OLLAMA_HOST_PORT` |
+| MCP server | 39900 | 39900 | `MCP_HOST_PORT` |
 
 ## Connecting from host
 
