@@ -66,14 +66,19 @@ func (d *Dashboard) Run() error {
 	fmt.Fprintln(os.Stderr, "bot-army: layout built")
 	d.initTabs()
 	fmt.Fprintln(os.Stderr, "bot-army: tabs initialized")
-	d.setupKeyCapture()
-	fmt.Fprintln(os.Stderr, "bot-army: keys setup")
+	// d.setupKeyCapture()  // TODO: debug - temporarily disabled
+	fmt.Fprintln(os.Stderr, "bot-army: keys setup (disabled for debug)")
 
 	// Update status bar directly (don't queue - we haven't started event loop yet)
 	d.setStatus("↑↓:nav  Tab:cycle  1-5:tabs  q:quit")
 
 	fmt.Fprintln(os.Stderr, "bot-army: entering event loop...")
 	logDebug("BEFORE: app.Run()")
+
+	// Debug: flush stderr before blocking
+	fmt.Fprintln(os.Stderr, "bot-army: [DEBUG] about to call app.Run()")
+	os.Stderr.Sync()
+
 	if err := d.app.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "bot-army: event loop error: %v\n", err)
 		return err
