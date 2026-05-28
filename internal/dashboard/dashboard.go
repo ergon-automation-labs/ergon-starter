@@ -66,25 +66,27 @@ func (d *Dashboard) Run() error {
 	fmt.Fprintln(os.Stderr, "bot-army: layout built")
 	d.initTabs()
 	fmt.Fprintln(os.Stderr, "bot-army: tabs initialized")
-	// Minimal input capture - just handle 'q' to quit
-	d.app.SetInputCapture(func(ev *tcell.EventKey) *tcell.EventKey {
-		if ev.Rune() == 'q' {
-			d.app.Stop()
-		}
-		return ev
-	})
-	fmt.Fprintln(os.Stderr, "bot-army: keys setup (minimal)")
+	d.setupKeyCapture()
+	fmt.Fprintln(os.Stderr, "bot-army: keys setup")
 
-	// Update status bar directly (don't queue - we haven't started event loop yet)
-	d.setStatus("↑↓:nav  Tab:cycle  1-5:tabs  q:quit")
+	// Start background data fetches after a short delay to allow the event
+	// loop to fully initialize before queuing UI updates.
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		logDebug("background init: starting background tasks...")
+		d.fleet.Start()
+		d.logs.Start()
+		d.system.Start()
+		d.pigo.Start()
+		logDebug("background init: started goroutines")
+		d.app.QueueUpdateDraw(func() {
+			d.setStatus("↑↓:nav  Tab:cycle  1-5:tabs  q:quit")
+			logDebug("background init: updated status bar")
+		})
+	}()
 
 	fmt.Fprintln(os.Stderr, "bot-army: entering event loop...")
 	logDebug("BEFORE: app.Run()")
-
-	// Debug: flush stderr before blocking
-	fmt.Fprintln(os.Stderr, "bot-army: [DEBUG] about to call app.Run()")
-	os.Stderr.Sync()
-
 	if err := d.app.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "bot-army: event loop error: %v\n", err)
 		return err
@@ -111,21 +113,13 @@ func (d *Dashboard) buildLayout() {
 	// Pages container for tabs
 	d.pages = tview.NewPages()
 
-	// TEST: Simple placeholder instead of complex layout
-	placeholder := tview.NewTextView()
-	placeholder.SetText("Dashboard loaded. Press q to quit.")
-
-	// Root layout - simplified for debug
+	// Root layout
 	d.root = tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(d.header, 1, 0, false).
-		AddItem(placeholder, 0, 1, true).
+		AddItem(d.pages, 0, 1, true).
 		AddItem(d.status, 1, 0, false)
 
-	fmt.Fprintln(os.Stderr, "bot-army: [DEBUG] about to SetRoot")
-	os.Stderr.Sync()
 	d.app.SetRoot(d.root, true)
-	fmt.Fprintln(os.Stderr, "bot-army: [DEBUG] SetRoot completed")
-	os.Stderr.Sync()
 }
 
 // initTabs initializes all tabs.
