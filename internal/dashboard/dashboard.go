@@ -69,17 +69,17 @@ func (d *Dashboard) Run() error {
 	d.setupKeyCapture()
 	fmt.Fprintln(os.Stderr, "bot-army: keys setup")
 
-	// Schedule initial data fetches using tview's timer (avoids goroutine scheduling issues)
-	d.app.SetAfterFunc(500*time.Millisecond, func() {
-		logDebug("TIMER: fired - starting background tasks")
-		d.fleet.Start()
-		d.logs.Start()
-		d.system.Start()
-		d.pigo.Start()
-		d.app.QueueUpdateDraw(func() {
-			d.setStatus("↑↓:nav  Tab:cycle  1-5:tabs  q:quit")
-		})
-		logDebug("TIMER: background tasks started")
+	// Start background data fetches. They're async so UI renders first.
+	logDebug("Starting background tasks...")
+	d.fleet.Start()
+	d.logs.Start()
+	d.system.Start()
+	d.pigo.Start()
+	logDebug("Background tasks started")
+
+	// Update status
+	d.app.QueueUpdateDraw(func() {
+		d.setStatus("↑↓:nav  Tab:cycle  1-5:tabs  q:quit")
 	})
 
 	fmt.Fprintln(os.Stderr, "bot-army: entering event loop...")
