@@ -34,19 +34,25 @@ type Dashboard struct {
 	statusBar *tview.TextView
 
 	// Tabs
-	fleetView  *tview.TextView
-	logsView   *tview.TextView
-	natsView   *tview.TextView
-	systemView *tview.TextView
+	fleetView   *tview.TextView
+	logsView    *tview.TextView
+	natsView    *tview.TextView
+	systemView  *tview.TextView
+	trafficView *tview.TextView
+	replView    *tview.TextView
 
 	// Layouts
-	fleetFlex  tview.Primitive
-	logsFlex   tview.Primitive
-	natsFlex   tview.Primitive
-	systemFlex tview.Primitive
-	root       tview.Primitive
+	fleetFlex   tview.Primitive
+	logsFlex    tview.Primitive
+	natsFlex    tview.Primitive
+	systemFlex  tview.Primitive
+	trafficFlex tview.Primitive
+	replFlex    tview.Primitive
+	root        tview.Primitive
 
 	currentTab string
+	messages   []string
+	maxMessages int
 }
 
 // NewDashboard creates a new dashboard.
@@ -62,7 +68,7 @@ func NewDashboard(cfg *DashboardConfig) *Dashboard {
 
 	d.statusBar = tview.NewTextView()
 	d.statusBar.SetDynamicColors(true)
-	d.statusBar.SetText("Ready. [1]Fleet  [2]Logs  [3]NATS  [4]System  [q]uit")
+	d.statusBar.SetText("Ready. [1]Fleet  [2]Logs  [3]NATS  [4]System  [5]Traffic  [6]REPL  [q]uit")
 
 	// Create tab views
 	d.fleetView = tview.NewTextView()
@@ -85,12 +91,28 @@ func NewDashboard(cfg *DashboardConfig) *Dashboard {
 	d.systemView.SetBorder(true)
 	d.systemView.SetTitle(" System ")
 
+	d.trafficView = tview.NewTextView()
+	d.trafficView.SetDynamicColors(true)
+	d.trafficView.SetBorder(true)
+	d.trafficView.SetTitle(" NATS Traffic ")
+
+	d.replView = tview.NewTextView()
+	d.replView.SetDynamicColors(true)
+	d.replView.SetBorder(true)
+	d.replView.SetTitle(" REPL ")
+
 	// Build layouts NOW, before app exists
 	d.buildFleetLayout()
 	d.buildLogsLayout()
 	d.buildNATSLayout()
 	d.buildSystemLayout()
+	d.buildTrafficLayout()
+	d.buildREPLLayout()
 	d.buildMainLayout()
+
+	d.messages = make([]string, 0)
+	d.maxMessages = 50
+	d.startTrafficMonitor()
 
 	return d
 }
@@ -139,6 +161,28 @@ func (d *Dashboard) buildSystemLayout() {
 	d.updateSystem()
 }
 
+// buildTrafficLayout builds the NATS traffic tab
+func (d *Dashboard) buildTrafficLayout() {
+	flex := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(d.header, 1, 0, false).
+		AddItem(d.trafficView, 0, 1, true).
+		AddItem(d.statusBar, 1, 0, false)
+
+	d.trafficFlex = flex
+	d.updateTraffic()
+}
+
+// buildREPLLayout builds the REPL tab
+func (d *Dashboard) buildREPLLayout() {
+	flex := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(d.header, 1, 0, false).
+		AddItem(d.replView, 0, 1, true).
+		AddItem(d.statusBar, 1, 0, false)
+
+	d.replFlex = flex
+	d.replView.SetText("[cyan]REPL Console[yellow]\n\nAvailable commands:\n  list-bots     - Show all bots\n  health <bot>   - Check bot health\n  clear          - Clear traffic log\n\n[gray]Type a command and press Enter to execute[-]")
+}
+
 // buildMainLayout sets the initial root
 func (d *Dashboard) buildMainLayout() {
 	d.root = d.fleetFlex
@@ -148,7 +192,7 @@ func (d *Dashboard) buildMainLayout() {
 // updateHeader updates the header with active tab
 func (d *Dashboard) updateHeader() {
 	tabs := "🤖 Bot Army  "
-	for _, tab := range []string{"fleet", "logs", "nats", "system"} {
+	for _, tab := range []string{"fleet", "logs", "nats", "system", "traffic", "repl"} {
 		if tab == d.currentTab {
 			tabs += fmt.Sprintf("[yellow:black][ %s ][-:-] ", strings.ToUpper(tab))
 		} else {
@@ -294,6 +338,54 @@ func (d *Dashboard) updateSystem() {
 	d.systemView.SetText(text)
 }
 
+// updateTraffic refreshes the NATS traffic view
+func (d *Dashboard) updateTraffic() {
+	text := "\n[cyan]NATS Message Traffic[yellow]\n"
+	if len(d.messages) == 0 {
+		text += "[gray]Waiting for messages...[-]\n"
+	} else {
+		for _, msg := range d.messages {
+			text += msg + "\n"
+		}
+	}
+	text += "\n[yellow]Press [r] to refresh, [c] to clear[-]"
+	d.trafficView.SetText(text)
+}
+
+// startTrafficMonitor starts listening to NATS messages
+func (d *Dashboard) startTrafficMonitor() {
+	go func() {
+		natsURL := "nats://localhost:" + d.cfg.NATSPort
+		nc, err := nats.Connect(natsURL, nats.Timeout(2*time.Second))
+		if err != nil {
+			d.addMessage("[red]NATS connection failed[-]")
+			return
+		}
+		defer nc.Close()
+
+		nc.Subscribe(">", func(msg *nats.Msg) {
+			timestamp := time.Now().Format("15:04:05")
+			text := fmt.Sprintf("[gray]%s[-] %s", timestamp, msg.Subject)
+			d.addMessage(text)
+		})
+
+		select {}
+	}()
+}
+
+// addMessage adds a message to the traffic log
+func (d *Dashboard) addMessage(msg string) {
+	d.messages = append(d.messages, msg)
+	if len(d.messages) > d.maxMessages {
+		d.messages = d.messages[1:]
+	}
+	if d.app != nil && d.currentTab == "traffic" {
+		d.app.QueueUpdateDraw(func() {
+			d.updateTraffic()
+		})
+	}
+}
+
 func statusIcon(running bool) string {
 	if running {
 		return "✓"
@@ -324,6 +416,11 @@ func (d *Dashboard) switchTab(tab string) {
 	case "system":
 		d.updateSystem()
 		newRoot = d.systemFlex
+	case "traffic":
+		d.updateTraffic()
+		newRoot = d.trafficFlex
+	case "repl":
+		newRoot = d.replFlex
 	default:
 		return
 	}
@@ -363,6 +460,12 @@ func (d *Dashboard) HandleKey(ev *tcell.EventKey) *tcell.EventKey {
 	case '4':
 		d.switchTab("system")
 		return nil
+	case '5':
+		d.switchTab("traffic")
+		return nil
+	case '6':
+		d.switchTab("repl")
+		return nil
 	case 'r':
 		switch d.currentTab {
 		case "fleet":
@@ -373,11 +476,22 @@ func (d *Dashboard) HandleKey(ev *tcell.EventKey) *tcell.EventKey {
 			d.updateNATS()
 		case "system":
 			d.updateSystem()
+		case "traffic":
+			d.updateTraffic()
 		}
 		if d.app != nil {
 			d.app.QueueUpdateDraw(func() {})
 		}
 		return nil
+	case 'c':
+		if d.currentTab == "traffic" {
+			d.messages = d.messages[:0]
+			d.updateTraffic()
+			if d.app != nil {
+				d.app.QueueUpdateDraw(func() {})
+			}
+			return nil
+		}
 	}
 	return ev
 }
