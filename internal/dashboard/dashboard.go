@@ -465,10 +465,7 @@ func (d *Dashboard) addMessage(msg string) {
 
 // loadPacks loads pack information from catalog if available
 func (d *Dashboard) loadPacks() {
-	// Try to read packs from catalog directory
-	packsCatalogPath := d.cfg.DataDir + "/../../../catalog/packs.json"
-
-	// For now, infer packs from bot names based on naming convention
+	// Infer packs from bot names based on naming convention
 	// Pack names are the release names, individual bots are the Names
 	packMap := make(map[string][]string)
 
