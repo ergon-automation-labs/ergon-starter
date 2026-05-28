@@ -40,6 +40,7 @@ type Dashboard struct {
 	systemView  *tview.TextView
 	trafficView *tview.TextView
 	replView    *tview.TextView
+	claudeView  *tview.TextView
 
 	// Layouts
 	fleetFlex   tview.Primitive
@@ -48,6 +49,7 @@ type Dashboard struct {
 	systemFlex  tview.Primitive
 	trafficFlex tview.Primitive
 	replFlex    tview.Primitive
+	claudeFlex  tview.Primitive
 	root        tview.Primitive
 
 	currentTab string
@@ -68,7 +70,7 @@ func NewDashboard(cfg *DashboardConfig) *Dashboard {
 
 	d.statusBar = tview.NewTextView()
 	d.statusBar.SetDynamicColors(true)
-	d.statusBar.SetText("Ready. [1]Fleet  [2]Logs  [3]NATS  [4]System  [5]Traffic  [6]REPL  [q]uit")
+	d.statusBar.SetText("Ready. [1]Fleet  [2]Logs  [3]NATS  [4]System  [5]Traffic  [6]REPL  [7]Claude  [q]uit")
 
 	// Create tab views
 	d.fleetView = tview.NewTextView()
@@ -101,6 +103,11 @@ func NewDashboard(cfg *DashboardConfig) *Dashboard {
 	d.replView.SetBorder(true)
 	d.replView.SetTitle(" REPL ")
 
+	d.claudeView = tview.NewTextView()
+	d.claudeView.SetDynamicColors(true)
+	d.claudeView.SetBorder(true)
+	d.claudeView.SetTitle(" Claude Setup ")
+
 	// Build layouts NOW, before app exists
 	d.buildFleetLayout()
 	d.buildLogsLayout()
@@ -108,6 +115,7 @@ func NewDashboard(cfg *DashboardConfig) *Dashboard {
 	d.buildSystemLayout()
 	d.buildTrafficLayout()
 	d.buildREPLLayout()
+	d.buildClaudeLayout()
 	d.buildMainLayout()
 
 	d.messages = make([]string, 0)
@@ -183,6 +191,38 @@ func (d *Dashboard) buildREPLLayout() {
 	d.replView.SetText("[cyan]REPL Console[yellow]\n\nAvailable commands:\n  list-bots     - Show all bots\n  health <bot>   - Check bot health\n  clear          - Clear traffic log\n\n[gray]Type a command and press Enter to execute[-]")
 }
 
+// buildClaudeLayout builds the Claude setup tab
+func (d *Dashboard) buildClaudeLayout() {
+	flex := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(d.header, 1, 0, false).
+		AddItem(d.claudeView, 0, 1, true).
+		AddItem(d.statusBar, 1, 0, false)
+
+	d.claudeFlex = flex
+	d.updateClaude()
+}
+
+// updateClaude refreshes the Claude setup view
+func (d *Dashboard) updateClaude() {
+	text := "\n[cyan]Claude Code Setup[yellow]\n\n"
+	text += "[yellow]1. Install Claude Code CLI:[]\n"
+	text += "   npm install -g @anthropic-ai/claude\n\n"
+	text += "[yellow]2. Authenticate:[]\n"
+	text += "   claude auth login\n\n"
+	text += "[yellow]3. Install in your project:[]\n"
+	text += "   claude install\n\n"
+	text += "[yellow]4. Available Commands:[]\n"
+	text += "   claude <task>     - Start working on a task\n"
+	text += "   claude /help      - Get help\n"
+	text += "   claude /clear     - Clear context\n"
+	text += "   claude /fast      - Enable fast mode\n\n"
+	text += "[yellow]5. Documentation:[]\n"
+	text += "   https://github.com/anthropics/claude-code\n"
+	text += "   https://claude.ai/code\n"
+	text += "\n[gray]Press [r] to refresh[-]"
+	d.claudeView.SetText(text)
+}
+
 // buildMainLayout sets the initial root
 func (d *Dashboard) buildMainLayout() {
 	d.root = d.fleetFlex
@@ -192,7 +232,7 @@ func (d *Dashboard) buildMainLayout() {
 // updateHeader updates the header with active tab
 func (d *Dashboard) updateHeader() {
 	tabs := "🤖 Bot Army  "
-	for _, tab := range []string{"fleet", "logs", "nats", "system", "traffic", "repl"} {
+	for _, tab := range []string{"fleet", "logs", "nats", "system", "traffic", "repl", "claude"} {
 		if tab == d.currentTab {
 			tabs += fmt.Sprintf("[yellow:black][ %s ][-:-] ", strings.ToUpper(tab))
 		} else {
@@ -421,6 +461,9 @@ func (d *Dashboard) switchTab(tab string) {
 		newRoot = d.trafficFlex
 	case "repl":
 		newRoot = d.replFlex
+	case "claude":
+		d.updateClaude()
+		newRoot = d.claudeFlex
 	default:
 		return
 	}
@@ -466,6 +509,9 @@ func (d *Dashboard) HandleKey(ev *tcell.EventKey) *tcell.EventKey {
 	case '6':
 		d.switchTab("repl")
 		return nil
+	case '7':
+		d.switchTab("claude")
+		return nil
 	case 'r':
 		switch d.currentTab {
 		case "fleet":
@@ -478,6 +524,8 @@ func (d *Dashboard) HandleKey(ev *tcell.EventKey) *tcell.EventKey {
 			d.updateSystem()
 		case "traffic":
 			d.updateTraffic()
+		case "claude":
+			d.updateClaude()
 		}
 		if d.app != nil {
 			d.app.QueueUpdateDraw(func() {})
