@@ -111,11 +111,6 @@ func NewDashboard(cfg *DashboardConfig) *Dashboard {
 	d.trafficView.SetBorder(true)
 	d.trafficView.SetTitle(" NATS Traffic ")
 
-	d.replView = tview.NewTextView()
-	d.replView.SetDynamicColors(true)
-	d.replView.SetBorder(true)
-	d.replView.SetTitle(" REPL ")
-
 	d.claudeView = tview.NewTextView()
 	d.claudeView.SetDynamicColors(true)
 	d.claudeView.SetBorder(true)
@@ -294,9 +289,9 @@ func (d *Dashboard) executeREPLCommand(cmd string) {
 		output = fmt.Sprintf("[red]Unknown command: %s[-]\nAvailable: list-bots, health, status", parts[0])
 	}
 
-	current := d.replView.GetText(false)
-	d.replView.SetText(current + "\n\n[gray]>[-] " + cmd + "\n" + output)
-	d.replView.ScrollToEnd()
+	current := d.replOutput.GetText(false)
+	d.replOutput.SetText(current + "\n\n[gray]>[-] " + cmd + "\n" + output)
+	d.replOutput.ScrollToEnd()
 
 	if d.app != nil {
 		d.app.QueueUpdateDraw(func() {})
