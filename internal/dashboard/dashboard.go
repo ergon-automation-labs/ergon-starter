@@ -483,14 +483,14 @@ func (d *Dashboard) updateFleet() {
 // checkBotHealth checks if a bot is responding on NATS
 func (d *Dashboard) checkBotHealth(botName string) bool {
 	natsURL := "nats://localhost:" + d.cfg.NATSPort
-	nc, err := nats.Connect(natsURL, nats.Timeout(1*time.Second))
+	nc, err := nats.Connect(natsURL, nats.Timeout(3*time.Second))
 	if err != nil {
 		return false
 	}
 	defer nc.Close()
 
 	subject := "system.health." + botName
-	_, err = nc.Request(subject, []byte("{}"), 500*time.Millisecond)
+	_, err = nc.Request(subject, []byte("{}"), 2*time.Second)
 	return err == nil
 }
 
