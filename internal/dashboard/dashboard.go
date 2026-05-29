@@ -62,6 +62,7 @@ type Dashboard struct {
 	trafficFlex tview.Primitive
 	claudeFlex  tview.Primitive
 	root        tview.Primitive
+	pages       *tview.Pages
 
 	currentTab      string
 	replModalActive bool
@@ -338,6 +339,11 @@ func (d *Dashboard) updateClaude() {
 func (d *Dashboard) buildMainLayout() {
 	d.root = d.fleetFlex
 	d.updateHeader()
+
+	// Create pages for managing main view and modal
+	d.pages = tview.NewPages()
+	d.pages.AddPage("main", d.root, true, true)
+	d.pages.AddPage("repl", d.replModal, true, false)
 }
 
 // updateHeader updates the header with active tab
@@ -631,29 +637,33 @@ func (d *Dashboard) switchTab(tab string) {
 	}
 
 	d.root = newRoot
-	d.app.SetRoot(d.root, true)
+	if d.pages != nil {
+		d.pages.RemovePage("main")
+		d.pages.AddPage("main", d.root, true, true)
+	}
 	d.app.SetFocus(d.fleetView)
 }
 
 // showREPLModal shows the REPL command mode modal
 func (d *Dashboard) showREPLModal() {
-	if d.app == nil {
+	if d.app == nil || d.pages == nil {
 		return
 	}
 	d.replModalActive = true
 	d.replOutput.SetText("[cyan]REPL[yellow]\n\nAvailable commands:\n  list-bots     - Show all bots\n  health <bot>   - Check bot health\n  status         - Show system status")
 	d.replInput.SetText("")
-	d.app.SetRoot(d.Root(), true)
+	d.pages.ShowPage("repl")
 	d.app.SetFocus(d.replInput)
 }
 
 // hideREPLModal hides the REPL command mode modal
 func (d *Dashboard) hideREPLModal() {
-	if d.app == nil {
+	if d.app == nil || d.pages == nil {
 		return
 	}
 	d.replModalActive = false
-	d.app.SetRoot(d.root, true)
+	d.pages.HidePage("repl")
+	d.app.SetFocus(d.fleetView)
 }
 
 // SetApp sets the tview application (called from main after New())
@@ -734,12 +744,9 @@ func (d *Dashboard) HandleKey(ev *tcell.EventKey) *tcell.EventKey {
 	return ev
 }
 
-// Root returns the root widget (modal if active, otherwise current tab)
+// Root returns the root widget (pages container)
 func (d *Dashboard) Root() tview.Primitive {
-	if d.replModalActive {
-		return d.replModal
-	}
-	return d.root
+	return d.pages
 }
 
 // Run starts the dashboard
