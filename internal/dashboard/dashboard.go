@@ -47,6 +47,7 @@ type Dashboard struct {
 	natsView    *tview.TextView
 	systemView  *tview.TextView
 	trafficView *tview.TextView
+	healthView  *tview.TextView
 	claudeView  *tview.TextView
 
 	// REPL modal
@@ -60,6 +61,7 @@ type Dashboard struct {
 	natsFlex    tview.Primitive
 	systemFlex  tview.Primitive
 	trafficFlex tview.Primitive
+	healthFlex  tview.Primitive
 	claudeFlex  tview.Primitive
 	root        tview.Primitive
 
@@ -83,7 +85,7 @@ func NewDashboard(cfg *DashboardConfig) *Dashboard {
 
 	d.statusBar = tview.NewTextView()
 	d.statusBar.SetDynamicColors(true)
-	d.statusBar.SetText("Ready. [1]Fleet  [2]Logs  [3]NATS  [4]System  [5]Traffic  [6]Claude  [:]command  [q]uit")
+	d.statusBar.SetText("Ready. [1]Fleet  [2]Logs  [3]NATS  [4]System  [5]Traffic  [6]Health  [7]Claude  [:]command  [q]uit")
 
 	// Create tab views
 	d.fleetView = tview.NewTextView()
@@ -111,6 +113,11 @@ func NewDashboard(cfg *DashboardConfig) *Dashboard {
 	d.trafficView.SetBorder(true)
 	d.trafficView.SetTitle(" NATS Traffic ")
 
+	d.healthView = tview.NewTextView()
+	d.healthView.SetDynamicColors(true)
+	d.healthView.SetBorder(true)
+	d.healthView.SetTitle(" Bot Health ")
+
 	d.claudeView = tview.NewTextView()
 	d.claudeView.SetDynamicColors(true)
 	d.claudeView.SetBorder(true)
@@ -121,7 +128,7 @@ func NewDashboard(cfg *DashboardConfig) *Dashboard {
 	d.replOutput.SetDynamicColors(true)
 	d.replOutput.SetBorder(true)
 	d.replOutput.SetTitle(" Command Output ")
-	d.replOutput.SetText("[cyan]REPL[yellow]\n\nAvailable commands:\n  list-bots     - Show all bots\n  health <bot>   - Check bot health\n  status         - Show system status")
+	d.replOutput.SetText("[cyan]REPL[yellow]\n\nCommands:\n  list-bots     - Show all bots\n  health <bot>   - Check bot health\n  status         - Show system status\n\n[cyan]Or type anything for Claude to respond[-]")
 
 	d.replInput = tview.NewInputField().
 		SetLabel(": ").
@@ -134,6 +141,7 @@ func NewDashboard(cfg *DashboardConfig) *Dashboard {
 	d.buildNATSLayout()
 	d.buildSystemLayout()
 	d.buildTrafficLayout()
+	d.buildHealthLayout()
 	d.buildClaudeLayout()
 	d.buildMainLayout()
 	d.buildREPLModal()
@@ -277,7 +285,8 @@ func (d *Dashboard) executeREPLCommand(cmd string) {
 		}
 
 	default:
-		output = fmt.Sprintf("[red]Unknown command: %s[-]\nAvailable: list-bots, health, status", parts[0])
+		// Not a known command—send to Claude Bridge for LLM response
+		output = d.queryLLM(cmd)
 	}
 
 	current := d.replOutput.GetText(false)
@@ -287,6 +296,73 @@ func (d *Dashboard) executeREPLCommand(cmd string) {
 	if d.app != nil {
 		d.app.QueueUpdateDraw(func() {})
 	}
+}
+
+// queryLLM sends a message to Claude Bridge for processing
+func (d *Dashboard) queryLLM(msg string) string {
+	natsURL := "nats://localhost:" + d.cfg.NATSPort
+	nc, err := nats.Connect(natsURL, nats.Timeout(2*time.Second))
+	if err != nil {
+		return "[red]Bridge unavailable[-]"
+	}
+	defer nc.Close()
+
+	// Send to Claude Bridge converse endpoint
+	reqBody := fmt.Sprintf(`{"message": "%s"}`, strings.ReplaceAll(msg, "\"", "\\\""))
+	resp, err := nc.Request("bridge.converse", []byte(reqBody), 10*time.Second)
+	if err != nil {
+		return "[yellow]No response from Claude[-]"
+	}
+
+	// Parse response (expect JSON with "response" field)
+	var result map[string]interface{}
+	if err := json.Unmarshal(resp.Data, &result); err != nil {
+		return "[cyan]" + string(resp.Data) + "[-]"
+	}
+
+	if respText, ok := result["response"].(string); ok {
+		return "[cyan]" + respText + "[-]"
+	}
+
+	return "[cyan]" + string(resp.Data) + "[-]"
+}
+
+// buildHealthLayout builds the bot health tab
+func (d *Dashboard) buildHealthLayout() {
+	flex := tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(d.header, 1, 0, false).
+		AddItem(d.healthView, 0, 1, true).
+		AddItem(d.statusBar, 1, 0, false)
+
+	d.healthFlex = flex
+	d.updateHealth()
+}
+
+// updateHealth refreshes the bot health view
+func (d *Dashboard) updateHealth() {
+	text := "\n[cyan]Bot Health Status[yellow]\n\n"
+
+	if len(d.packs) == 0 {
+		text += "[gray]No bots deployed[-]"
+		d.healthView.SetText(text)
+		return
+	}
+
+	for _, pack := range d.packs {
+		text += fmt.Sprintf("[cyan]%s:[yellow]\n", pack.Name)
+		for _, bot := range pack.Bots {
+			// Check health asynchronously and update display
+			healthy := d.checkBotHealth(bot)
+			if healthy {
+				text += fmt.Sprintf("  [green]✓[-] %s\n", bot)
+			} else {
+				text += fmt.Sprintf("  [red]✗[-] %s\n", bot)
+			}
+		}
+		text += "\n"
+	}
+	text += "[yellow]Press [r] to refresh[-]"
+	d.healthView.SetText(text)
 }
 
 // buildClaudeLayout builds the Claude setup tab
@@ -344,7 +420,7 @@ func (d *Dashboard) buildMainLayout() {
 // updateHeader updates the header with active tab
 func (d *Dashboard) updateHeader() {
 	tabs := "🤖 Bot Army  "
-	for i, tab := range []string{"fleet", "logs", "nats", "system", "traffic", "claude"} {
+	for i, tab := range []string{"fleet", "logs", "nats", "system", "traffic", "health", "claude"} {
 		num := i + 1
 		if tab == d.currentTab {
 			tabs += fmt.Sprintf("[yellow:black][ %d:%s ][-:-] ", num, strings.ToUpper(tab))
@@ -625,6 +701,9 @@ func (d *Dashboard) switchTab(tab string) {
 	case "traffic":
 		d.updateTraffic()
 		newRoot = d.trafficFlex
+	case "health":
+		d.updateHealth()
+		newRoot = d.healthFlex
 	case "claude":
 		d.updateClaude()
 		newRoot = d.claudeFlex
@@ -643,7 +722,7 @@ func (d *Dashboard) showREPLModal() {
 		return
 	}
 	d.replModalActive = true
-	d.replOutput.SetText("[cyan]REPL[yellow]\n\nAvailable commands:\n  list-bots     - Show all bots\n  health <bot>   - Check bot health\n  status         - Show system status")
+	d.replOutput.SetText("[cyan]REPL[yellow]\n\nCommands:\n  list-bots     - Show all bots\n  health <bot>   - Check bot health\n  status         - Show system status\n\n[cyan]Or type anything for Claude to respond[-]")
 	d.replInput.SetText("")
 	d.app.SetRoot(d.replModal, true)
 	d.app.SetFocus(d.replInput)
@@ -702,6 +781,9 @@ func (d *Dashboard) HandleKey(ev *tcell.EventKey) *tcell.EventKey {
 		d.switchTab("traffic")
 		return nil
 	case '6':
+		d.switchTab("health")
+		return nil
+	case '7':
 		d.switchTab("claude")
 		return nil
 	case 'r':
@@ -716,6 +798,8 @@ func (d *Dashboard) HandleKey(ev *tcell.EventKey) *tcell.EventKey {
 			d.updateSystem()
 		case "traffic":
 			d.updateTraffic()
+		case "health":
+			d.updateHealth()
 		case "claude":
 			d.updateClaude()
 		}
