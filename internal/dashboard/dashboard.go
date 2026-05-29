@@ -203,17 +203,21 @@ func (d *Dashboard) buildREPLLayout() {
 		SetFieldWidth(0)
 	d.replInput.SetBorder(true).
 		SetTitle(" Command ")
-	d.replInput.SetDoneFunc(func(key tcell.Key) {
-		switch key {
+
+	d.replInput.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
 		case tcell.KeyEnter:
 			cmd := strings.TrimSpace(d.replInput.GetText())
 			if cmd != "" {
 				d.executeREPLCommand(cmd)
 				d.replInput.SetText("")
 			}
+			return nil
 		case tcell.KeyEsc:
 			d.switchTab("fleet")
+			return nil
 		}
+		return event
 	})
 
 	flex := tview.NewFlex().SetDirection(tview.FlexRow).
