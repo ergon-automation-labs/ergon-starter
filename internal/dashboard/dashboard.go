@@ -656,13 +656,9 @@ func (d *Dashboard) OnActivate() {
 
 // HandleKey processes keyboard input
 func (d *Dashboard) HandleKey(ev *tcell.EventKey) *tcell.EventKey {
-	// In REPL mode, only handle specific navigation keys
+	// In REPL mode, pass all keys to the input field (SetDoneFunc handles Enter/Esc)
 	if d.currentTab == "repl" {
-		// Let the input field handle almost everything except these keys
-		if ev.Key() != tcell.KeyCtrlQ && ev.Rune() != 'q' {
-			// Pass key to focused widget (replInput)
-			return ev
-		}
+		return ev
 	}
 
 	switch ev.Rune() {
