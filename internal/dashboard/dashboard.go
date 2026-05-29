@@ -298,20 +298,20 @@ func (d *Dashboard) executeREPLCommand(cmd string) {
 	}
 }
 
-// queryLLM sends a message to Claude Bridge for processing
+// queryLLM sends a message to LLM bot for processing
 func (d *Dashboard) queryLLM(msg string) string {
 	natsURL := "nats://localhost:" + d.cfg.NATSPort
 	nc, err := nats.Connect(natsURL, nats.Timeout(2*time.Second))
 	if err != nil {
-		return "[red]Bridge unavailable[-]"
+		return "[red]LLM unavailable[-]"
 	}
 	defer nc.Close()
 
-	// Send to Claude Bridge converse endpoint
-	reqBody := fmt.Sprintf(`{"message": "%s"}`, strings.ReplaceAll(msg, "\"", "\\\""))
-	resp, err := nc.Request("bridge.converse", []byte(reqBody), 10*time.Second)
+	// Send to LLM bot's chat endpoint
+	reqBody := fmt.Sprintf(`{"messages": [{"role": "user", "content": "%s"}]}`, strings.ReplaceAll(msg, "\"", "\\\""))
+	resp, err := nc.Request("llm.request.chat", []byte(reqBody), 15*time.Second)
 	if err != nil {
-		return "[yellow]No response from Claude[-]"
+		return "[yellow]LLM timeout[-]"
 	}
 
 	// Parse response (expect JSON with "response" field)
