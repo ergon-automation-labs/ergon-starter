@@ -626,9 +626,6 @@ func (d *Dashboard) switchTab(tab string) {
 		newRoot = d.trafficFlex
 	case "repl":
 		newRoot = d.replFlex
-		if d.app != nil {
-			d.app.SetFocus(d.replInput)
-		}
 	case "claude":
 		d.updateClaude()
 		newRoot = d.claudeFlex
@@ -636,7 +633,12 @@ func (d *Dashboard) switchTab(tab string) {
 		return
 	}
 
-	d.app.SetRoot(newRoot, true).SetFocus(d.fleetView)
+	d.app.SetRoot(newRoot, true)
+	if d.currentTab == "repl" {
+		d.app.SetFocus(d.replInput)
+	} else {
+		d.app.SetFocus(d.fleetView)
+	}
 }
 
 // SetApp sets the tview application (called from main after New())
@@ -653,13 +655,11 @@ func (d *Dashboard) OnActivate() {
 
 // HandleKey processes keyboard input
 func (d *Dashboard) HandleKey(ev *tcell.EventKey) *tcell.EventKey {
-	// In REPL mode, let the input field handle most keys
+	// In REPL mode, only handle specific navigation keys
 	if d.currentTab == "repl" {
-		switch ev.Rune() {
-		case 'q', '1', '2', '3', '4', '5', '6', '7':
-			// Handle tab/quit keys even in REPL mode
-		default:
-			// Pass all other keys to the REPL input field
+		// Let the input field handle almost everything except these keys
+		if ev.Key() != tcell.KeyCtrlQ && ev.Rune() != 'q' {
+			// Pass key to focused widget (replInput)
 			return ev
 		}
 	}
