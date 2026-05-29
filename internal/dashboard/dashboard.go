@@ -216,22 +216,12 @@ func (d *Dashboard) buildREPLModal() {
 		}
 	})
 
-	// Create a centered modal with input field (80 char wide, 15 lines tall)
-	d.replModal = tview.NewFlex().SetDirection(tview.FlexColumn).
-		AddItem(nil, 0, 1, false).
-		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
-			AddItem(nil, 0, 1, false).
-			AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
-				AddItem(tview.NewTextView(), 2, 0, false).
-				AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
-					AddItem(d.replOutput, 0, 1, false).
-					AddItem(d.replInput, 3, 0, true),
-					76, 0, false).
-				AddItem(tview.NewTextView(), 2, 0, false),
-				0, 1, false).
-			AddItem(nil, 0, 1, false),
-			80, 0, false).
-		AddItem(nil, 0, 1, false)
+	// Create modal as simple vertical layout: header, output, input, status
+	d.replModal = tview.NewFlex().SetDirection(tview.FlexRow).
+		AddItem(d.header, 1, 0, false).
+		AddItem(d.replOutput, 0, 1, false).
+		AddItem(d.replInput, 3, 0, true).
+		AddItem(d.statusBar, 1, 0, false)
 }
 
 // executeREPLCommand processes REPL commands
