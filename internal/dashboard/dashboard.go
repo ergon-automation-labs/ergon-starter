@@ -47,9 +47,12 @@ type Dashboard struct {
 	natsView    *tview.TextView
 	systemView  *tview.TextView
 	trafficView *tview.TextView
-	replView    *tview.TextView
-	replInput   *tview.InputField
 	claudeView  *tview.TextView
+
+	// REPL modal
+	replInput  *tview.InputField
+	replModal  *tview.Flex
+	replOutput *tview.TextView
 
 	// Layouts
 	fleetFlex   tview.Primitive
@@ -57,14 +60,14 @@ type Dashboard struct {
 	natsFlex    tview.Primitive
 	systemFlex  tview.Primitive
 	trafficFlex tview.Primitive
-	replFlex    tview.Primitive
 	claudeFlex  tview.Primitive
 	root        tview.Primitive
 
-	currentTab string
-	messages   []string
-	maxMessages int
-	packs      []PackInfo
+	currentTab      string
+	replModalActive bool
+	messages        []string
+	maxMessages     int
+	packs           []PackInfo
 }
 
 // NewDashboard creates a new dashboard.
@@ -80,7 +83,7 @@ func NewDashboard(cfg *DashboardConfig) *Dashboard {
 
 	d.statusBar = tview.NewTextView()
 	d.statusBar.SetDynamicColors(true)
-	d.statusBar.SetText("Ready. [1]Fleet  [2]Logs  [3]NATS  [4]System  [5]Traffic  [6]REPL  [7]Claude  [q]uit")
+	d.statusBar.SetText("Ready. [1]Fleet  [2]Logs  [3]NATS  [4]System  [5]Traffic  [7]Claude  [:]command  [q]uit")
 
 	// Create tab views
 	d.fleetView = tview.NewTextView()
@@ -118,15 +121,27 @@ func NewDashboard(cfg *DashboardConfig) *Dashboard {
 	d.claudeView.SetBorder(true)
 	d.claudeView.SetTitle(" Claude Setup ")
 
+	// Build REPL modal components (before app exists)
+	d.replOutput = tview.NewTextView()
+	d.replOutput.SetDynamicColors(true)
+	d.replOutput.SetBorder(true)
+	d.replOutput.SetTitle(" Command Output ")
+	d.replOutput.SetText("[cyan]REPL[yellow]\n\nAvailable commands:\n  list-bots     - Show all bots\n  health <bot>   - Check bot health\n  status         - Show system status")
+
+	d.replInput = tview.NewInputField().
+		SetLabel(": ").
+		SetFieldWidth(0)
+	d.replInput.SetBorder(true)
+
 	// Build layouts NOW, before app exists
 	d.buildFleetLayout()
 	d.buildLogsLayout()
 	d.buildNATSLayout()
 	d.buildSystemLayout()
 	d.buildTrafficLayout()
-	d.buildREPLLayout()
 	d.buildClaudeLayout()
 	d.buildMainLayout()
+	d.buildREPLModal()
 
 	d.messages = make([]string, 0)
 	d.maxMessages = 50
@@ -191,19 +206,8 @@ func (d *Dashboard) buildTrafficLayout() {
 	d.updateTraffic()
 }
 
-// buildREPLLayout builds the REPL tab
-func (d *Dashboard) buildREPLLayout() {
-	d.replView.SetDynamicColors(true)
-	d.replView.SetBorder(true)
-	d.replView.SetTitle(" REPL Output ")
-	d.replView.SetText("[cyan]REPL Console[yellow]\n\nAvailable commands:\n  list-bots     - Show all bots\n  health <bot>   - Check bot health\n  status         - Show system status\n\n[gray]Type command below[-]")
-
-	d.replInput = tview.NewInputField().
-		SetLabel("> ").
-		SetFieldWidth(0)
-	d.replInput.SetBorder(true).
-		SetTitle(" Command ")
-
+// buildREPLModal builds the REPL command mode modal
+func (d *Dashboard) buildREPLModal() {
 	d.replInput.SetDoneFunc(func(key tcell.Key) {
 		switch key {
 		case tcell.KeyEnter:
@@ -213,17 +217,26 @@ func (d *Dashboard) buildREPLLayout() {
 				d.replInput.SetText("")
 			}
 		case tcell.KeyEsc:
-			d.switchTab("fleet")
+			d.hideREPLModal()
 		}
 	})
 
-	flex := tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(d.header, 1, 0, false).
-		AddItem(d.replView, 0, 1, false).
-		AddItem(d.replInput, 3, 0, true).
-		AddItem(d.statusBar, 1, 0, false)
-
-	d.replFlex = flex
+	// Create a centered modal with input field (80 char wide, 15 lines tall)
+	d.replModal = tview.NewFlex().SetDirection(tview.FlexColumn).
+		AddItem(nil, 0, 1, false).
+		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
+			AddItem(nil, 0, 1, false).
+			AddItem(tview.NewFlex().SetDirection(tview.FlexColumn).
+				AddItem(tview.NewTextView(), 2, 0, false).
+				AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
+					AddItem(d.replOutput, 0, 1, false).
+					AddItem(d.replInput, 3, 0, true),
+					76, 0, false).
+				AddItem(tview.NewTextView(), 2, 0, false),
+				0, 1, false).
+			AddItem(nil, 0, 1, false),
+			80, 0, false).
+		AddItem(nil, 0, 1, false)
 }
 
 // executeREPLCommand processes REPL commands
@@ -345,7 +358,7 @@ func (d *Dashboard) buildMainLayout() {
 // updateHeader updates the header with active tab
 func (d *Dashboard) updateHeader() {
 	tabs := "🤖 Bot Army  "
-	for _, tab := range []string{"fleet", "logs", "nats", "system", "traffic", "repl", "claude"} {
+	for _, tab := range []string{"fleet", "logs", "nats", "system", "traffic", "claude"} {
 		if tab == d.currentTab {
 			tabs += fmt.Sprintf("[yellow:black][ %s ][-:-] ", strings.ToUpper(tab))
 		} else {
@@ -625,8 +638,6 @@ func (d *Dashboard) switchTab(tab string) {
 	case "traffic":
 		d.updateTraffic()
 		newRoot = d.trafficFlex
-	case "repl":
-		newRoot = d.replFlex
 	case "claude":
 		d.updateClaude()
 		newRoot = d.claudeFlex
@@ -634,12 +645,30 @@ func (d *Dashboard) switchTab(tab string) {
 		return
 	}
 
-	d.app.SetRoot(newRoot, true)
-	if d.currentTab == "repl" {
-		d.app.SetFocus(d.replInput)
-	} else {
-		d.app.SetFocus(d.fleetView)
+	d.root = newRoot
+	d.app.SetRoot(d.root, true)
+	d.app.SetFocus(d.fleetView)
+}
+
+// showREPLModal shows the REPL command mode modal
+func (d *Dashboard) showREPLModal() {
+	if d.app == nil {
+		return
 	}
+	d.replModalActive = true
+	d.replOutput.SetText("[cyan]REPL[yellow]\n\nAvailable commands:\n  list-bots     - Show all bots\n  health <bot>   - Check bot health\n  status         - Show system status")
+	d.replInput.SetText("")
+	d.app.SetRoot(d.Root(), true)
+	d.app.SetFocus(d.replInput)
+}
+
+// hideREPLModal hides the REPL command mode modal
+func (d *Dashboard) hideREPLModal() {
+	if d.app == nil {
+		return
+	}
+	d.replModalActive = false
+	d.app.SetRoot(d.root, true)
 }
 
 // SetApp sets the tview application (called from main after New())
@@ -656,8 +685,8 @@ func (d *Dashboard) OnActivate() {
 
 // HandleKey processes keyboard input
 func (d *Dashboard) HandleKey(ev *tcell.EventKey) *tcell.EventKey {
-	// In REPL mode, pass all keys to the input field (SetDoneFunc handles Enter/Esc)
-	if d.currentTab == "repl" {
+	// If REPL modal is active, pass keys to the input field (SetDoneFunc handles them)
+	if d.replModalActive {
 		return ev
 	}
 
@@ -666,6 +695,9 @@ func (d *Dashboard) HandleKey(ev *tcell.EventKey) *tcell.EventKey {
 		if d.app != nil {
 			d.app.Stop()
 		}
+		return nil
+	case ':':
+		d.showREPLModal()
 		return nil
 	case '1':
 		d.switchTab("fleet")
@@ -681,9 +713,6 @@ func (d *Dashboard) HandleKey(ev *tcell.EventKey) *tcell.EventKey {
 		return nil
 	case '5':
 		d.switchTab("traffic")
-		return nil
-	case '6':
-		d.switchTab("repl")
 		return nil
 	case '7':
 		d.switchTab("claude")
@@ -720,8 +749,11 @@ func (d *Dashboard) HandleKey(ev *tcell.EventKey) *tcell.EventKey {
 	return ev
 }
 
-// Root returns the root widget
+// Root returns the root widget (modal if active, otherwise current tab)
 func (d *Dashboard) Root() tview.Primitive {
+	if d.replModalActive {
+		return d.replModal
+	}
 	return d.root
 }
 
