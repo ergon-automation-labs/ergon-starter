@@ -83,7 +83,7 @@ func NewDashboard(cfg *DashboardConfig) *Dashboard {
 
 	d.statusBar = tview.NewTextView()
 	d.statusBar.SetDynamicColors(true)
-	d.statusBar.SetText("Ready. [1]Fleet  [2]Logs  [3]NATS  [4]System  [5]Traffic  [7]Claude  [:]command  [q]uit")
+	d.statusBar.SetText("Ready. [1]Fleet  [2]Logs  [3]NATS  [4]System  [5]Traffic  [6]Claude  [:]command  [q]uit")
 
 	// Create tab views
 	d.fleetView = tview.NewTextView()
@@ -208,8 +208,9 @@ func (d *Dashboard) buildREPLModal() {
 		case tcell.KeyEnter:
 			cmd := strings.TrimSpace(d.replInput.GetText())
 			if cmd != "" {
-				d.executeREPLCommand(cmd)
 				d.replInput.SetText("")
+				// Run command async so it doesn't block UI
+				go d.executeREPLCommand(cmd)
 			}
 		case tcell.KeyEsc:
 			d.hideREPLModal()
@@ -343,14 +344,15 @@ func (d *Dashboard) buildMainLayout() {
 // updateHeader updates the header with active tab
 func (d *Dashboard) updateHeader() {
 	tabs := "🤖 Bot Army  "
-	for _, tab := range []string{"fleet", "logs", "nats", "system", "traffic", "claude"} {
+	for i, tab := range []string{"fleet", "logs", "nats", "system", "traffic", "claude"} {
+		num := i + 1
 		if tab == d.currentTab {
-			tabs += fmt.Sprintf("[yellow:black][ %s ][-:-] ", strings.ToUpper(tab))
+			tabs += fmt.Sprintf("[yellow:black][ %d:%s ][-:-] ", num, strings.ToUpper(tab))
 		} else {
-			tabs += fmt.Sprintf("[ %s ] ", tab)
+			tabs += fmt.Sprintf("[ %d:%s ] ", num, tab)
 		}
 	}
-	tabs += "  [q]uit"
+	tabs += "  [:]cmd [q]uit"
 	d.header.SetText(tabs)
 }
 
@@ -699,7 +701,7 @@ func (d *Dashboard) HandleKey(ev *tcell.EventKey) *tcell.EventKey {
 	case '5':
 		d.switchTab("traffic")
 		return nil
-	case '7':
+	case '6':
 		d.switchTab("claude")
 		return nil
 	case 'r':
