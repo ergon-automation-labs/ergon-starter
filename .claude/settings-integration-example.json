@@ -1,0 +1,133 @@
+{
+  "$schema": "https://github.com/anthropics/claude-code/releases/download/settings-schema-v1/settings.schema.json",
+  "description": "Example Claude Code settings showing Bot Army integration hooks. Copy patterns to your own .claude/settings.json",
+
+  "enableAllProjectMcpServers": true,
+
+  "hooks": {
+    "PostToolUse": [
+      {
+        "id": "bot_army_system_context_on_start",
+        "description": "On session start, fetch Bot Army system health and inject into context",
+        "when": "eventType == 'ToolUseComplete' && toolName == 'Bash' && commandMatches('pwd')",
+        "commands": [
+          {
+            "tool": "Bash",
+            "command": "nats request --server nats://localhost:4222 bridge.synapse.awareness '{}' --timeout 5s 2>/dev/null | jq -c '.data | {bots: (.bots | length), health: .health_status}' || echo '{\"status\": \"bridge unavailable\"}'",
+            "description": "Query Bot Army system health",
+            "captureOutput": true,
+            "passOutputToPrompt": true
+          }
+        ]
+      },
+
+      {
+        "id": "bot_army_task_context_before_edit",
+        "description": "Before editing a bot source file, check if there are open GTD tasks for that bot",
+        "when": "eventType == 'ToolUseStart' && toolName == 'Read' && (filePath contains '/bot_army_' || filePath contains 'elixir_bots')",
+        "commands": [
+          {
+            "tool": "Bash",
+            "command": "BOT=$(basename $(dirname $(dirname $(pwd)))) && nats request --server nats://localhost:4222 bridge.task.search \"{\\\"query\\\": \\\"$BOT\\\", \\\"filters\\\": {\\\"status\\\": [\\\"open\\\"]}\" --timeout 5s 2>/dev/null | jq -c '.data.tasks[] | {title, context}' | head -5 || true",
+            "description": "Find open tasks for this bot",
+            "captureOutput": true,
+            "passOutputToPrompt": "Inject these open tasks into context so you can coordinate work"
+          }
+        ]
+      },
+
+      {
+        "id": "bot_army_graph_context_injection",
+        "description": "When working on a complex bot, inject its graph context for better understanding",
+        "when": "eventType == 'ToolUseStart' && toolName == 'Read' && (fileName matches '.*handler.*|.*consumer.*')",
+        "commands": [
+          {
+            "tool": "Bash",
+            "command": "REPO=/Users/abby/code/elixir_bots && nats request --server nats://localhost:4222 bridge.graph.query \"{\\\"repo_path\\\": \\\"$REPO\\\"}\" --timeout 30s 2>/dev/null | jq -c '.data.graph | {entities: (.entities | length), relationships: (.relationships | length), summary: .summary}' || echo 'Graph unavailable'",
+            "description": "Fetch codebase knowledge graph for context",
+            "captureOutput": true,
+            "passOutputToPrompt": "This is the codebase structure snapshot—use it to understand dependencies and related modules"
+          }
+        ]
+      },
+
+      {
+        "id": "bot_army_daily_brief_on_edit",
+        "description": "When starting any editing session, fetch today's briefing for context",
+        "when": "eventType == 'SessionStart'",
+        "commands": [
+          {
+            "tool": "Bash",
+            "command": "nats request --server nats://localhost:4222 bridge.chronicle.daily.brief '{\"presentation\": \"plain\", \"live\": true}' --timeout 30s 2>/dev/null | jq -c '.data | {generated_at, opening: .opening[0:2], signals: .signals}' || echo '{\"status\": \"briefing unavailable\"}'",
+            "description": "Fetch daily briefing",
+            "captureOutput": true,
+            "passOutputToPrompt": "Here's today's status. Use this to prioritize your work—focus on any degraded systems or high-priority tasks"
+          }
+        ]
+      }
+    ]
+  },
+
+  "hooks-explained": {
+    "PostToolUse": "Hooks that run after a tool completes. Useful for pulling context from Bot Army",
+    "on-session-start": "On every Claude Code session start, fetch system health + daily brief",
+    "before-read-ops": "Before reading a bot source file, check for open GTD tasks for that bot",
+    "before-edit-ops": "Before editing handler/consumer code, inject its graph context for understanding"
+  },
+
+  "permissions": {
+    "Bash": [
+      {
+        "command": "nats request --server nats://localhost:4222 bridge.* * --timeout *s",
+        "rationale": "Query Bot Army bridge for system context, tasks, and graph data"
+      },
+      {
+        "command": "nats sub --server nats://localhost:4222 '>'",
+        "rationale": "List available NATS subjects for discovery"
+      }
+    ]
+  },
+
+  "external-project-integration-settings": {
+    "description": "Use these in your own projects to integrate with Bot Army",
+
+    "settings-for-go-projects": {
+      "example": {
+        "NATS_SERVERS": "nats://localhost:4222",
+        "BOT_ARMY_BRIDGE_TIMEOUT_MS": "5000",
+        "BOT_ARMY_GRAPH_QUERY_ENABLED": true
+      },
+      "hook-pattern": {
+        "when": "eventType == 'ToolUseStart' && filePath.contains('.go')",
+        "command": "go test ./... && nats request --server $NATS_SERVERS bridge.system.fact '{}' --timeout 5s",
+        "purpose": "Run tests, then check system health before suggesting commits"
+      }
+    },
+
+    "settings-for-python-projects": {
+      "example": {
+        "NATS_SERVERS": "nats://localhost:4222",
+        "BOT_ARMY_TASK_PREFIX": "py-",
+        "BOT_ARMY_INTEGRATION_ENABLED": true
+      },
+      "hook-pattern": {
+        "when": "eventType == 'ToolUseComplete' && commandMatches('pytest')",
+        "command": "python -c \"import nats; ...send task creation if tests fail...\"",
+        "purpose": "On test failure, auto-create a GTD task for debugging"
+      }
+    },
+
+    "settings-for-elixir-projects": {
+      "example": {
+        "MIX_ENV": "dev",
+        "NATS_SERVERS": "nats://localhost:4223",
+        "BOT_ARMY_CONTEXT_ENABLED": true
+      },
+      "hook-pattern": {
+        "when": "eventType == 'ToolUseStart' && toolName == 'Read'",
+        "command": "mix test --only $(grep -m1 '@moduletag' $file | sed 's/.*:/ /')",
+        "purpose": "Run focused tests before editing—faster feedback"
+      }
+    }
+  }
+}
