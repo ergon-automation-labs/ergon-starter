@@ -45,6 +45,12 @@ func (w *WizardTUI) Run() error {
 	if err := w.stepConfigurePorts(); err != nil {
 		return err
 	}
+	// GitHub setup (conditional: only if github_bot is in selected packs)
+	if w.hasGitHub() {
+		if err := w.stepConfigureGitHub(); err != nil {
+			return err
+		}
+	}
 	if err := w.stepSelectProviders(); err != nil {
 		return err
 	}
@@ -386,7 +392,57 @@ func (w *WizardTUI) stepConfigurePorts() error {
 	return nil
 }
 
-// stepSelectProviders runs Step 4: select LLM providers (multi-select list).
+// hasGitHub checks if any selected pack contains the github_bot
+func (w *WizardTUI) hasGitHub() bool {
+	for _, pack := range w.cfg.SelectedPacks {
+		for _, botName := range pack.Bots {
+			if botName == "github" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// stepConfigureGitHub runs GitHub webhook setup (conditional, only if github_bot is selected)
+func (w *WizardTUI) stepConfigureGitHub() error {
+	w.currentStep = 4
+
+	form := tview.NewForm()
+	form.SetBorder(true).
+		SetTitle(" Configure GitHub Webhook  Enter:save  Esc:skip ").
+		SetTitleAlign(tview.AlignLeft)
+
+	form.AddInputField("GitHub Token (ghp_...)", w.cfg.GitHubToken, 50, nil, nil)
+	form.AddInputField("Webhook Secret (min 8 chars)", w.cfg.GitHubWebhookSecret, 50, nil, nil)
+
+	form.AddButton("Save & Continue", func() {
+		w.cfg.GitHubToken = form.GetFormItem(0).(*tview.InputField).GetText()
+		w.cfg.GitHubWebhookSecret = form.GetFormItem(1).(*tview.InputField).GetText()
+		w.app.Stop()
+	})
+
+	form.AddButton("Skip", func() {
+		// Clear GitHub config if user skips
+		w.cfg.GitHubToken = ""
+		w.cfg.GitHubWebhookSecret = ""
+		w.app.Stop()
+	})
+
+	w.setContent(form, 4, "Enter:save  Esc:skip  GitHub webhook is optional")
+
+	if err := w.app.Run(); err != nil {
+		return err
+	}
+
+	if w.result != nil {
+		return w.result
+	}
+
+	return nil
+}
+
+// stepSelectProviders runs Step 5: select LLM providers (multi-select list).
 func (w *WizardTUI) stepSelectProviders() error {
 	w.currentStep = 4
 

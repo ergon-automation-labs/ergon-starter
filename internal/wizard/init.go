@@ -14,21 +14,23 @@ import (
 
 // PortMap holds host-facing ports. Container-internal ports stay standard.
 type PortMap struct {
-	NATS         string // host:container 4222
-	NATSMonitor  string // host:container 8222
-	Postgres     string // host:container 5432
-	Ollama       string // host:container 11434
-	MCP          string // host:container 39900
-	Registry     string // host:container 32000
+	NATS           string // host:container 4222
+	NATSMonitor    string // host:container 8222
+	Postgres       string // host:container 5432
+	Ollama         string // host:container 11434
+	MCP            string // host:container 39900
+	Registry       string // host:container 32000
+	GitHubWebhook  string // host:container 39904
 }
 
 var DefaultPorts = PortMap{
-	NATS:        "54222",
-	NATSMonitor: "58222",
-	Postgres:    "55432",
-	Ollama:      "51434",
-	MCP:         "39900",
-	Registry:    "32000",
+	NATS:          "54222",
+	NATSMonitor:   "58222",
+	Postgres:      "55432",
+	Ollama:        "51434",
+	MCP:           "39900",
+	Registry:      "32000",
+	GitHubWebhook: "39904",
 }
 
 // CustomBot represents a user-defined bot not in the catalog
@@ -59,20 +61,24 @@ type Config struct {
 	GitOrg            string
 	Ports             PortMap
 	DevMode           bool // True if Development pack selected
+	GitHubToken       string
+	GitHubWebhookSecret string
 }
 
 // ConfigFile is serializable version of Config for persistence.
 type ConfigFile struct {
-	SelectedBotNames  []string          `json:"selected_bots"`
-	SelectedPackNames []string          `json:"selected_packs"`
-	ProviderNames     []string          `json:"providers"`
-	ProviderChain     string            `json:"provider_chain"`
-	SelfHostOllama    bool              `json:"self_host_ollama"`
-	EnvValues         map[string]string `json:"env_values"`
-	Ports             PortMap           `json:"ports"`
-	DevMode           bool              `json:"dev_mode"`
-	CustomBots        []CustomBot       `json:"custom_bots"`
-	CustomMounts      []CustomMount     `json:"custom_mounts"`
+	SelectedBotNames        []string          `json:"selected_bots"`
+	SelectedPackNames       []string          `json:"selected_packs"`
+	ProviderNames           []string          `json:"providers"`
+	ProviderChain           string            `json:"provider_chain"`
+	SelfHostOllama          bool              `json:"self_host_ollama"`
+	EnvValues               map[string]string `json:"env_values"`
+	Ports                   PortMap           `json:"ports"`
+	DevMode                 bool              `json:"dev_mode"`
+	CustomBots              []CustomBot       `json:"custom_bots"`
+	CustomMounts            []CustomMount     `json:"custom_mounts"`
+	GitHubToken             string            `json:"github_token,omitempty"`
+	GitHubWebhookSecret     string            `json:"github_webhook_secret,omitempty"`
 }
 
 func RunInit() error {

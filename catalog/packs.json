@@ -69,5 +69,21 @@
     "description": "Local development setup with library repos and volume mounts (edit code live)",
     "release_name": "development_pack",
     "bots": []
+  },
+  {
+    "name": "developer-github",
+    "stability": "stable",
+    "description": "GitHub integration (webhook receiver + API queries for PR/issue context)",
+    "release_name": "developer_github_pack",
+    "bots": [
+      "github"
+    ]
+  },
+  {
+    "name": "webhook",
+    "stability": "stable",
+    "description": "Webhook infrastructure (ngrok tunneling for local dev webhooks - works with Discord, GitHub, etc.)",
+    "release_name": "webhook_pack",
+    "bots": []
   }
 ]

@@ -19,6 +19,9 @@ func generateEnvFile(cfg *Config) error {
 	b.WriteString(fmt.Sprintf("STARTER_POSTGRES_PORT=%s\n", cfg.Ports.Postgres))
 	b.WriteString(fmt.Sprintf("STARTER_OLLAMA_PORT=%s\n", cfg.Ports.Ollama))
 	b.WriteString(fmt.Sprintf("STARTER_MCP_PORT=%s\n", cfg.Ports.MCP))
+	if cfg.GitHubToken != "" {
+		b.WriteString(fmt.Sprintf("STARTER_GITHUB_WEBHOOK_PORT=%s\n", cfg.Ports.GitHubWebhook))
+	}
 	b.WriteString("\n")
 
 	// Postgres (internal — bots use these inside Docker network)
@@ -52,6 +55,13 @@ func generateEnvFile(cfg *Config) error {
 				b.WriteString(fmt.Sprintf("# %s=\n", ev.Key))
 			}
 		}
+	}
+
+	// GitHub webhook integration (if configured)
+	if cfg.GitHubToken != "" {
+		b.WriteString("\n# GitHub webhook integration\n")
+		b.WriteString(fmt.Sprintf("GITHUB_TOKEN=%s\n", cfg.GitHubToken))
+		b.WriteString(fmt.Sprintf("GITHUB_WEBHOOK_SECRET=%s\n", cfg.GitHubWebhookSecret))
 	}
 
 	envPath := filepath.Join(cfg.InstallDir, ".env")
@@ -160,8 +170,12 @@ func generatePackComposeFile(cfg *Config) error {
 	b.WriteString("# Rebuild: docker compose up -d --build\n")
 	b.WriteString("# NOTE: Run docker compose commands from the directory containing this file\n")
 	b.WriteString("#\n")
-	b.WriteString(fmt.Sprintf("# Host ports: NATS=%s  Monitor=%s  Postgres=%s  Ollama=%s\n",
+	b.WriteString(fmt.Sprintf("# Host ports: NATS=%s  Monitor=%s  Postgres=%s  Ollama=%s",
 		cfg.Ports.NATS, cfg.Ports.NATSMonitor, cfg.Ports.Postgres, cfg.Ports.Ollama))
+	if cfg.GitHubToken != "" {
+		b.WriteString(fmt.Sprintf("  GitHub=%s", cfg.Ports.GitHubWebhook))
+	}
+	b.WriteString("\n")
 	b.WriteString(fmt.Sprintf("# TUI connect: nats://localhost:%s\n\n", cfg.Ports.NATS))
 
 	b.WriteString("services:\n")
@@ -225,11 +239,24 @@ func generatePackComposeFile(cfg *Config) error {
 		b.WriteString(fmt.Sprintf("        PACK_NAME: %s\n", pack.ReleaseName))
 		b.WriteString(fmt.Sprintf("        PACK_REPO: ergon-pack-%s\n", pack.Name))
 		b.WriteString("    env_file: .env\n")
+		// Check for services that need port mappings
+		hasMCP := false
+		hasGitHub := false
 		for _, botName := range pack.Bots {
 			if botName == "surface_mcp" {
-				b.WriteString("    ports:\n")
+				hasMCP = true
+			}
+			if botName == "github" && cfg.GitHubToken != "" {
+				hasGitHub = true
+			}
+		}
+		if hasMCP || hasGitHub {
+			b.WriteString("    ports:\n")
+			if hasMCP {
 				b.WriteString(fmt.Sprintf("      - \"%s:39900\"\n", cfg.Ports.MCP))
-				break
+			}
+			if hasGitHub {
+				b.WriteString(fmt.Sprintf("      - \"%s:39904\"\n", cfg.Ports.GitHubWebhook))
 			}
 		}
 		b.WriteString("    environment:\n")
