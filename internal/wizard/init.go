@@ -86,6 +86,9 @@ func RunInit() error {
 }
 
 func RunInitWithCustomBots(customBotsFile string) error {
+	// Check for required packages
+	checkRequiredPackages()
+
 	cfg := &Config{
 		EnvValues:  make(map[string]string),
 		InstallDir: ".",
@@ -163,12 +166,6 @@ func RunInitWithCustomBots(customBotsFile string) error {
 
 // runSetup clones repos, generates config files, and starts the dashboard.
 func runSetup(cfg *Config) error {
-	// Ensure gh is set up for authentication
-	fmt.Println("\nSetting up GitHub CLI...")
-	if err := ensureGhAuth(); err != nil {
-		return fmt.Errorf("gh auth: %w", err)
-	}
-
 	// Clone repos
 	fmt.Println("\nCloning repositories...")
 	if err := cloneRepos(cfg); err != nil {
@@ -340,19 +337,7 @@ func cloneRepoAs(reposDir, remote, destName, org string) error {
 
 	fmt.Printf("  ⏳ %s...", destName)
 
-	// Prefer `gh repo clone` which uses gh auth credentials automatically
-	if hasGhAuth() {
-		fullName := fmt.Sprintf("%s/%s", org, remote)
-		cmd := exec.Command("gh", "repo", "clone", fullName, dest, "--", "--depth", "1")
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err == nil {
-			fmt.Println(" ✓")
-			return nil
-		}
-		// Fall through to plain git clone if gh fails
-	}
-
-	// Fallback: HTTPS clone (works for public repos)
+	// HTTPS clone (works for public repos, no setup required)
 	url := fmt.Sprintf("https://github.com/%s/%s.git", org, remote)
 	cmd := exec.Command("git", "clone", "--depth", "1", url, dest)
 	cmd.Stderr = os.Stderr
@@ -364,15 +349,113 @@ func cloneRepoAs(reposDir, remote, destName, org string) error {
 	return nil
 }
 
-// hasGhAuth checks if gh CLI is installed and authenticated
-func hasGhAuth() bool {
-	if err := exec.Command("which", "gh").Run(); err != nil {
-		return false
+// checkRequiredPackages checks for required system packages.
+func checkRequiredPackages() {
+	required := []struct {
+		name        string
+		command     string
+		installHelp string
+	}{
+		{
+			name:    "git",
+			command: "git",
+			installHelp: "macOS: brew install git\n" +
+				"      Linux: apt-get install git (Debian/Ubuntu) or yum install git (RHEL/CentOS)\n" +
+				"      Windows: https://git-scm.com/download/win",
+		},
+		{
+			name:    "docker",
+			command: "docker",
+			installHelp: "macOS/Windows: https://www.docker.com/products/docker-desktop\n" +
+				"           Linux: https://docs.docker.com/engine/install/",
+		},
+		{
+			name:    "docker-compose",
+			command: "docker-compose",
+			installHelp: "macOS/Windows: Included with Docker Desktop\n" +
+				"            Linux: sudo apt-get install docker-compose (Debian/Ubuntu)",
+		},
+		{
+			name:    "python3",
+			command: "python3",
+			installHelp: "macOS: brew install python3\n" +
+				"      Linux: apt-get install python3 (Debian/Ubuntu) or yum install python3 (RHEL/CentOS)\n" +
+				"      Windows: https://www.python.org/downloads/",
+		},
+		{
+			name:    "ripgrep (rg)",
+			command: "rg",
+			installHelp: "macOS: brew install ripgrep\n" +
+				"      Linux: apt-get install ripgrep (Debian/Ubuntu) or yum install ripgrep (RHEL/CentOS)\n" +
+				"      Windows: https://github.com/BurntSushi/ripgrep#installation",
+		},
 	}
-	cmd := exec.Command("gh", "auth", "status")
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-	return cmd.Run() == nil
+
+	fmt.Println("Checking required packages...")
+	var missing []string
+
+	for _, pkg := range required {
+		if err := exec.Command("which", pkg.command).Run(); err != nil {
+			missing = append(missing, pkg.name)
+			fmt.Printf("  ✗ %s (not found)\n", pkg.name)
+		} else {
+			fmt.Printf("  ✓ %s\n", pkg.name)
+		}
+	}
+
+	// Check Python packages if python3 is available
+	pythonPackages := []struct {
+		name        string
+		importName  string
+		installHelp string
+	}{
+		{
+			name:        "graphify",
+			importName:  "graphify",
+			installHelp: "pip3 install graphify",
+		},
+		{
+			name:        "nats-py",
+			importName:  "nats",
+			installHelp: "pip3 install nats-py",
+		},
+	}
+
+	for _, pkg := range pythonPackages {
+		cmd := exec.Command("python3", "-c", fmt.Sprintf("import %s", pkg.importName))
+		if err := cmd.Run(); err != nil {
+			missing = append(missing, pkg.name)
+			fmt.Printf("  ✗ %s (not installed)\n", pkg.name)
+		} else {
+			fmt.Printf("  ✓ %s\n", pkg.name)
+		}
+	}
+
+	fmt.Println()
+
+	if len(missing) > 0 {
+		fmt.Printf("⚠ Missing required package(s): %v\n\n", missing)
+		fmt.Println("Please install the following packages before proceeding:")
+		fmt.Println()
+		for _, pkg := range required {
+			for _, m := range missing {
+				if pkg.name == m {
+					fmt.Printf("  %s:\n", pkg.name)
+					fmt.Printf("    %s\n", pkg.installHelp)
+					fmt.Println()
+				}
+			}
+		}
+		for _, pkg := range pythonPackages {
+			for _, m := range missing {
+				if pkg.name == m {
+					fmt.Printf("  %s:\n", pkg.name)
+					fmt.Printf("    %s\n", pkg.installHelp)
+					fmt.Println()
+				}
+			}
+		}
+	}
 }
 
 // cloneCustomRepo clones a custom bot repository (URL or local path)
@@ -536,77 +619,3 @@ func loadConfigInto(cfg *Config, configPath string) error {
 	return nil
 }
 
-// ensureGhAuth ensures gh CLI is installed and authenticated.
-func ensureGhAuth() error {
-	// Check if gh is installed
-	if err := exec.Command("which", "gh").Run(); err != nil {
-		fmt.Println("  Installing GitHub CLI...")
-		if err := installGh(); err != nil {
-			fmt.Println("  ⚠ Could not install gh. Using git with credentials instead.")
-			fmt.Println()
-			return nil // Don't fail, git will prompt for credentials
-		}
-		fmt.Println("  ✓ GitHub CLI installed")
-	}
-
-	// Check if gh is authenticated
-	statusCmd := exec.Command("gh", "auth", "status")
-	statusCmd.Stdout = nil // suppress output
-	statusCmd.Stderr = nil
-	if err := statusCmd.Run(); err != nil {
-		// Not authenticated, need to auth
-		fmt.Println("  GitHub authentication required")
-		fmt.Println()
-		fmt.Println("  Running: gh auth login")
-		authCmd := exec.Command("gh", "auth", "login")
-		authCmd.Stdin = os.Stdin
-		authCmd.Stdout = os.Stdout
-		authCmd.Stderr = os.Stderr
-		if err := authCmd.Run(); err != nil {
-			fmt.Println("  ⚠ gh auth failed. Using git with credentials instead.")
-			fmt.Println()
-			return nil // Don't fail, git will prompt for credentials
-		}
-		fmt.Println()
-	}
-
-	fmt.Println("  ✓ GitHub authenticated")
-	return nil
-}
-
-// installGh attempts to install gh from GitHub releases.
-func installGh() error {
-	// Try apk first (might work on some Alpine configs)
-	if err := exec.Command("apk", "add", "--no-cache", "gh").Run(); err == nil {
-		return nil
-	}
-
-	// Fall back: download binary from GitHub releases for Alpine/Linux
-	fmt.Println("    Downloading gh binary...")
-	tmpDir := "/tmp"
-	tarPath := filepath.Join(tmpDir, "gh.tar.gz")
-
-	// Download (adjust architecture if needed - using x86_64 for common case)
-	downloadCmd := exec.Command("wget", "-q", "-O", tarPath,
-		"https://github.com/cli/cli/releases/download/v2.50.0/gh_2.50.0_linux_amd64.tar.gz")
-	if err := downloadCmd.Run(); err != nil {
-		return fmt.Errorf("download failed: %w", err)
-	}
-
-	// Extract
-	extractCmd := exec.Command("tar", "-xzf", tarPath, "-C", tmpDir)
-	if err := extractCmd.Run(); err != nil {
-		return fmt.Errorf("extract failed: %w", err)
-	}
-
-	// Copy to PATH
-	cpCmd := exec.Command("cp", filepath.Join(tmpDir, "gh_2.50.0_linux_amd64", "bin", "gh"), "/usr/local/bin/gh")
-	if err := cpCmd.Run(); err != nil {
-		return fmt.Errorf("install failed: %w", err)
-	}
-
-	// Cleanup
-	_ = exec.Command("rm", "-rf", tarPath, filepath.Join(tmpDir, "gh_2.50.0_linux_amd64")).Run()
-
-	return nil
-}
