@@ -57,6 +57,10 @@ func (w *WizardTUI) Run() error {
 	if err := w.stepConfigureEnvVars(); err != nil {
 		return err
 	}
+	// Terminal context helper (optional)
+	if err := w.stepConfigureTerminalContext(); err != nil {
+		return err
+	}
 	if err := w.stepReviewAndConfirm(); err != nil {
 		return err
 	}
@@ -617,6 +621,83 @@ func (w *WizardTUI) stepConfigureEnvVars() error {
 
 	if w.result != nil {
 		return w.result
+	}
+
+	return nil
+}
+
+// stepConfigureTerminalContext runs Step 5.5: configure terminal context helper (optional).
+func (w *WizardTUI) stepConfigureTerminalContext() error {
+	w.currentStep = 5
+
+	list := tview.NewList()
+	list.SetBorder(true).
+		SetTitle(" Terminal Context Helper  Space:select  Enter:next ").
+		SetTitleAlign(tview.AlignLeft)
+
+	// Track selection
+	installed := w.cfg.TerminalContext
+
+	// Render the list
+	redraw := func() {
+		list.Clear()
+		if installed {
+			list.AddItem("[green][●][-] Install bot-army-shell", "Enable context-aware prompts and Ghostty title automation", 0, nil)
+		} else {
+			list.AddItem("[ ][ ] Install bot-army-shell", "Enable context-aware prompts and Ghostty title automation", 0, nil)
+		}
+		list.AddItem("[gray][ ] Skip[-]", "Install only core bots", 0, nil)
+	}
+	redraw()
+
+	var done bool
+	list.SetInputCapture(func(ev *tcell.EventKey) *tcell.EventKey {
+		i := list.GetCurrentItem()
+		if i < 0 {
+			return ev
+		}
+
+		switch ev.Rune() {
+		case ' ', 'x':
+			// Toggle selection
+			if i == 0 {
+				installed = !installed
+				redraw()
+				list.SetCurrentItem(i)
+			}
+			return nil
+
+		case 'q':
+			return tcell.NewEventKey(tcell.KeyCtrlC, 'q', tcell.ModCtrl)
+
+		default:
+			switch ev.Key() {
+			case tcell.KeyEnter:
+				w.cfg.TerminalContext = installed
+				done = true
+				w.app.Stop()
+				return nil
+
+			case tcell.KeyEscape:
+				w.result = fmt.Errorf("cancelled")
+				w.app.Stop()
+				return nil
+			}
+		}
+		return ev
+	})
+
+	w.setContent(list, 5, "Space:toggle  Enter:save  Esc:cancel")
+
+	if err := w.app.Run(); err != nil {
+		return err
+	}
+
+	if w.result != nil {
+		return w.result
+	}
+	if !done {
+		return fmt.Errorf("step 5.5 cancelled")
 	}
 
 	return nil

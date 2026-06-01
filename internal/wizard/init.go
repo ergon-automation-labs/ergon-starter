@@ -63,6 +63,7 @@ type Config struct {
 	DevMode           bool // True if Development pack selected
 	GitHubToken       string
 	GitHubWebhookSecret string
+	TerminalContext   bool // Install bot-army-shell (terminal context helper)
 }
 
 // ConfigFile is serializable version of Config for persistence.
@@ -79,6 +80,7 @@ type ConfigFile struct {
 	CustomMounts            []CustomMount     `json:"custom_mounts"`
 	GitHubToken             string            `json:"github_token,omitempty"`
 	GitHubWebhookSecret     string            `json:"github_webhook_secret,omitempty"`
+	TerminalContext         bool              `json:"terminal_context,omitempty"`
 }
 
 func RunInit() error {
@@ -184,6 +186,25 @@ func runSetup(cfg *Config) error {
 
 	fmt.Println()
 	fmt.Println("✓ Setup complete!")
+
+	// Install terminal context helper if enabled
+	if cfg.TerminalContext {
+		fmt.Println()
+		fmt.Println("Installing terminal context helper...")
+		if err := installTerminalContext(); err != nil {
+			fmt.Printf("Warning: could not install terminal context: %v\n", err)
+		} else {
+			fmt.Println("✓ Terminal context helper installed")
+			fmt.Println()
+			fmt.Println("Add to ~/.zshrc:")
+			fmt.Println("  source ~/.config/bot-army-shell/bot-army-context.zsh")
+			fmt.Println("  RPROMPT+='$$(bot_army_context_prompt)'")
+			fmt.Println()
+			fmt.Println("For Ghostty, add to ~/.config/ghostty/config:")
+			fmt.Println("  title-command = ~/.config/bot-army-shell/bot-army-context-title")
+		}
+	}
+
 	fmt.Println()
 	fmt.Println("Starting bot fleet dashboard...")
 	fmt.Println("Starting: docker compose up -d --build")
@@ -548,6 +569,7 @@ func saveConfig(cfg *Config) error {
 		DevMode:           cfg.DevMode,
 		CustomBots:        cfg.CustomBots,
 		CustomMounts:      cfg.CustomMounts,
+		TerminalContext:   cfg.TerminalContext,
 	}
 
 	data, err := json.MarshalIndent(cf, "", "  ")
@@ -615,6 +637,34 @@ func loadConfigInto(cfg *Config, configPath string) error {
 	cfg.DevMode = cf.DevMode
 	cfg.CustomBots = cf.CustomBots
 	cfg.CustomMounts = cf.CustomMounts
+	cfg.TerminalContext = cf.TerminalContext
+
+	return nil
+}
+
+// installTerminalContext downloads and installs the bot-army-shell package.
+func installTerminalContext() error {
+	// Create config directory
+	configDir := filepath.Join(os.Getenv("HOME"), ".config", "bot-army-shell")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		return fmt.Errorf("create config dir: %w", err)
+	}
+
+	// Run the installer script
+	fmt.Println("  ⏳ Installing bot-army-shell...")
+	installCmd := exec.Command("bash", "-c", "curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/bot-army-shell/main/install.sh | bash")
+	installCmd.Stdout = os.Stdout
+	installCmd.Stderr = os.Stderr
+
+	if err := installCmd.Run(); err != nil {
+		return fmt.Errorf("run installer: %w", err)
+	}
+
+	// Verify installation
+	scriptPath := filepath.Join(configDir, "bot-army-context.zsh")
+	if _, err := os.Stat(scriptPath); err != nil {
+		return fmt.Errorf("verify installation: %w", err)
+	}
 
 	return nil
 }
