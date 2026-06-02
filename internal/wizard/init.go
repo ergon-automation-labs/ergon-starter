@@ -56,6 +56,7 @@ type Config struct {
 	CustomMounts      []CustomMount
 	ProviderChain     string
 	SelfHostOllama    bool
+	EnableOTLP        bool // Enable OpenTelemetry Collector (default: true)
 	EnvValues         map[string]string
 	InstallDir        string
 	GitOrg            string
@@ -73,6 +74,7 @@ type ConfigFile struct {
 	ProviderNames           []string          `json:"providers"`
 	ProviderChain           string            `json:"provider_chain"`
 	SelfHostOllama          bool              `json:"self_host_ollama"`
+	EnableOTLP              bool              `json:"enable_otlp"`
 	EnvValues               map[string]string `json:"env_values"`
 	Ports                   PortMap           `json:"ports"`
 	DevMode                 bool              `json:"dev_mode"`
@@ -96,6 +98,7 @@ func RunInitWithCustomBots(customBotsFile string) error {
 		InstallDir: ".",
 		GitOrg:     "ergon-automation-labs",
 		Ports:      DefaultPorts,
+		EnableOTLP: true, // OTLP enabled by default
 	}
 
 	// Load custom bots if provided
@@ -564,6 +567,7 @@ func saveConfig(cfg *Config) error {
 		ProviderNames:     providerNames,
 		ProviderChain:     cfg.ProviderChain,
 		SelfHostOllama:    cfg.SelfHostOllama,
+		EnableOTLP:        cfg.EnableOTLP,
 		EnvValues:         cfg.EnvValues,
 		Ports:             cfg.Ports,
 		DevMode:           cfg.DevMode,
@@ -632,6 +636,7 @@ func loadConfigInto(cfg *Config, configPath string) error {
 	// Restore other fields
 	cfg.ProviderChain = cf.ProviderChain
 	cfg.SelfHostOllama = cf.SelfHostOllama
+	cfg.EnableOTLP = cf.EnableOTLP
 	cfg.EnvValues = cf.EnvValues
 	cfg.Ports = cf.Ports
 	cfg.DevMode = cf.DevMode

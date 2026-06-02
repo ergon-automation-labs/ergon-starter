@@ -37,6 +37,10 @@ func generateEnvFile(cfg *Config) error {
 	b.WriteString("NATS_HOST=nats\n")
 	b.WriteString("NATS_PORT=4222\n\n")
 
+	// OpenTelemetry
+	b.WriteString("# OpenTelemetry (optional, enabled if otelcol service is running)\n")
+	b.WriteString("OTEL_EXPORTER_OTLP_ENDPOINT=http://otelcol:4318\n\n")
+
 	// LLM provider chain
 	b.WriteString("# LLM\n")
 	b.WriteString(fmt.Sprintf("BOT_ARMY_LLM_PROVIDER_CHAIN=%s\n", cfg.ProviderChain))
@@ -79,6 +83,10 @@ func generateComposeFile(cfg *Config) error {
 		if err := generateDatabaseInitScript(cfg); err != nil {
 			return err
 		}
+		// Generate OTLP collector config (optional)
+		if err := generateOTelColConfig(cfg); err != nil {
+			return err
+		}
 		return generatePackComposeFile(cfg)
 	}
 	return generateBotComposeFile(cfg)
@@ -117,6 +125,44 @@ func generateDatabaseInitScript(cfg *Config) error {
 		return err
 	}
 	fmt.Printf("  ✓ init-databases.sql\n")
+	return nil
+}
+
+func generateOTelColConfig(cfg *Config) error {
+	if !cfg.EnableOTLP {
+		return nil // OTLP not enabled, skip config
+	}
+
+	config := `receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+
+exporters:
+  logging:
+    verbosity: normal
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [logging]
+`
+
+	configPath := filepath.Join(cfg.InstallDir, "otelcol.yaml")
+	if err := os.WriteFile(configPath, []byte(config), 0o644); err != nil {
+		return err
+	}
+	fmt.Printf("  ✓ otelcol.yaml\n")
 	return nil
 }
 
@@ -223,6 +269,20 @@ func generatePackComposeFile(cfg *Config) error {
     restart: unless-stopped
 
 `, cfg.Ports.Ollama))
+	}
+
+	// OpenTelemetry Collector (optional, defaults to enabled)
+	if cfg.EnableOTLP {
+		b.WriteString(`  otelcol:
+    image: otel/opentelemetry-collector-contrib:0.103.0
+    ports:
+      - "4318:4318"
+      - "4317:4317"
+    volumes:
+      - ./otelcol.yaml:/etc/otelcol-contrib/config.yaml
+    restart: unless-stopped
+
+`)
 	}
 
 	// Pack services — one container per pack, single BEAM VM

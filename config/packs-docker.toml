@@ -75,3 +75,14 @@ bots = [
   { repo = "ergon-rss_polling", binary = "rss_polling_bot", optional = false },
   { repo = "ergon-job_applications", binary = "job_applications_bot", optional = false }
 ]
+
+# ============================================================================
+# INFRASTRUCTURE - Optional telemetry and observability services
+# ============================================================================
+[[infrastructure]]
+name = "otelcol"
+description = "OpenTelemetry Collector — receives traces from bots on :4318/:4317"
+optional = true
+default = true
+image = "otel/opentelemetry-collector-contrib:0.103.0"
+config_name = "otelcol.yaml"
