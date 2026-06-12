@@ -134,7 +134,7 @@ var Providers = []Provider{
 		Label:       "Ollama (local, no API key)",
 		CanSelfHost: true,
 		EnvVars: []EnvVar{
-			{Key: "OLLAMA_BASE_URL", Prompt: "Ollama URL", Default: "http://host.docker.internal:11434"},
+			{Key: "OLLAMA_BASE_URL", Prompt: "Ollama URL", Default: "http://ollama:11434"},
 			{Key: "OLLAMA_MODEL_LIGHT", Prompt: "Light model", Default: "llama3.1"},
 			{Key: "OLLAMA_MODEL_MEDIUM", Prompt: "Medium model", Default: "llama3.1"},
 		},

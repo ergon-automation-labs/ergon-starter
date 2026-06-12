@@ -3,7 +3,10 @@
 FROM golang:1.25-alpine AS build
 
 ARG GOOS=linux
-ARG GOARCH=arm64
+# ARG GOARCH=arm64
+# ARG GOARCH=amd64
+ARG TARGETARCH
+ARG GOARCH=${TARGETARCH}
 
 RUN apk add --no-cache git
 
