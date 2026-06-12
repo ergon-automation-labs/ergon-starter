@@ -381,7 +381,7 @@ func checkRequiredPackages() {
 			name:    "git",
 			command: "git",
 			installHelp: "macOS: brew install git\n" +
-				"      Linux: apt-get install git (Debian/Ubuntu) or yum install git (RHEL/CentOS)\n" +
+				"      Linux: apt-get install git (Debian/Ubuntu) or dnf install git (Fedora/RHEL/CentOS)\n" +
 				"      Windows: https://git-scm.com/download/win",
 		},
 		{
@@ -400,14 +400,14 @@ func checkRequiredPackages() {
 			name:    "python3",
 			command: "python3",
 			installHelp: "macOS: brew install python3\n" +
-				"      Linux: apt-get install python3 (Debian/Ubuntu) or yum install python3 (RHEL/CentOS)\n" +
+				"      Linux: apt-get install python3 (Debian/Ubuntu) or dnf install python3 (Fedora/RHEL/CentOS)\n" +
 				"      Windows: https://www.python.org/downloads/",
 		},
 		{
 			name:    "ripgrep (rg)",
 			command: "rg",
 			installHelp: "macOS: brew install ripgrep\n" +
-				"      Linux: apt-get install ripgrep (Debian/Ubuntu) or yum install ripgrep (RHEL/CentOS)\n" +
+				"      Linux: apt-get install ripgrep (Debian/Ubuntu) or dnf install ripgrep (Fedora/RHEL/CentOS)\n" +
 				"      Windows: https://github.com/BurntSushi/ripgrep#installation",
 		},
 	}

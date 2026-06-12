@@ -11,7 +11,13 @@ ifeq ($(UNAME_S),Darwin)
   DOCKER_SOCK := /var/run/docker.sock
   OS_NAME := macOS
 else ifeq ($(UNAME_S),Linux)
-  DOCKER_SOCK := /var/run/docker.sock
+# 	proposal: add a select runtime component here docker/podman/rancher/containerd/etc
+  DOCKER_SOCK := $(shell \
+    if [ -r /var/run/docker.sock ]; then \
+	  echo /var/run/docker.sock; \
+	  else \
+		echo /run/user/$$(id -u)/podman/podman.sock; \
+	fi)
   OS_NAME := Linux
 else ifneq (,$(findstring MINGW,$(UNAME_S)))
   # Windows (Git Bash / MSYS2) - requires WSL2 or native pipe handling
@@ -26,6 +32,8 @@ else
   DOCKER_SOCK := /var/run/docker.sock
   OS_NAME := Unknown
 endif
+
+SELINUX_LABEL := $(shell command -v getenforce > /dev/null 2>&1 && [ "$$(getenforce)" = "Enforcing" ] && echo ":z")
 
 # Release channel selection (stable, latest, nightly)
 CHANNEL ?= stable
@@ -61,7 +69,7 @@ quickstart: catalog/bots.json ## Full setup: wizard → clone → build → star
 	@echo ""
 	$(MAKE) build
 	docker run --rm -it \
-		-v $(PWD):/workspace \
+		-v $(PWD):/workspace$(SELINUX_LABEL) \
 		-v $(HOME)/.config/gh:/root/.config/gh \
 		-v $(DOCKER_SOCK):/var/run/docker.sock \
 		-w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) init
@@ -166,9 +174,10 @@ quick-start: ## 5 demos to learn how Bot Army works (20 min)
 # Detect host platform for cross-compilation
 HOST_OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 HOST_ARCH := $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
+export DOCKER_DEFAULT_PLATFORM := linux/$(HOST_ARCH)
 
 build: ## Build the bot-army CLI binary (Linux, inside Docker)
-	docker build -f Dockerfile.build -t $(BUILD_IMAGE) .
+	docker build -f Dockerfile.build --build-arg GOARCH=$(HOST_ARCH) -t $(BUILD_IMAGE) .
 	docker create --name bot-army-extract $(BUILD_IMAGE) 2>/dev/null || true
 	docker cp bot-army-extract:/usr/local/bin/bot-army ./$(BINARY)
 	docker rm bot-army-extract
@@ -246,7 +255,7 @@ push-packs: ## Push all pack images to registry (CHANNEL=stable|latest|nightly)
 
 init: build catalog/bots.json ## Run the interactive setup wizard
 	docker run --rm -it \
-		-v $(PWD):/workspace \
+		-v $(PWD):/workspace$(SELINUX_LABEL) \
 		-v $(HOME)/.config/gh:/root/.config/gh \
 		-v $(DOCKER_SOCK):/var/run/docker.sock \
 		-w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) init
@@ -258,7 +267,7 @@ catalog/bots.json: scripts/sync-catalog.sh config/repos-public.toml
 add: build ## Add a catalog bot (usage: make add BOT=fitness)
 	@test -n "$(BOT)" || (echo "Usage: make add BOT=<name>" && exit 1)
 	docker run --rm \
-		-v $(PWD):/workspace \
+		-v $(PWD):/workspace$(SELINUX_LABEL) \
 		-v $(HOME)/.config/gh:/root/.config/gh \
 		-v $(DOCKER_SOCK):/var/run/docker.sock \
 		-w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) add $(BOT)
@@ -269,7 +278,7 @@ add-local: ## Add your custom bot (usage: make add-local BOT_PATH=/path/to/bot_a
 
 status: build ## Show configured services
 	docker run --rm \
-		-v $(PWD):/workspace \
+		-v $(PWD):/workspace$(SELINUX_LABEL) \
 		-v $(HOME)/.config/gh:/root/.config/gh \
 		-v $(DOCKER_SOCK):/var/run/docker.sock \
 		-w /workspace $(BUILD_IMAGE) /usr/local/bin/$(BINARY) status
