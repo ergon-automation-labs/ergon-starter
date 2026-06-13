@@ -49,7 +49,7 @@ REGISTRY_PORT ?= 32000
 # Elixir builds are memory-heavy — limit parallel builds to avoid OOM
 COMPOSE_BUILD_PARALLEL ?= 3
 
-.PHONY: help quickstart build install sync init add add-local status dashboard up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health clean-images clean-docker-volumes clean-docker-builder clean-logs clean-caches-safe clean-safe clean-disk disk-check test release-check release-test release-create release-list release-latest registry-build registry-push registry-publish registry-images registry-setup setup-tools claude-integrate help-create-bot help-volumes health-check help-troubleshoot quick-start migrate rollback migrate-status help-architecture help-bridge-api help-debugging help-testing help-makefile help-environment help-migrations
+.PHONY: help quickstart build install sync init add add-local status dashboard up down logs ps clean rebuild pull-repos nuke docker-clean docker-deep-clean docker-health clean-images clean-docker-volumes clean-docker-builder clean-logs clean-caches-safe clean-safe clean-disk disk-check test release-check release-test release-create release-list release-latest registry-build registry-push registry-publish registry-images registry-setup setup-tools claude-integrate help-create-bot help-volumes health-check help-troubleshoot quick-start migrate rollback migrate-status help-architecture help-bridge-api help-debugging help-testing help-makefile help-environment help-migrations shell-sync shell-install
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -204,6 +204,31 @@ install: build ## Build and install to /usr/local/bin
 
 sync: ## Sync bot catalog (CHANNEL=stable|latest|nightly, default: stable)
 	./scripts/sync-catalog.sh $(CHANNEL)
+
+# --- Shell Integration ---
+
+shell-sync: catalog/bots.json ## Sync shell registry from bot catalog
+	@python3 scripts/sync-shell-registry.py
+
+shell-install: ## Install shell plugins for a bot (BOT=name, use comma for multiple)
+	@test -n "$(BOT)" || (echo "Usage: make shell-install BOT=<name> [BOT2...]" && exit 1)
+	@for bot in $(shell echo $(BOT) | tr ',' ' '); do \
+		echo "Installing shell plugin for $$bot..."; \
+		if [ -f "$(STARTER_ROOT)/catalog/shell-plugins/$$bot.zsh" ]; then \
+			cp "$(STARTER_ROOT)/catalog/shell-plugins/$$bot.zsh" "$(HOME)/.config/bot-army-shell/plugins/"; \
+			echo "  ✓ Installed bot-army-$$bot.zsh"; \
+		else \
+			echo "  ℹ Shell plugin for $$bot not yet available"; \
+		fi \
+	done
+
+# --- Bot-army-shell integration ---
+
+shell-add: ## Add shell integration from bot-army-shell (BOT=name)
+	@test -n "$(BOT)" || (echo "Usage: make shell-add BOT=<name>" && exit 1)
+	@echo "Installing shell integration for $(BOT) from bot-army-shell..."
+	@curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/bot-army-shell/main/install-bot.sh | \
+		bash -s -- $(BOT)
 
 # --- Pack Docker Images ---
 

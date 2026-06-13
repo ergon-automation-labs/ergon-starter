@@ -42,6 +42,9 @@ func (w *WizardTUI) Run() error {
 	if err := w.stepSelectBots(); err != nil {
 		return err
 	}
+	if err := w.stepConfigureIntegrations(); err != nil {
+		return err
+	}
 	if err := w.stepConfigurePorts(); err != nil {
 		return err
 	}
@@ -352,9 +355,97 @@ func (w *WizardTUI) stepSelectBots() error {
 	return nil
 }
 
-// stepConfigurePorts runs Step 3: configure host ports (form).
-func (w *WizardTUI) stepConfigurePorts() error {
+// stepConfigureIntegrations runs Step 3: configure integrations based on selected bots.
+func (w *WizardTUI) stepConfigureIntegrations() error {
 	w.currentStep = 3
+	w.setHeader("Step 3 of 8: Configure Integrations")
+
+	// Determine required integrations based on selected bots
+	required := DeterminedRequiredIntegrations(w.cfg.SelectedBots)
+	w.cfg.EnabledIntegrations = required
+
+	// Create a list showing which integrations will be enabled
+	list := tview.NewList()
+	list.SetBorder(true).
+		SetTitle(" Integration Status  ↑↓:nav  Space:toggle  Enter:next ").
+		SetTitleAlign(tview.AlignLeft)
+
+	// Build list of integrations
+	integrationOrder := []string{"BRIDGE", "LLM", "PARA", "CONTEXT", "NOTIFICATION", "SYNAPSE", "DISPATCHER", "GTD"}
+	selected := make(map[int]bool)
+	for _, integ := range integrationOrder {
+		selected[len(selected)] = required[integ]
+	}
+
+	redraw := func() {
+		list.Clear()
+		for i, integ := range integrationOrder {
+			var prefix string
+			if integ == "GTD" {
+				prefix = "[gray][✓][-] (required) "
+			} else if selected[i] {
+				prefix = "[green][✓][-] "
+			} else {
+				prefix = "[ ] "
+			}
+			desc := IntegrationDescriptions[integ]
+			list.AddItem(prefix+integ, desc, 0, nil)
+		}
+	}
+	redraw()
+
+	var done bool
+	list.SetInputCapture(func(ev *tcell.EventKey) *tcell.EventKey {
+		i := list.GetCurrentItem()
+		if i < 0 {
+			return ev
+		}
+
+		if i < len(integrationOrder) && integrationOrder[i] != "GTD" {
+			switch ev.Rune() {
+			case ' ', 'x':
+				selected[i] = !selected[i]
+				w.cfg.EnabledIntegrations[integrationOrder[i]] = selected[i]
+				redraw()
+				list.SetCurrentItem(i)
+				return nil
+			}
+		}
+
+		switch ev.Key() {
+		case tcell.KeyEnter:
+			// Update config with selected integrations
+			for i, integ := range integrationOrder {
+				if integ != "GTD" {
+					w.cfg.EnabledIntegrations[integ] = selected[i]
+				}
+			}
+			done = true
+			w.app.Stop()
+			return nil
+		case tcell.KeyEscape:
+			w.app.Stop()
+			return nil
+		}
+		return ev
+	})
+
+	w.contentFx.RemoveItem(w.contentFx.GetItem(0))
+	w.contentFx.AddItem(list, 0, 1, true)
+
+	if err := w.app.Run(); err != nil {
+		return err
+	}
+	if !done {
+		return fmt.Errorf("step 3 cancelled")
+	}
+
+	return nil
+}
+
+// stepConfigurePorts runs Step 4: configure host ports (form).
+func (w *WizardTUI) stepConfigurePorts() error {
+	w.currentStep = 4
 
 	form := tview.NewForm()
 	form.SetBorder(true).
@@ -383,7 +474,7 @@ func (w *WizardTUI) stepConfigurePorts() error {
 		w.app.Stop()
 	})
 
-	w.setContent(form, 3, "Enter:save  Esc:cancel")
+	w.setContent(form, 4, "Enter:save  Esc:cancel")
 
 	if err := w.app.Run(); err != nil {
 		return err
@@ -410,7 +501,7 @@ func (w *WizardTUI) hasGitHub() bool {
 
 // stepConfigureGitHub runs GitHub webhook setup (conditional, only if github_bot is selected)
 func (w *WizardTUI) stepConfigureGitHub() error {
-	w.currentStep = 4
+	w.currentStep = 5
 
 	form := tview.NewForm()
 	form.SetBorder(true).
@@ -433,7 +524,7 @@ func (w *WizardTUI) stepConfigureGitHub() error {
 		w.app.Stop()
 	})
 
-	w.setContent(form, 4, "Enter:save  Esc:skip  GitHub webhook is optional")
+	w.setContent(form, 5, "Enter:save  Esc:skip  GitHub webhook is optional")
 
 	if err := w.app.Run(); err != nil {
 		return err
@@ -446,9 +537,9 @@ func (w *WizardTUI) stepConfigureGitHub() error {
 	return nil
 }
 
-// stepSelectProviders runs Step 5: select LLM providers (multi-select list).
+// stepSelectProviders runs Step 6: select LLM providers (multi-select list).
 func (w *WizardTUI) stepSelectProviders() error {
-	w.currentStep = 4
+	w.currentStep = 6
 
 	list := tview.NewList()
 	list.SetBorder(true).
@@ -520,7 +611,7 @@ func (w *WizardTUI) stepSelectProviders() error {
 		return ev
 	})
 
-	w.setContent(list, 4, "↑↓:nav  Space:toggle  Enter:next  Esc:cancel  q:quit")
+	w.setContent(list, 6, "↑↓:nav  Space:toggle  Enter:next  Esc:cancel  q:quit")
 
 	if err := w.app.Run(); err != nil {
 		return err
@@ -530,15 +621,15 @@ func (w *WizardTUI) stepSelectProviders() error {
 		return w.result
 	}
 	if !done {
-		return fmt.Errorf("step 4 cancelled")
+		return fmt.Errorf("step 6 cancelled")
 	}
 
 	return nil
 }
 
-// stepConfigureEnvVars runs Step 5: configure environment variables (form).
+// stepConfigureEnvVars runs Step 7: configure environment variables (form).
 func (w *WizardTUI) stepConfigureEnvVars() error {
-	w.currentStep = 5
+	w.currentStep = 7
 
 	form := tview.NewForm()
 	form.SetBorder(true).
@@ -613,7 +704,7 @@ func (w *WizardTUI) stepConfigureEnvVars() error {
 		w.app.Stop()
 	})
 
-	w.setContent(form, 5, "Enter:save  Esc:cancel")
+	w.setContent(form, 7, "Enter:save  Esc:cancel")
 
 	if err := w.app.Run(); err != nil {
 		return err
@@ -626,9 +717,9 @@ func (w *WizardTUI) stepConfigureEnvVars() error {
 	return nil
 }
 
-// stepConfigureTerminalContext runs Step 5.5: configure terminal context helper (optional).
+// stepConfigureTerminalContext runs Step 8: configure terminal context helper (optional).
 func (w *WizardTUI) stepConfigureTerminalContext() error {
-	w.currentStep = 5
+	w.currentStep = 8
 
 	list := tview.NewList()
 	list.SetBorder(true).
@@ -687,7 +778,7 @@ func (w *WizardTUI) stepConfigureTerminalContext() error {
 		return ev
 	})
 
-	w.setContent(list, 5, "Space:toggle  Enter:save  Esc:cancel")
+	w.setContent(list, 8, "Space:toggle  Enter:save  Esc:cancel")
 
 	if err := w.app.Run(); err != nil {
 		return err
@@ -697,13 +788,13 @@ func (w *WizardTUI) stepConfigureTerminalContext() error {
 		return w.result
 	}
 	if !done {
-		return fmt.Errorf("step 5.5 cancelled")
+		return fmt.Errorf("step 8 cancelled")
 	}
 
 	return nil
 }
 
-// stepReviewAndConfirm runs Step 6: review and confirm (text view).
+// stepReviewAndConfirm runs final review and confirm (text view).
 func (w *WizardTUI) stepReviewAndConfirm() error {
 	w.currentStep = 6
 

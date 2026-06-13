@@ -45,6 +45,18 @@ func generateEnvFile(cfg *Config) error {
 	b.WriteString("# LLM\n")
 	b.WriteString(fmt.Sprintf("BOT_ARMY_LLM_PROVIDER_CHAIN=%s\n", cfg.ProviderChain))
 
+	// Integration flags
+	b.WriteString("\n# Integration Flags (enabled based on selected bots)\n")
+	for _, integ := range []string{"BRIDGE", "LLM", "PARA", "CONTEXT", "NOTIFICATION", "SYNAPSE", "DISPATCHER", "GTD"} {
+		envVar := IntegrationToEnvVar(integ)
+		enabled := cfg.EnabledIntegrations[integ]
+		value := "false"
+		if enabled {
+			value = "true"
+		}
+		b.WriteString(fmt.Sprintf("%s=%s\n", envVar, value))
+	}
+
 	// Provider-specific vars
 	for _, p := range cfg.SelectedProviders {
 		b.WriteString(fmt.Sprintf("\n# %s\n", p.Label))

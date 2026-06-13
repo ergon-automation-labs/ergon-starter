@@ -48,41 +48,43 @@ type CustomMount struct {
 }
 
 type Config struct {
-	AllBots           []Bot
-	SelectedPacks     []Pack
-	SelectedBots      []Bot
-	SelectedProviders []Provider
-	CustomBots        []CustomBot
-	CustomMounts      []CustomMount
-	ProviderChain     string
-	SelfHostOllama    bool
-	EnableOTLP        bool // Enable OpenTelemetry Collector (default: true)
-	EnvValues         map[string]string
-	InstallDir        string
-	GitOrg            string
-	Ports             PortMap
-	DevMode           bool // True if Development pack selected
-	GitHubToken       string
+	AllBots             []Bot
+	SelectedPacks       []Pack
+	SelectedBots        []Bot
+	SelectedProviders   []Provider
+	CustomBots          []CustomBot
+	CustomMounts        []CustomMount
+	EnabledIntegrations map[string]bool // NATS integration flags (Bridge, LLM, PARA, Context, etc.)
+	ProviderChain       string
+	SelfHostOllama      bool
+	EnableOTLP          bool // Enable OpenTelemetry Collector (default: true)
+	EnvValues           map[string]string
+	InstallDir          string
+	GitOrg              string
+	Ports               PortMap
+	DevMode             bool // True if Development pack selected
+	GitHubToken         string
 	GitHubWebhookSecret string
-	TerminalContext   bool // Install bot-army-shell (terminal context helper)
+	TerminalContext     bool // Install bot-army-shell (terminal context helper)
 }
 
 // ConfigFile is serializable version of Config for persistence.
 type ConfigFile struct {
-	SelectedBotNames        []string          `json:"selected_bots"`
-	SelectedPackNames       []string          `json:"selected_packs"`
-	ProviderNames           []string          `json:"providers"`
-	ProviderChain           string            `json:"provider_chain"`
-	SelfHostOllama          bool              `json:"self_host_ollama"`
-	EnableOTLP              bool              `json:"enable_otlp"`
-	EnvValues               map[string]string `json:"env_values"`
-	Ports                   PortMap           `json:"ports"`
-	DevMode                 bool              `json:"dev_mode"`
-	CustomBots              []CustomBot       `json:"custom_bots"`
-	CustomMounts            []CustomMount     `json:"custom_mounts"`
-	GitHubToken             string            `json:"github_token,omitempty"`
-	GitHubWebhookSecret     string            `json:"github_webhook_secret,omitempty"`
-	TerminalContext         bool              `json:"terminal_context,omitempty"`
+	SelectedBotNames        []string            `json:"selected_bots"`
+	SelectedPackNames       []string            `json:"selected_packs"`
+	ProviderNames           []string            `json:"providers"`
+	ProviderChain           string              `json:"provider_chain"`
+	SelfHostOllama          bool                `json:"self_host_ollama"`
+	EnableOTLP              bool                `json:"enable_otlp"`
+	EnabledIntegrations     map[string]bool     `json:"enabled_integrations"`
+	EnvValues               map[string]string   `json:"env_values"`
+	Ports                   PortMap             `json:"ports"`
+	DevMode                 bool                `json:"dev_mode"`
+	CustomBots              []CustomBot         `json:"custom_bots"`
+	CustomMounts            []CustomMount       `json:"custom_mounts"`
+	GitHubToken             string              `json:"github_token,omitempty"`
+	GitHubWebhookSecret     string              `json:"github_webhook_secret,omitempty"`
+	TerminalContext         bool                `json:"terminal_context,omitempty"`
 }
 
 func RunInit() error {
@@ -94,11 +96,12 @@ func RunInitWithCustomBots(customBotsFile string) error {
 	checkRequiredPackages()
 
 	cfg := &Config{
-		EnvValues:  make(map[string]string),
-		InstallDir: ".",
-		GitOrg:     "ergon-automation-labs",
-		Ports:      DefaultPorts,
-		EnableOTLP: true, // OTLP enabled by default
+		EnvValues:           make(map[string]string),
+		EnabledIntegrations: make(map[string]bool),
+		InstallDir:         ".",
+		GitOrg:             "ergon-automation-labs",
+		Ports:              DefaultPorts,
+		EnableOTLP:         true, // OTLP enabled by default
 	}
 
 	// Load custom bots if provided
@@ -562,18 +565,19 @@ func saveConfig(cfg *Config) error {
 	}
 
 	cf := &ConfigFile{
-		SelectedBotNames:  botNames,
-		SelectedPackNames: packNames,
-		ProviderNames:     providerNames,
-		ProviderChain:     cfg.ProviderChain,
-		SelfHostOllama:    cfg.SelfHostOllama,
-		EnableOTLP:        cfg.EnableOTLP,
-		EnvValues:         cfg.EnvValues,
-		Ports:             cfg.Ports,
-		DevMode:           cfg.DevMode,
-		CustomBots:        cfg.CustomBots,
-		CustomMounts:      cfg.CustomMounts,
-		TerminalContext:   cfg.TerminalContext,
+		SelectedBotNames:    botNames,
+		SelectedPackNames:   packNames,
+		ProviderNames:       providerNames,
+		ProviderChain:       cfg.ProviderChain,
+		SelfHostOllama:      cfg.SelfHostOllama,
+		EnableOTLP:          cfg.EnableOTLP,
+		EnabledIntegrations: cfg.EnabledIntegrations,
+		EnvValues:           cfg.EnvValues,
+		Ports:               cfg.Ports,
+		DevMode:             cfg.DevMode,
+		CustomBots:          cfg.CustomBots,
+		CustomMounts:        cfg.CustomMounts,
+		TerminalContext:     cfg.TerminalContext,
 	}
 
 	data, err := json.MarshalIndent(cf, "", "  ")
@@ -637,6 +641,7 @@ func loadConfigInto(cfg *Config, configPath string) error {
 	cfg.ProviderChain = cf.ProviderChain
 	cfg.SelfHostOllama = cf.SelfHostOllama
 	cfg.EnableOTLP = cf.EnableOTLP
+	cfg.EnabledIntegrations = cf.EnabledIntegrations
 	cfg.EnvValues = cf.EnvValues
 	cfg.Ports = cf.Ports
 	cfg.DevMode = cf.DevMode
