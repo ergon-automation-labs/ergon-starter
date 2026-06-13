@@ -360,6 +360,11 @@ func generatePackComposeFile(cfg *Config) error {
 			}
 		}
 
+		// Custom user-defined volume mounts (from wizard step)
+		for _, mount := range cfg.CustomMounts {
+			b.WriteString(fmt.Sprintf("      - %s:%s\n", mount.Source, mount.Destination))
+		}
+
 		// Dependencies
 		deps := []string{"nats"}
 		if needsDB {

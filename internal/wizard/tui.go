@@ -64,6 +64,9 @@ func (w *WizardTUI) Run() error {
 	if err := w.stepConfigureTerminalContext(); err != nil {
 		return err
 	}
+	if err := w.stepConfigureVolumes(); err != nil {
+		return err
+	}
 	if err := w.stepReviewAndConfirm(); err != nil {
 		return err
 	}
@@ -193,7 +196,16 @@ func (w *WizardTUI) stepSelectPack() error {
 		return ev
 	})
 
-	w.setContent(list, 1, "↑↓:nav  Space:toggle  s:skip  Enter:next  Esc:cancel  q:quit")
+	helpText := `[yellow]💡 What are Starter Packs?[-]
+Packs are pre-configured bundles of bots with common integrations.
+[dim]• Core[-]          Essential system (GTD, LLM, Dispatcher, PARA)
+[dim]• Social Media[-]  Core + Discord/Synapse integration
+[dim]• Learning[-]      Core + Learning bot for research
+[dim]• Areas[-]         Core + Area-specific bots
+[dim]• Research[-]      Core + Research tools
+[dim]• Custom[-]        Pick individual bots yourself`
+
+	w.setContent(list, 1, "↑↓:nav  Space:toggle  s:skip  Enter:next  Esc:cancel  q:quit", helpText)
 
 	if err := w.app.Run(); err != nil {
 		return err
@@ -231,10 +243,29 @@ func (w *WizardTUI) setStatus(hints string) {
 }
 
 // setContent replaces the current step content and updates header/status.
-func (w *WizardTUI) setContent(widget tview.Primitive, step int, hints string) {
+func (w *WizardTUI) setContent(widget tview.Primitive, step int, hints string, helpTexts ...string) {
 	w.currentStep = step
 	w.contentFx.Clear()
-	w.contentFx.AddItem(widget, 0, 1, true)
+
+	// If help text provided, create a flex layout with help above widget
+	if len(helpTexts) > 0 && helpTexts[0] != "" {
+		helpView := tview.NewTextView()
+		helpView.SetDynamicColors(true)
+		helpView.SetText(helpTexts[0])
+		helpView.SetBorder(false)
+		helpView.SetTextAlign(tview.AlignLeft)
+		helpView.SetWordWrap(true)
+
+		flex := tview.NewFlex().SetDirection(tview.FlexRow)
+		flex.AddItem(helpView, 8, 0, false)
+		flex.AddItem(tview.NewBox(), 1, 0, false)
+		flex.AddItem(widget, 0, 1, true)
+
+		w.contentFx.AddItem(flex, 0, 1, true)
+	} else {
+		w.contentFx.AddItem(widget, 0, 1, true)
+	}
+
 	w.setHeader("Bot Army Starter")
 	w.setStatus(hints)
 	w.app.SetFocus(widget)
@@ -338,7 +369,13 @@ func (w *WizardTUI) stepSelectBots() error {
 		return ev
 	})
 
-	w.setContent(list, 2, "↑↓:nav  Space:toggle  Enter:next  Esc:cancel  q:quit")
+	helpText := `[yellow]💡 About Bots[-]
+Each bot is a specialized service that handles a specific function.
+[dim]• Core bots[-]      Always required (GTD, LLM, Dispatcher, PARA, Bridge, etc)
+[dim]• Pack bots[-]      Included if you selected a pack above
+[dim]• Toggle to add/remove optional bots to customize your system`
+
+	w.setContent(list, 2, "↑↓:nav  Space:toggle  Enter:next  Esc:cancel  q:quit", helpText)
 
 	// Run the app until this step completes
 	if err := w.app.Run(); err != nil {
@@ -358,7 +395,6 @@ func (w *WizardTUI) stepSelectBots() error {
 // stepConfigureIntegrations runs Step 3: configure integrations based on selected bots.
 func (w *WizardTUI) stepConfigureIntegrations() error {
 	w.currentStep = 3
-	w.setHeader("Step 3 of 8: Configure Integrations")
 
 	// Determine required integrations based on selected bots
 	required := DeterminedRequiredIntegrations(w.cfg.SelectedBots)
@@ -430,8 +466,14 @@ func (w *WizardTUI) stepConfigureIntegrations() error {
 		return ev
 	})
 
-	w.contentFx.RemoveItem(w.contentFx.GetItem(0))
-	w.contentFx.AddItem(list, 0, 1, true)
+	helpText := `[yellow]💡 About Integrations[-]
+Some features are optional and only needed if you use certain bots.
+[dim]• Greyed items[-]    Required (always enabled, can't be changed)
+[dim]• Green items[-]     Enabled because you selected a bot that needs them
+[dim]• Empty items[-]     Disabled (toggle with Space to override)
+You can disable integrations to reduce resource usage.`
+
+	w.setContent(list, 3, "↑↓:nav  Space:toggle  Enter:next  Esc:cancel", helpText)
 
 	if err := w.app.Run(); err != nil {
 		return err
@@ -474,7 +516,15 @@ func (w *WizardTUI) stepConfigurePorts() error {
 		w.app.Stop()
 	})
 
-	w.setContent(form, 4, "Enter:save  Esc:cancel")
+	helpText := `[yellow]💡 About Ports[-]
+These are the TCP ports on your computer where services will listen.
+[dim]• NATS (4222)[-]          Message broker - how bots communicate
+[dim]• Postgres (5432)[-]      Database - where bot data is stored
+[dim]• Ollama (11434)[-]       Local LLM - only if using self-hosted AI
+[dim]• MCP Server (39900)[-]   Claude Desktop integration port
+Change if you have other services using these ports.`
+
+	w.setContent(form, 4, "Enter:save  Esc:cancel", helpText)
 
 	if err := w.app.Run(); err != nil {
 		return err
@@ -524,7 +574,12 @@ func (w *WizardTUI) stepConfigureGitHub() error {
 		w.app.Stop()
 	})
 
-	w.setContent(form, 5, "Enter:save  Esc:skip  GitHub webhook is optional")
+	helpText := `[yellow]💡 GitHub Integration (Optional)[-]
+[dim]Token[-]    A GitHub personal access token for private repository access
+[dim]Secret[-]   A random string to secure GitHub webhooks (min 8 characters)
+Leave blank to skip GitHub integration. You can add it later.`
+
+	w.setContent(form, 5, "Enter:save  Esc:skip  GitHub webhook is optional", helpText)
 
 	if err := w.app.Run(); err != nil {
 		return err
@@ -611,7 +666,14 @@ func (w *WizardTUI) stepSelectProviders() error {
 		return ev
 	})
 
-	w.setContent(list, 6, "↑↓:nav  Space:toggle  Enter:next  Esc:cancel  q:quit")
+	helpText := `[yellow]💡 LLM Providers[-]
+These are AI services that power Bot Army's intelligent features.
+[dim]• Ollama[-]        Free, local AI model (recommended for learning)
+[dim]• OpenRouter[-]    Access to many models via single API (like Claude)
+[dim]• Anthropic[-]     Official Claude API for production use
+You can select multiple providers - the first available will be used.`
+
+	w.setContent(list, 6, "↑↓:nav  Space:toggle  Enter:next  Esc:cancel  q:quit", helpText)
 
 	if err := w.app.Run(); err != nil {
 		return err
@@ -704,7 +766,14 @@ func (w *WizardTUI) stepConfigureEnvVars() error {
 		w.app.Stop()
 	})
 
-	w.setContent(form, 7, "Enter:save  Esc:cancel")
+	helpText := `[yellow]💡 Environment Variables[-]
+Optional settings for advanced customization (leave blank for defaults).
+[dim]• API Keys[-]          Credentials for external services
+[dim]• Feature Flags[-]     Enable/disable specific features
+[dim]• Timeouts[-]          Customize response wait times
+Most users can skip this step and use defaults.`
+
+	w.setContent(form, 7, "Enter:save  Esc:cancel", helpText)
 
 	if err := w.app.Run(); err != nil {
 		return err
@@ -778,7 +847,14 @@ func (w *WizardTUI) stepConfigureTerminalContext() error {
 		return ev
 	})
 
-	w.setContent(list, 8, "Space:toggle  Enter:save  Esc:cancel")
+	helpText := `[yellow]💡 Terminal Context Helper (Optional)[-]
+bot-army-shell adds context awareness to your terminal.
+[dim]• Ctrl+B menu[-]       Quick access to Bot Army commands and status
+[dim]• Auto-detection[-]     Detects when you enter bot directories
+[dim]• Smart suggestions[-]  Recommends relevant operations
+You can install this later via make shell-install.`
+
+	w.setContent(list, 8, "Space:toggle  Enter:save  Esc:cancel", helpText)
 
 	if err := w.app.Run(); err != nil {
 		return err
@@ -789,6 +865,64 @@ func (w *WizardTUI) stepConfigureTerminalContext() error {
 	}
 	if !done {
 		return fmt.Errorf("step 8 cancelled")
+	}
+
+	return nil
+}
+
+// stepConfigureVolumes runs Step 9: configure custom volume mounts.
+func (w *WizardTUI) stepConfigureVolumes() error {
+	w.currentStep = 9
+
+	form := tview.NewForm()
+	form.SetBorder(true).
+		SetTitle(" Configure Custom Volume Mounts (Optional)  Enter:save  Esc:skip ").
+		SetTitleAlign(tview.AlignLeft)
+
+	// Input fields for a single volume mount (can add more by editing docker-compose.yml later)
+	sourceInput := ""
+	destInput := ""
+
+	form.AddInputField("Host Path (e.g., /Users/you/data)", "", 60, nil, func(text string) {
+		sourceInput = text
+	})
+
+	form.AddInputField("Container Path (e.g., /data)", "", 60, nil, func(text string) {
+		destInput = text
+	})
+
+	form.AddButton("Add Mount", func() {
+		if sourceInput != "" && destInput != "" {
+			w.cfg.CustomMounts = append(w.cfg.CustomMounts, CustomMount{
+				Source:      sourceInput,
+				Destination: destInput,
+			})
+		}
+		w.app.Stop()
+	})
+
+	form.AddButton("Skip", func() {
+		w.cfg.CustomMounts = nil
+		w.app.Stop()
+	})
+
+	helpText := `[yellow]💡 Custom Volume Mounts[-]
+Volumes let containers access your computer's files and folders.
+[dim]• Host Path[-]           Full path on your computer (e.g., /Users/you/projects)
+[dim]• Container Path[-]      Where it appears inside the container (e.g., /projects)
+Examples:
+  /Users/you/data → /data           Share a data folder
+  /Users/you/.ssh → /root/.ssh      Share SSH keys for git
+Leave both empty to skip. Add more volumes later by editing docker-compose.yml.`
+
+	w.setContent(form, 9, "Tab:next field  Enter:add  Esc:skip", helpText)
+
+	if err := w.app.Run(); err != nil {
+		return err
+	}
+
+	if w.result != nil {
+		return w.result
 	}
 
 	return nil
@@ -818,6 +952,22 @@ func (w *WizardTUI) stepReviewAndConfirm() error {
 	for _, p := range w.cfg.SelectedProviders {
 		summary += "  • " + p.Label + "\n"
 	}
+
+	if len(w.cfg.CustomMounts) > 0 {
+		summary += "\n[cyan]Custom Volume Mounts[-]\n"
+		for _, mount := range w.cfg.CustomMounts {
+			summary += "  • " + mount.Source + " → " + mount.Destination + "\n"
+		}
+	}
+
+	summary += "\n[cyan]Integration Flags[-]\n"
+	enabledCount := 0
+	for _, enabled := range w.cfg.EnabledIntegrations {
+		if enabled {
+			enabledCount++
+		}
+	}
+	summary += "  " + fmt.Sprintf("%d of 8 integrations enabled\n", enabledCount)
 
 	summary += "\n[cyan]Build Your Own Bot[-]\n"
 	summary += "A Bot Army bot is an Elixir/OTP GenServer app that subscribes to\n"
@@ -862,7 +1012,12 @@ func (w *WizardTUI) stepReviewAndConfirm() error {
 		return ev
 	})
 
-	w.setContent(review, 6, "Enter:start setup  Esc:back  q:quit")
+	helpText := `[yellow]💡 Review Your Configuration[-]
+This is your final chance to review all settings before creating docker-compose.yml.
+[dim]✓[-] Press [green]Enter[-] to create the configuration and start Bot Army
+[dim]✗[-] Press [yellow]Esc[-] to go back and make changes`
+
+	w.setContent(review, 10, "Enter:start setup  Esc:back  q:quit", helpText)
 
 	if err := w.app.Run(); err != nil {
 		return err
