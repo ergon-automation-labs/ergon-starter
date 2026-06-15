@@ -24,13 +24,18 @@ func generateEnvFile(cfg *Config) error {
 	}
 	b.WriteString("\n")
 
-	// Postgres (internal — bots use these inside Docker network)
+	// Postgres (internal — bots use PgBouncer for connection pooling)
 	b.WriteString("# PostgreSQL (internal)\n")
 	b.WriteString("POSTGRES_PASSWORD=postgres\n")
-	b.WriteString("DATABASE_HOST=postgres\n")
-	b.WriteString("DATABASE_PORT=5432\n")
+	b.WriteString("DATABASE_HOST=pgbouncer\n")
+	b.WriteString("DATABASE_PORT=6432\n")
 	b.WriteString("DATABASE_USER=postgres\n")
 	b.WriteString("DATABASE_PASSWORD=postgres\n\n")
+
+	// PgBouncer (connection pooling)
+	b.WriteString("# PgBouncer (internal)\n")
+	b.WriteString("PGBOUNCER_HOST=pgbouncer\n")
+	b.WriteString("PGBOUNCER_PORT=6432\n\n")
 
 	// NATS (internal)
 	b.WriteString("# NATS (internal)\n")
@@ -268,6 +273,36 @@ func generatePackComposeFile(cfg *Config) error {
       retries: 5
 
 `, cfg.Ports.Postgres))
+
+		// PgBouncer (connection pooling for 50+ bots)
+		if needsDB {
+			b.WriteString(`  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database connections to backend PostgreSQL
+      DATABASES: "postgres=host=postgres port=5432 dbname=postgres, ergon_gtd=host=postgres port=5432 dbname=ergon_gtd, ergon_freelance=host=postgres port=5432 dbname=ergon_freelance, ergon_job_applications=host=postgres port=5432 dbname=ergon_job_applications"
+      PGBOUNCER_POOL_MODE: "transaction"
+      PGBOUNCER_MAX_CLIENT_CONN: "500"
+      PGBOUNCER_DEFAULT_POOL_SIZE: "30"
+      PGBOUNCER_MIN_POOL_SIZE: "10"
+      PGBOUNCER_RESERVE_POOL_SIZE: "5"
+      PGBOUNCER_AUTH_TYPE: "plain"
+      PGBOUNCER_ADMIN_USERS: "postgres"
+      PGBOUNCER_STATS_USERS: "postgres"
+    ports:
+      - "6432:6432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "psql", "-h", "localhost", "-U", "postgres", "-c", "SELECT 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+`)
+		}
 	}
 
 	// Ollama
@@ -368,14 +403,14 @@ func generatePackComposeFile(cfg *Config) error {
 		// Dependencies
 		deps := []string{"nats"}
 		if needsDB {
-			deps = append(deps, "postgres")
+			deps = append(deps, "pgbouncer")
 		}
 		if cfg.SelfHostOllama {
 			deps = append(deps, "ollama")
 		}
 		b.WriteString("    depends_on:\n")
 		for _, dep := range deps {
-			if dep == "postgres" {
+			if dep == "pgbouncer" || dep == "postgres" {
 				b.WriteString(fmt.Sprintf("      %s:\n        condition: service_healthy\n", dep))
 			} else {
 				b.WriteString(fmt.Sprintf("      %s:\n        condition: service_started\n", dep))
@@ -518,6 +553,36 @@ func generateBotComposeFile(cfg *Config) error {
       retries: 5
 
 `, cfg.Ports.Postgres))
+
+		// PgBouncer (connection pooling for 50+ bots)
+		if needsDB {
+			b.WriteString(`  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database connections to backend PostgreSQL
+      DATABASES: "postgres=host=postgres port=5432 dbname=postgres, ergon_gtd=host=postgres port=5432 dbname=ergon_gtd, ergon_freelance=host=postgres port=5432 dbname=ergon_freelance, ergon_job_applications=host=postgres port=5432 dbname=ergon_job_applications"
+      PGBOUNCER_POOL_MODE: "transaction"
+      PGBOUNCER_MAX_CLIENT_CONN: "500"
+      PGBOUNCER_DEFAULT_POOL_SIZE: "30"
+      PGBOUNCER_MIN_POOL_SIZE: "10"
+      PGBOUNCER_RESERVE_POOL_SIZE: "5"
+      PGBOUNCER_AUTH_TYPE: "plain"
+      PGBOUNCER_ADMIN_USERS: "postgres"
+      PGBOUNCER_STATS_USERS: "postgres"
+    ports:
+      - "6432:6432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "psql", "-h", "localhost", "-U", "postgres", "-c", "SELECT 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+`)
+		}
 	}
 
 	// Ollama
@@ -580,14 +645,14 @@ func generateBotComposeFile(cfg *Config) error {
 
 		deps := []string{"nats"}
 		if bot.NeedsDB {
-			deps = append(deps, "postgres")
+			deps = append(deps, "pgbouncer")
 		}
 		if cfg.SelfHostOllama {
 			deps = append(deps, "ollama")
 		}
 		b.WriteString("    depends_on:\n")
 		for _, dep := range deps {
-			if dep == "postgres" {
+			if dep == "pgbouncer" || dep == "postgres" {
 				b.WriteString(fmt.Sprintf("      %s:\n        condition: service_healthy\n", dep))
 			} else {
 				b.WriteString(fmt.Sprintf("      %s:\n        condition: service_started\n", dep))
