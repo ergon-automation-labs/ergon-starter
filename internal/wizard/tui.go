@@ -197,14 +197,14 @@ func (w *WizardTUI) stepSelectPack() error {
 	})
 
 	helpText := `[yellow]💡 What are Starter Packs?[-]
-Packs are pre-configured bundles of bots with common integrations. All packs include the LLM proxy.
+Packs are pre-configured bundles of bots with common integrations. All packs include required libraries and LLM proxy.
 
 [dim]• Core[-]          GTD, Dispatcher, PARA, Bridge - the essential workflow system
 [dim]• Social Media[-]  Core + Discord/Synapse bridge for chat platforms
 [dim]• Learning[-]      Core + Research tools and learning management
 [dim]• Areas[-]         Core + Area-specific bots (Fitness, Chore, RPG)
 [dim]• Research[-]      Core + Job search and feed management tools
-[dim]• Custom[-]        Skip packs and pick individual bots yourself`
+[dim]• Custom[-]        Skip packs and pick individual bots yourself (required libs always included)`
 
 	w.setContent(list, 1, "↑↓:nav  Space:toggle  s:skip  Enter:next  Esc:cancel  q:quit", helpText)
 
@@ -377,7 +377,7 @@ func (w *WizardTUI) stepSelectBots() error {
 	helpText := `[yellow]💡 About Bots[-]
 Each bot is a specialized service that handles a specific function. You can customize your system by selecting the bots you need.
 
-[dim]• LLM Proxy (required)[-]      Powers all AI features - always included
+[dim]• Required bots[-]             Foundation libraries + LLM proxy (locked, can't be removed)
 [dim]• Pack-included bots[-]        Auto-selected from your chosen pack(s) above
 [dim]• Optional bots[-]             Toggle with Space to add/remove as needed
 [dim]• Tip[-]                       Unselect pack bots you don't want, add experimental bots to explore`

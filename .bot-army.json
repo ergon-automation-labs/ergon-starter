@@ -1,0 +1,46 @@
+{
+  "selected_bots": [
+    "library_core",
+    "library_runtime",
+    "llm",
+    "library_learning",
+    "skills",
+    "general",
+    "internal_docs"
+  ],
+  "selected_packs": [],
+  "providers": [
+    "ollama"
+  ],
+  "provider_chain": "ollama",
+  "self_host_ollama": false,
+  "enable_otlp": true,
+  "enabled_integrations": {
+    "BRIDGE": true,
+    "CONTEXT": true,
+    "DISPATCHER": true,
+    "GTD": true,
+    "LLM": true,
+    "NOTIFICATION": true,
+    "PARA": true,
+    "SYNAPSE": true
+  },
+  "env_values": {
+    "OLLAMA_BASE_URL": "http://host.docker.internal:114341",
+    "OLLAMA_MODEL_LIGHT": "ministral-3:8b",
+    "OLLAMA_MODEL_MEDIUM": "ministral-3:8b-cloud"
+  },
+  "ports": {
+    "NATS": "54222",
+    "NATSMonitor": "58222",
+    "Postgres": "55432",
+    "Ollama": "51434",
+    "MCP": "39900",
+    "Registry": "32000",
+    "GitHubWebhook": "39904"
+  },
+  "dev_mode": false,
+  "custom_bots": null,
+  "custom_mounts": null,
+  "terminal_context": true
+}

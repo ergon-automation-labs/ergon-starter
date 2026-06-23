@@ -6,10 +6,11 @@
     "release_name": "library_core_bot",
     "category": "core",
     "description": "Core library providing foundation services and utilities for all bots",
-    "required": false,
+    "required": true,
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": []
   },
   {
     "name": "library_runtime",
@@ -18,10 +19,11 @@
     "release_name": "library_runtime_bot",
     "category": "core",
     "description": "Runtime library for executing bot logic and managing bot lifecycles",
-    "required": false,
+    "required": true,
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": []
   },
   {
     "name": "llm",
@@ -33,7 +35,8 @@
     "required": true,
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": []
   },
   {
     "name": "library_learning",
@@ -42,10 +45,11 @@
     "release_name": "library_learning_bot",
     "category": "core",
     "description": "Learning library for knowledge management and skill development",
-    "required": false,
+    "required": true,
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": []
   },
   {
     "name": "gtd",
@@ -57,7 +61,8 @@
     "required": false,
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": []
   },
   {
     "name": "para",
@@ -69,7 +74,8 @@
     "required": false,
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": []
   },
   {
     "name": "dispatcher",
@@ -81,7 +87,8 @@
     "required": false,
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": []
   },
   {
     "name": "synapse",
@@ -93,7 +100,10 @@
     "required": false,
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": [
+      "~/.ssh:/root/.ssh:ro"
+    ]
   },
   {
     "name": "bridge_lite",
@@ -105,7 +115,8 @@
     "required": false,
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": []
   },
   {
     "name": "job_scheduler",
@@ -117,7 +128,8 @@
     "required": false,
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": []
   },
   {
     "name": "skills",
@@ -129,7 +141,8 @@
     "required": false,
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": []
   },
   {
     "name": "surface_mcp",
@@ -141,7 +154,8 @@
     "required": false,
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": []
   },
   {
     "name": "elixir_tools_mcp",
@@ -153,7 +167,8 @@
     "required": false,
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": []
   },
   {
     "name": "general",
@@ -165,7 +180,8 @@
     "required": false,
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": []
   },
   {
     "name": "graphify_cache",
@@ -177,7 +193,8 @@
     "required": false,
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": []
   },
   {
     "name": "youtube_manager",
@@ -189,7 +206,10 @@
     "required": false,
     "stability": "experimental",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": [
+      "~/Videos:/videos"
+    ]
   },
   {
     "name": "media_ingestion",
@@ -201,7 +221,11 @@
     "required": false,
     "stability": "experimental",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": [
+      "~/Downloads:/downloads",
+      "~/Documents/media:/media"
+    ]
   },
   {
     "name": "terrain",
@@ -213,7 +237,10 @@
     "required": false,
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": [
+      "~/Documents/learning:/learning"
+    ]
   },
   {
     "name": "internal_docs",
@@ -225,7 +252,10 @@
     "required": false,
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": [
+      "~/Documents/docs:/docs"
+    ]
   },
   {
     "name": "fitness",
@@ -237,7 +267,8 @@
     "required": false,
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": []
   },
   {
     "name": "chore",
@@ -249,7 +280,8 @@
     "required": false,
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": []
   },
   {
     "name": "rpg",
@@ -261,7 +293,8 @@
     "required": false,
     "stability": "stable",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": []
   },
   {
     "name": "feeds",
@@ -273,7 +306,8 @@
     "required": false,
     "stability": "experimental",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": []
   },
   {
     "name": "rss_polling",
@@ -285,7 +319,8 @@
     "required": false,
     "stability": "experimental",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": []
   },
   {
     "name": "job_applications",
@@ -297,6 +332,9 @@
     "required": false,
     "stability": "experimental",
     "channel": "stable",
-    "channel_ref": "stable"
+    "channel_ref": "stable",
+    "volumes": [
+      "~/Documents/job-search:/job-search"
+    ]
   }
 ]
