@@ -16,6 +16,8 @@ type Bot struct {
 	Version     string   `json:"version"`
 	NeedsDB     bool     `json:"needs_db"`
 	Category    string   `json:"category"`
+	Description string   `json:"description"`
+	Required    bool     `json:"required"`
 	EnvVars     []EnvVar `json:"env_vars"`
 	InstallNote string   `json:"install_note,omitempty"`
 	Volumes     []string `json:"volumes,omitempty"`
@@ -26,7 +28,7 @@ func (b Bot) DisplayName() string {
 }
 
 func (b Bot) IsCore() bool {
-	return b.Category == "core" || b.Category == "primary"
+	return b.Required
 }
 
 type EnvVar struct {

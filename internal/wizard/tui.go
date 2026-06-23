@@ -197,13 +197,14 @@ func (w *WizardTUI) stepSelectPack() error {
 	})
 
 	helpText := `[yellow]💡 What are Starter Packs?[-]
-Packs are pre-configured bundles of bots with common integrations.
-[dim]• Core[-]          Essential system (GTD, LLM, Dispatcher, PARA)
-[dim]• Social Media[-]  Core + Discord/Synapse integration
-[dim]• Learning[-]      Core + Learning bot for research
-[dim]• Areas[-]         Core + Area-specific bots
-[dim]• Research[-]      Core + Research tools
-[dim]• Custom[-]        Pick individual bots yourself`
+Packs are pre-configured bundles of bots with common integrations. All packs include the LLM proxy.
+
+[dim]• Core[-]          GTD, Dispatcher, PARA, Bridge - the essential workflow system
+[dim]• Social Media[-]  Core + Discord/Synapse bridge for chat platforms
+[dim]• Learning[-]      Core + Research tools and learning management
+[dim]• Areas[-]         Core + Area-specific bots (Fitness, Chore, RPG)
+[dim]• Research[-]      Core + Job search and feed management tools
+[dim]• Custom[-]        Skip packs and pick individual bots yourself`
 
 	w.setContent(list, 1, "↑↓:nav  Space:toggle  s:skip  Enter:next  Esc:cancel  q:quit", helpText)
 
@@ -320,7 +321,11 @@ func (w *WizardTUI) stepSelectBots() error {
 			if packName != "" {
 				packLabel = " [dim][" + packName + "][-]"
 			}
-			list.AddItem(prefix+b.Name+packLabel, b.App, 0, nil)
+			desc := b.Description
+			if desc == "" {
+				desc = b.App
+			}
+			list.AddItem(prefix+b.Name+packLabel, desc, 0, nil)
 		}
 	}
 	redraw()
@@ -370,10 +375,12 @@ func (w *WizardTUI) stepSelectBots() error {
 	})
 
 	helpText := `[yellow]💡 About Bots[-]
-Each bot is a specialized service that handles a specific function.
-[dim]• Core bots[-]      Always required (GTD, LLM, Dispatcher, PARA, Bridge, etc)
-[dim]• Pack bots[-]      Included if you selected a pack above
-[dim]• Toggle to add/remove optional bots to customize your system`
+Each bot is a specialized service that handles a specific function. You can customize your system by selecting the bots you need.
+
+[dim]• LLM Proxy (required)[-]      Powers all AI features - always included
+[dim]• Pack-included bots[-]        Auto-selected from your chosen pack(s) above
+[dim]• Optional bots[-]             Toggle with Space to add/remove as needed
+[dim]• Tip[-]                       Unselect pack bots you don't want, add experimental bots to explore`
 
 	w.setContent(list, 2, "↑↓:nav  Space:toggle  Enter:next  Esc:cancel  q:quit", helpText)
 
@@ -467,11 +474,12 @@ func (w *WizardTUI) stepConfigureIntegrations() error {
 	})
 
 	helpText := `[yellow]💡 About Integrations[-]
-Some features are optional and only needed if you use certain bots.
-[dim]• Greyed items[-]    Required (always enabled, can't be changed)
-[dim]• Green items[-]     Enabled because you selected a bot that needs them
-[dim]• Empty items[-]     Disabled (toggle with Space to override)
-You can disable integrations to reduce resource usage.`
+Integrations enable features needed by certain bots. Disable unwanted integrations to reduce resource usage.
+
+[dim]• Greyed items[-]      Required integrations (can't be changed)
+[dim]• Green items[-]       Auto-enabled because you selected a bot that uses them
+[dim]• Unchecked items[-]   Optional integrations (toggle with Space)
+[dim]• Tip[-]               Each integration can be toggled independently to customize your system`
 
 	w.setContent(list, 3, "↑↓:nav  Space:toggle  Enter:next  Esc:cancel", helpText)
 
@@ -517,12 +525,13 @@ func (w *WizardTUI) stepConfigurePorts() error {
 	})
 
 	helpText := `[yellow]💡 About Ports[-]
-These are the TCP ports on your computer where services will listen.
-[dim]• NATS (4222)[-]          Message broker - how bots communicate
-[dim]• Postgres (5432)[-]      Database - where bot data is stored
-[dim]• Ollama (11434)[-]       Local LLM - only if using self-hosted AI
-[dim]• MCP Server (39900)[-]   Claude Desktop integration port
-Change if you have other services using these ports.`
+These TCP ports on your computer allow services to communicate. Change them only if you have port conflicts.
+
+[dim]• NATS (4222)[-]          Message broker - enables bots to send messages to each other
+[dim]• Postgres (5432)[-]      Database - persistent storage for bot state and data
+[dim]• Ollama (11434)[-]       Local LLM server - only needed if self-hosting AI models
+[dim]• MCP Server (39900)[-]   Claude Desktop integration - for using bots in Claude MCP
+[dim]• Tip[-]                  If a port is already in use, pick a different one (e.g. 54222 instead of 4222)`
 
 	w.setContent(form, 4, "Enter:save  Esc:cancel", helpText)
 
@@ -575,9 +584,12 @@ func (w *WizardTUI) stepConfigureGitHub() error {
 	})
 
 	helpText := `[yellow]💡 GitHub Integration (Optional)[-]
-[dim]Token[-]    A GitHub personal access token for private repository access
-[dim]Secret[-]   A random string to secure GitHub webhooks (min 8 characters)
-Leave blank to skip GitHub integration. You can add it later.`
+Enable GitHub webhooks to automatically update bots when repositories change. This is optional.
+
+[dim]Token[-]    GitHub personal access token for private repo access (create at github.com/settings/tokens)
+[dim]Secret[-]   Random string to secure GitHub webhooks (min 8 characters - use anything, e.g., "mysecret123")
+
+Leave both blank to skip. You can add this later by editing .env and docker-compose.yml.`
 
 	w.setContent(form, 5, "Enter:save  Esc:skip  GitHub webhook is optional", helpText)
 
@@ -667,11 +679,13 @@ func (w *WizardTUI) stepSelectProviders() error {
 	})
 
 	helpText := `[yellow]💡 LLM Providers[-]
-These are AI services that power Bot Army's intelligent features.
-[dim]• Ollama[-]        Free, local AI model (recommended for learning)
-[dim]• OpenRouter[-]    Access to many models via single API (like Claude)
-[dim]• Anthropic[-]     Official Claude API for production use
-You can select multiple providers - the first available will be used.`
+Select AI services that power Bot Army's intelligent features. The system will try providers in order.
+
+[dim]• Ollama[-]        Free local AI model - runs on your computer (great for learning)
+[dim]• OpenRouter[-]    Access to many models (Claude, GPT, Llama, etc) via single API
+[dim]• Anthropic[-]     Official Claude API - best for production use
+[dim]• OpenAI[-]        GPT models - alternative high-quality provider
+[dim]• Tip[-]           You can select multiple providers - they act as fallbacks if one fails`
 
 	w.setContent(list, 6, "↑↓:nav  Space:toggle  Enter:next  Esc:cancel  q:quit", helpText)
 
@@ -907,13 +921,17 @@ func (w *WizardTUI) stepConfigureVolumes() error {
 	})
 
 	helpText := `[yellow]💡 Custom Volume Mounts[-]
-Volumes let containers access your computer's files and folders.
+Volumes let containers access your computer's files and folders. This is optional - you can add mounts later.
+
 [dim]• Host Path[-]           Full path on your computer (e.g., /Users/you/projects)
 [dim]• Container Path[-]      Where it appears inside the container (e.g., /projects)
+
 Examples:
-  /Users/you/data → /data           Share a data folder
-  /Users/you/.ssh → /root/.ssh      Share SSH keys for git
-Leave both empty to skip. Add more volumes later by editing docker-compose.yml.`
+  /Users/you/data → /data                 Share a data folder with bots
+  /Users/you/.ssh → /root/.ssh            Share SSH keys for git operations
+  /Users/you/Documents → /workspace       Share your documents folder
+
+Leave both fields empty to skip. You can always add volumes later by editing docker-compose.yml.`
 
 	w.setContent(form, 9, "Tab:next field  Enter:add  Esc:skip", helpText)
 
@@ -1013,9 +1031,11 @@ func (w *WizardTUI) stepReviewAndConfirm() error {
 	})
 
 	helpText := `[yellow]💡 Review Your Configuration[-]
-This is your final chance to review all settings before creating docker-compose.yml.
-[dim]✓[-] Press [green]Enter[-] to create the configuration and start Bot Army
-[dim]✗[-] Press [yellow]Esc[-] to go back and make changes`
+Review all settings below before creating your Bot Army installation. This is your final chance to make changes.
+
+[dim]✓[-] Press [green]Enter[-] to create docker-compose.yml, download bot repos, and start the system
+[dim]✗[-] Press [yellow]Esc[-] to go back and modify any settings
+[dim]Next steps[-] After setup completes, run [green]docker compose up -d[-] to start all services`
 
 	w.setContent(review, 10, "Enter:start setup  Esc:back  q:quit", helpText)
 

@@ -1,6 +1,6 @@
 # Bot Army Starter
 
-Get the Bot Army ecosystem running on any machine with Docker.
+Get the Bot Army ecosystem running on any machine with Docker. The **LLM proxy is the only required core service** — everything else is optional.
 
 ## One-Click Install
 
@@ -11,14 +11,24 @@ curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/ergon-starter
 ```
 
 This launches an interactive 6-step wizard:
-1. **Select a Starter Pack** — Choose from Primary (8 core bots), Background (10 domain bots), Infrastructure (10 support services), or Custom
-2. **Select Bots** — Multi-select with pack labels showing which bots belong to which pack
+1. **Select a Starter Pack** — Choose from Core (GTD + essentials), Social Media (+ chat bridges), Learning (+ research tools), Areas (+ domain bots), Research (+ job/feed management), or Custom
+2. **Select Bots** — Multi-select with descriptions. LLM proxy is always required (locks automatically). Choose other bots a la carte.
 3. **Configure Ports** — NATS (default 54222), Monitor (58222), PostgreSQL (55432), Ollama (51434)
-4. **Select LLM Providers** — Ollama, Anthropic, OpenAI, OpenRouter (pick one or more)
+4. **Select LLM Providers** — Ollama (local), Anthropic (Claude), OpenAI (GPT), OpenRouter (multi-provider) — pick one or more
 5. **Configure Environment Variables** — API keys, model names, custom settings per provider
-6. **Review Configuration** — Summary + template guide for building custom bots
+6. **Review Configuration** — Summary of all services and how to start them
 
-**Configuration persists** across restarts via `.bot-army.json`, so subsequent runs can skip the wizard.
+**Configuration persists** across restarts via `.bot-army.json`, so you can run the wizard again to modify settings.
+
+### Dependency Model
+
+- **LLM Proxy (required)** — Provides unified access to language models. All other bots need this.
+- **Everything else (optional)** — Pick bots based on your use case:
+  - **Workflow**: GTD, Dispatcher, PARA, Bridge → task management and automation
+  - **Chat**: Synapse, Discord integration → connect to external platforms
+  - **Learning**: Terrain, Internal Docs, Graphify Cache → knowledge management
+  - **Lifestyle**: Fitness, Chore, RPG → personal area bots
+  - **Research**: Feeds, Job Applications, RSS Polling → content aggregation
 
 For headless setup (core bots + Ollama, no prompts):
 ```bash
@@ -102,12 +112,33 @@ make dashboard
 # Live Fleet, Logs, NATS, System stats
 ```
 
+## Wizard Features
+
+### Bot Descriptions
+Each bot in the wizard shows a description explaining what it does:
+- **LLM Proxy**: "LLM proxy providing unified access to language models (required for bot system)"
+- **GTD**: "Getting Things Done task management system for organizing work and projects"
+- **Fitness**: "Fitness tracking and health management for personal wellness"
+- And so on...
+
+These descriptions help you understand what each bot does before selecting it.
+
+### Interactive Help Text
+Each wizard screen includes elaborate help text:
+- **Starter Packs**: Explains what each pack includes and the dependency model
+- **Bot Selection**: Shows which bots are required vs optional, and descriptions for each
+- **LLM Providers**: Details on each provider (local Ollama vs cloud services)
+- **Ports & Volumes**: Clear instructions with examples
+- **Review**: Summary of your choices before creating the system
+
+Press `?` or check the screen header for help during the wizard.
+
 ## Commands
 
 | Command | What it does |
 |---------|-------------|
 | `make quickstart` | Interactive 6-step wizard → builds CLI → clones bots → starts dashboard |
-| `make quickstart-default` | Headless setup: core bots + Ollama (no prompts) |
+| `make quickstart-default` | Headless setup: LLM proxy + essentials + Ollama (no prompts) |
 | `make build` | Build bot-army CLI only (for development) |
 | `make up` | Start docker compose services |
 | `make down` | Stop services |

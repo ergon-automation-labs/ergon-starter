@@ -5,6 +5,8 @@
     "remote": "ergon-library-core",
     "release_name": "library_core_bot",
     "category": "core",
+    "description": "Core library providing foundation services and utilities for all bots",
+    "required": false,
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable"
@@ -15,6 +17,8 @@
     "remote": "ergon-library-runtime",
     "release_name": "library_runtime_bot",
     "category": "core",
+    "description": "Runtime library for executing bot logic and managing bot lifecycles",
+    "required": false,
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable"
@@ -25,6 +29,8 @@
     "remote": "ergon-llm",
     "release_name": "llm_bot",
     "category": "core",
+    "description": "LLM proxy providing unified access to language models (required for bot system)",
+    "required": true,
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable"
@@ -35,6 +41,8 @@
     "remote": "ergon-library-learning",
     "release_name": "library_learning_bot",
     "category": "core",
+    "description": "Learning library for knowledge management and skill development",
+    "required": false,
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable"
@@ -45,6 +53,8 @@
     "remote": "ergon-gtd",
     "release_name": "gtd_bot",
     "category": "core",
+    "description": "Getting Things Done task management system for organizing work and projects",
+    "required": false,
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable"
@@ -55,6 +65,8 @@
     "remote": "ergon-para",
     "release_name": "para_bot",
     "category": "core",
+    "description": "PARA system implementation for organizing projects, areas, resources, and archives",
+    "required": false,
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable"
@@ -65,6 +77,8 @@
     "remote": "ergon-dispatcher",
     "release_name": "dispatcher_bot",
     "category": "core",
+    "description": "Dispatcher routes and coordinates messages between bots and services",
+    "required": false,
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable"
@@ -75,6 +89,8 @@
     "remote": "ergon-synapse-lite",
     "release_name": "synapse_bot",
     "category": "core",
+    "description": "Synapse bridges external platforms (Slack, Discord, etc.) with the bot ecosystem",
+    "required": false,
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable"
@@ -85,6 +101,8 @@
     "remote": "ergon-bridge-lite",
     "release_name": "bridge_lite_bot",
     "category": "core",
+    "description": "Lightweight message bridge for connecting bot services",
+    "required": false,
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable"
@@ -95,6 +113,8 @@
     "remote": "ergon-job_scheduler",
     "release_name": "job_scheduler_bot",
     "category": "core",
+    "description": "Scheduler for running bot jobs and automated tasks on a schedule",
+    "required": false,
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable"
@@ -105,6 +125,8 @@
     "remote": "ergon-skills-base",
     "release_name": "skills_bot",
     "category": "core",
+    "description": "Skills management and execution framework for bot capabilities",
+    "required": false,
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable"
@@ -115,6 +137,8 @@
     "remote": "ergon-mcp",
     "release_name": "surface_mcp_bot",
     "category": "core",
+    "description": "MCP surface providing Claude and AI tool integration interface",
+    "required": false,
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable"
@@ -125,6 +149,8 @@
     "remote": "ergon-elixir-tools-mcp_server",
     "release_name": "elixir_tools_mcp_bot",
     "category": "core",
+    "description": "Elixir tools MCP server for development and debugging support",
+    "required": false,
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable"
@@ -135,6 +161,8 @@
     "remote": "ergon-general",
     "release_name": "general_bot",
     "category": "core",
+    "description": "General-purpose bot for miscellaneous tasks and utilities",
+    "required": false,
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable"
@@ -145,6 +173,8 @@
     "remote": "ergon-graphify-cache",
     "release_name": "graphify_cache_bot",
     "category": "core",
+    "description": "Graph knowledge cache for semantic search and reasoning",
+    "required": false,
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable"
@@ -155,6 +185,8 @@
     "remote": "ergon-youtube_manager",
     "release_name": "youtube_manager_bot",
     "category": "social_media",
+    "description": "Manages YouTube channel interactions and content management",
+    "required": false,
     "stability": "experimental",
     "channel": "stable",
     "channel_ref": "stable"
@@ -165,6 +197,8 @@
     "remote": "ergon-media_ingestion",
     "release_name": "media_ingestion_bot",
     "category": "social_media",
+    "description": "Ingests and processes media from various sources",
+    "required": false,
     "stability": "experimental",
     "channel": "stable",
     "channel_ref": "stable"
@@ -175,6 +209,8 @@
     "remote": "ergon-terrain",
     "release_name": "terrain_bot",
     "category": "learning_deepdive",
+    "description": "Terrain system for deep learning and skill development paths",
+    "required": false,
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable"
@@ -185,6 +221,8 @@
     "remote": "ergon-internal_docs",
     "release_name": "internal_docs_bot",
     "category": "learning_deepdive",
+    "description": "Internal documentation system for knowledge management",
+    "required": false,
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable"
@@ -195,6 +233,8 @@
     "remote": "ergon-fitness",
     "release_name": "fitness_bot",
     "category": "areas",
+    "description": "Fitness tracking and health management for personal wellness",
+    "required": false,
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable"
@@ -205,6 +245,8 @@
     "remote": "ergon-chore",
     "release_name": "chore_bot",
     "category": "areas",
+    "description": "Household chore management and scheduling",
+    "required": false,
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable"
@@ -215,6 +257,8 @@
     "remote": "ergon-rpg",
     "release_name": "rpg_bot",
     "category": "areas",
+    "description": "RPG gamification system for gamified task management",
+    "required": false,
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable"
@@ -225,6 +269,8 @@
     "remote": "ergon-feeds",
     "release_name": "feeds_bot",
     "category": "research",
+    "description": "Feed aggregation and content curation from multiple sources",
+    "required": false,
     "stability": "experimental",
     "channel": "stable",
     "channel_ref": "stable"
@@ -235,6 +281,8 @@
     "remote": "ergon-rss_polling",
     "release_name": "rss_polling_bot",
     "category": "research",
+    "description": "RSS feed polling and update detection",
+    "required": false,
     "stability": "experimental",
     "channel": "stable",
     "channel_ref": "stable"
@@ -245,6 +293,8 @@
     "remote": "ergon-job_applications",
     "release_name": "job_applications_bot",
     "category": "research",
+    "description": "Job application tracking and management system",
+    "required": false,
     "stability": "experimental",
     "channel": "stable",
     "channel_ref": "stable"
