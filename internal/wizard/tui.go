@@ -2,6 +2,7 @@ package wizard
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -893,7 +894,44 @@ func (w *WizardTUI) stepConfigureVolumes() error {
 		SetTitle(" Configure Custom Volume Mounts (Optional)  Enter:save  Esc:skip ").
 		SetTitleAlign(tview.AlignLeft)
 
-	// Input fields for a single volume mount (can add more by editing docker-compose.yml later)
+	// Collect recommended volumes from selected bots
+	recommendedVolumes := make(map[string]string) // path -> bot name
+	for _, bot := range w.cfg.SelectedBots {
+		for _, vol := range bot.Volumes {
+			if vol != "" {
+				recommendedVolumes[vol] = bot.Name
+			}
+		}
+	}
+
+	// Display recommended volumes
+	if len(recommendedVolumes) > 0 {
+		form.AddTextView("Recommended Volumes (from selected bots):", "", 60, 1, true, false)
+		volText := ""
+		for vol, botName := range recommendedVolumes {
+			volText += fmt.Sprintf("  %s (%s)\n", vol, botName)
+		}
+		form.AddTextView(volText, "", 60, len(recommendedVolumes)+1, false, false)
+		form.AddButton("Accept Recommended", func() {
+			for vol := range recommendedVolumes {
+				parts := strings.Split(vol, ":")
+				if len(parts) >= 2 {
+					source := parts[0]
+					dest := parts[1]
+					if len(parts) > 2 {
+						dest = parts[1] + ":" + parts[2]
+					}
+					w.cfg.CustomMounts = append(w.cfg.CustomMounts, CustomMount{
+						Source:      source,
+						Destination: dest,
+					})
+				}
+			}
+			w.app.Stop()
+		})
+	}
+
+	// Input fields for custom volume mount
 	sourceInput := ""
 	destInput := ""
 
@@ -905,7 +943,7 @@ func (w *WizardTUI) stepConfigureVolumes() error {
 		destInput = text
 	})
 
-	form.AddButton("Add Mount", func() {
+	form.AddButton("Add Custom Mount", func() {
 		if sourceInput != "" && destInput != "" {
 			w.cfg.CustomMounts = append(w.cfg.CustomMounts, CustomMount{
 				Source:      sourceInput,
@@ -916,7 +954,9 @@ func (w *WizardTUI) stepConfigureVolumes() error {
 	})
 
 	form.AddButton("Skip", func() {
-		w.cfg.CustomMounts = nil
+		if len(w.cfg.CustomMounts) == 0 {
+			w.cfg.CustomMounts = nil
+		}
 		w.app.Stop()
 	})
 
