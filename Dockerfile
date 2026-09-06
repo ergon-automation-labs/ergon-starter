@@ -60,15 +60,16 @@ ARG BOT_NAME
 ARG BOT_REPO
 ARG MIX_ENV=prod
 
-# P9: bake the library's NATS default at build time. Library config.exs is
-# evaluated during the build (Mix loads deps' configs at compile time) and
-# System.get_env here resolves to the DEV default localhost:4223 when the
-# build has no NATS env — which is the case in Docker. Bots whose runtime.exs
-# re-applies NATS config at boot override this (they connect either way),
-# but bots WITHOUT that block dial the baked localhost:4223 forever
-# ("Connection failed, retrying"), leaving their slice of the fleet dark.
-# Bake the compose topology instead: the generated stack always runs NATS
-# at service name "nats" on 4222 (runtime .env sets the same values).
+# P9: NATS config for the library is boot-time-reapplied by bots whose
+# runtime.exs contains a `config :bot_army_library_runtime, :nats` block —
+# but bots WITHOUT that block use the library's dev default (localhost:4223)
+# and never connect inside Docker (nats:4222 reachable, localhost:4223
+# refused). Build-time ENV here did NOT fix it (deps' config.exs terms don't
+# reach the release's sys.config — proven by experiment, a15d3db). The
+# mechanism that demonstrably works is a boot-time overlay, appended below
+# after the full-source COPY so it applies to every bot regardless of its
+# own runtime.exs content. Values match the runtime .env (NATS_HOST=nats,
+# NATS_PORT=4222) so both paths agree.
 ENV NATS_HOST=nats
 ENV NATS_PORT=4222
 
@@ -138,6 +139,24 @@ COPY ${BOT_REPO}/ ${BOT_REPO}/
 # mix.lock already match this form — then compile.
 WORKDIR /repos/${BOT_REPO}
 RUN elixir /tmp/fix_deps.exs
+
+# P9: append the NATS boot-time overlay to the bot's runtime.exs (created
+# if absent). Evaluated at RELEASE BOOT with the container's env — the same
+# mechanism the six working bots use in their own runtime.exs. Appended LAST
+# so it wins the config merge; Config.Reader deep-merges keyword lists, so
+# bots that also set ping_interval/max_reconnect_attempts keep those keys.
+# Guarded against :test so hermetic test runs inside the image are untouched.
+RUN printf '%s\n' \
+    '' \
+    '# ── Starter overlay (P9): NATS servers from env, evaluated at boot ──' \
+    'if config_env() != :test do' \
+    '  nats_host = System.get_env("NATS_HOST", "nats")' \
+    '  nats_port = String.to_integer(System.get_env("NATS_PORT", "4222"))' \
+    '  config :bot_army_library_runtime, :nats,' \
+    '    servers: [{nats_host, nats_port}]' \
+    'end' \
+    >> config/runtime.exs
+
 RUN mix compile
 RUN mix release ${BOT_NAME}
 
