@@ -35,7 +35,7 @@ For headless setup (core bots + Ollama, no prompts):
 curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/ergon-starter/main/install.sh | bash -s -- --default
 ```
 
-Choose a different Ollama model (written to `.env` as `OLLAMA_MODEL_*` and pulled automatically once the stack is up):
+Choose a different Ollama model (written to `.env` as `OLLAMA_MODEL_*` and pulled automatically once the stack is up). The default is **gemma4:e2b** — on CPU-only hosts it serves ~13 tok/s (2–3× faster than gemma4:e4b) with half the RAM (6.7 GB):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/ergon-starter/main/install.sh | bash -s -- --default --model gemma4:e4b

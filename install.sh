@@ -11,7 +11,7 @@
 #   4. Clones the starter repo
 #   5. Runs `make quickstart` (interactive wizard)
 #
-# For a non-interactive install with defaults (core bots + Ollama):
+# For a non-interactive install with defaults (core bots + Ollama + gemma4:e2b):
 #   curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/ergon-starter/main/install.sh | bash -s -- --default
 #
 # Pick a different Ollama model (written to .env and pulled at the end):

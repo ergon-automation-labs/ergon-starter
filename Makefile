@@ -130,7 +130,7 @@ quickstart-default: catalog/bots.json ## Headless: core bots + Ollama, no prompt
 	@# Pull the configured LLM model so the stack is functional out of the box
 	@if [ -z "$${SKIP_MODEL_PULL:-}" ]; then \
 		model="$$(grep -E '^OLLAMA_MODEL_MEDIUM=' .env 2>/dev/null | cut -d= -f2)"; \
-		model="$${model:-llama3.1}"; \
+		model="$${model:-gemma4:e2b}"; \
 		echo "Pulling Ollama model $$model (best-effort; SKIP_MODEL_PULL=1 to skip)..."; \
 		n=0; until docker compose exec -T ollama ollama list >/dev/null 2>&1 || [ $$n -ge 15 ]; do sleep 2; n=$$((n+1)); done; \
 		docker compose exec -T ollama ollama pull "$$model" \
@@ -429,9 +429,9 @@ setup-tools: ## Install host-side tools (graphify + ripgrep)
 rebuild: ## Force rebuild all images (no cache)
 	docker compose build --no-cache
 
-# Model to pull: OLLAMA_MODEL_MEDIUM from .env when present, else llama3.1
+# Model to pull: OLLAMA_MODEL_MEDIUM from .env when present, else gemma4:e2b
 MODEL_FROM_ENV := $(shell grep -E '^OLLAMA_MODEL_MEDIUM=' .env 2>/dev/null | cut -d= -f2)
-PULL_MODEL ?= $(if $(MODEL_FROM_ENV),$(MODEL_FROM_ENV),llama3.1)
+PULL_MODEL ?= $(if $(MODEL_FROM_ENV),$(MODEL_FROM_ENV),gemma4:e2b)
 
 pull-model: ## Pull the configured Ollama model into the running stack (override: make pull-model PULL_MODEL=<name>)
 	@echo "Pulling $(PULL_MODEL) into the ollama container..."

@@ -1,139 +1,51 @@
 {
+  "_comment": [
+    "Phase 4 — pack combination matrix. Pack names are REAL keys from",
+    "catalog/packs.json (the 'Primary/Learning/Social' names in the first",
+    "draft matched nothing and every combo would have generated the same",
+    "12-bot compose). Expected bot sets are NOT stored here: the matrix",
+    "computes them as union(packs) ∩ catalog names and verifies via the",
+    "live NATS registry (bot_army.registry.bots.list) — empirical, and",
+    "immune to hand-maintained-list rot (P11 lessons).",
+    "Static subject lists were dropped for the same reason; the registry",
+    "plus a system.health request plus per-container health is the gate."
+  ],
   "combos": {
-    "Primary": {
-      "description": "Baseline: Task management + Bridge",
-      "packs": ["Primary"],
-      "bots": ["gtd_bot", "claude_bridge", "llm_proxy", "dispatcher"],
-      "subjects": [
-        "bridge.task.list",
-        "bridge.internal_docs.query",
-        "system.health.bridge",
-        "llm.request.converse"
-      ],
+    "Core": {
+      "description": "Baseline: the core pack alone (12 bots)",
+      "packs": ["core"],
       "tier": "core",
       "timeout_seconds": 60
     },
-    "Primary+Learning": {
-      "description": "Task management + Knowledge (GTD + Terrain + Docs)",
-      "packs": ["Primary", "Learning"],
-      "bots": [
-        "gtd_bot", "claude_bridge", "llm_proxy", "dispatcher",
-        "terrain_bot", "internal_docs_bot", "graphify_cache_bot"
-      ],
-      "subjects": [
-        "bridge.task.list",
-        "terrain.lesson.generate",
-        "internal_docs.query",
-        "bot_army.graph.query",
-        "llm.request.converse"
-      ],
+    "Core-LearningDeepdive": {
+      "description": "Core + knowledge deep-dive (terrain, internal_docs)",
+      "packs": ["core", "learning_deepdive"],
       "tier": "core",
-      "timeout_seconds": 90
+      "timeout_seconds": 75
     },
-    "Primary+Social": {
-      "description": "Task management + Chat (GTD + Synapse + Discord)",
-      "packs": ["Primary", "Social"],
-      "bots": [
-        "gtd_bot", "claude_bridge", "llm_proxy", "dispatcher",
-        "synapse_bot", "notification_router_bot", "discord_integration_bot"
-      ],
-      "subjects": [
-        "bridge.task.list",
-        "bridge.chat",
-        "synapse.command.dispatch",
-        "notification_router.publish",
-        "llm.request.converse"
-      ],
+    "Core-SocialMedia": {
+      "description": "Core + media pipeline (youtube_manager, media_ingestion)",
+      "packs": ["core", "social_media"],
       "tier": "core",
-      "timeout_seconds": 90
+      "timeout_seconds": 75
     },
-    "Primary+Learning+Social": {
-      "description": "Full featured: Tasks + Knowledge + Chat",
-      "packs": ["Primary", "Learning", "Social"],
-      "bots": [
-        "gtd_bot", "claude_bridge", "llm_proxy", "dispatcher",
-        "terrain_bot", "internal_docs_bot", "graphify_cache_bot",
-        "synapse_bot", "notification_router_bot", "discord_integration_bot"
-      ],
-      "subjects": [
-        "bridge.task.list",
-        "bridge.chat",
-        "terrain.lesson.generate",
-        "internal_docs.query",
-        "bot_army.graph.query",
-        "synapse.command.dispatch",
-        "llm.request.converse"
-      ],
+    "Core-Research": {
+      "description": "Core + research feeds (feeds, rss_polling)",
+      "packs": ["core", "research"],
       "tier": "core",
-      "timeout_seconds": 120
+      "timeout_seconds": 75
     },
-    "Primary+Background": {
-      "description": "Foreground + Background (GTD + async LLM/feeds)",
-      "packs": ["Primary", "Background"],
-      "bots": [
-        "gtd_bot", "claude_bridge", "llm_proxy", "dispatcher",
-        "job_applications_bot", "rss_polling_bot"
-      ],
-      "subjects": [
-        "bridge.task.list",
-        "llm.request.converse",
-        "job_applications.query",
-        "rss_polling.refresh"
-      ],
+    "Core-Areas": {
+      "description": "Core + areas (fitness, chore, rpg)",
+      "packs": ["core", "areas"],
+      "tier": "extended",
+      "timeout_seconds": 75
+    },
+    "Core-Full": {
+      "description": "Everything: core + all add-on packs",
+      "packs": ["core", "learning_deepdive", "social_media", "areas", "research"],
       "tier": "extended",
       "timeout_seconds": 90
-    },
-    "Learning+Research": {
-      "description": "Knowledge + Content (Terrain + Feeds + Jobs)",
-      "packs": ["Learning", "Research"],
-      "bots": [
-        "terrain_bot", "internal_docs_bot", "graphify_cache_bot",
-        "rss_polling_bot", "job_applications_bot", "media_ingestion_bot",
-        "llm_proxy"
-      ],
-      "subjects": [
-        "terrain.lesson.generate",
-        "internal_docs.query",
-        "bot_army.graph.query",
-        "rss_polling.refresh",
-        "job_applications.query",
-        "media_ingestion.ingest"
-      ],
-      "tier": "extended",
-      "timeout_seconds": 90
-    },
-    "Primary+Learning+Social+Background": {
-      "description": "Everything (maximum fleet)",
-      "packs": ["Primary", "Learning", "Social", "Background"],
-      "bots": [
-        "gtd_bot", "claude_bridge", "llm_proxy", "dispatcher",
-        "terrain_bot", "internal_docs_bot", "graphify_cache_bot",
-        "synapse_bot", "notification_router_bot", "discord_integration_bot",
-        "job_applications_bot", "rss_polling_bot"
-      ],
-      "subjects": [
-        "bridge.task.list",
-        "bridge.chat",
-        "terrain.lesson.generate",
-        "internal_docs.query",
-        "bot_army.graph.query",
-        "synapse.command.dispatch",
-        "job_applications.query",
-        "rss_polling.refresh",
-        "llm.request.converse"
-      ],
-      "tier": "extended",
-      "timeout_seconds": 150
     }
-  },
-  "tiers": {
-    "core": "Must pass: Primary alone, + Learning, + Social, all three together",
-    "extended": "Nice to have: Background combos, Research combos, maximum fleet"
-  },
-  "notes": {
-    "strategy": "Start with core tier (realistic user flows). Extended tier tests edge cases and max capacity.",
-    "nats_port": "54222 (forwarded from vagrant VM)",
-    "database": "Single PostgreSQL handles all packs' schemas",
-    "docker_compose": "Generated by quickstart-default.sh based on selected packs"
   }
 }

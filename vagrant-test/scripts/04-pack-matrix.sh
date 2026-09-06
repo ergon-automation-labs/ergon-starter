@@ -1,17 +1,33 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
 # Phase 04 — pack combination validation
-# Tests realistic combinations of starter packs (Primary, Learning, Social, etc.)
-# to ensure they work together: shared NATS, shared PostgreSQL, all bots run.
+# Tests realistic combinations of REAL packs (catalog/packs.json: core,
+# learning_deepdive, social_media, areas, research). Per combo: fresh working
+# copy → quickstart-default.sh with PACKS=<packs> → docker compose up →
+# registry + health + log-regression verification → teardown.
+#
+# P10/2026-09-06 rewrite of the first draft, which called packs that don't
+# exist, cloned /vagrant as a git repo (it isn't one), and never freed the
+# host ports between combos. Mechanics now:
+#   - teardown: main stack down (volumes kept) at start; combo `down -v`
+#     between combos; host ports are sequential-safe again.
+#   - ollama model blobs live in ONE external shared volume across combos
+#     (a fresh 7 GB pull per combo would eat the VM disk and ~1 h).
+#   - model pull happens inside the first combo (subsequent ones are
+#     instant manifest checks).
+#   - verify = registry bot-set + system.health + container health +
+#     P10 log-regression grep. No static subject lists.
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 
 LOG="$HOME/logs/04-pack-combinations.log"
 HOST_LOG="/vagrant/logs/04-pack-combinations.log"
-STATUS="/vagrant/logs/04-pack-status.txt"
 MARKERS="$HOME/.phase04/markers"
-RESULTS="/vagrant/logs/04-pack-results.json"
-mkdir -p "$HOME/logs" /vagrant/logs "$MARKERS"
+RESULTS="/vagrant/logs/04-pack-results.jsonl"
+COMBO_CONFIG="/vagrant/vagrant-test/config/04-pack-combinations.json"
+MODEL_NAME="${MODEL_NAME:-gemma4:e2b}"
+SHARED_OLLAMA_VOL="bot-army-combo-ollama"
+mkdir -p "$HOME/logs" /vagrant/logs "$MARKERS" "$HOME/bin"
 
 exec > >(tee -a "$LOG" "$HOST_LOG") 2>&1
 
@@ -20,34 +36,131 @@ exec > >(tee -a "$LOG" "$HOST_LOG") 2>&1
 # ─────────────────────────────────────────────────────────────────────────────
 
 hr() { echo "═══════════════════════════════════════════════════════════"; }
-step() {
-  local num="$1" name="$2"
-  local marker="$MARKERS/step_$num"
-  if [ -f "$marker" ]; then
-    echo "[SKIP] Step $num (already completed) — $name"
-    return 0
-  fi
-  echo "[$num] $name..."
-  return 1
-}
 
-mark_step() {
-  local num="$1"
-  touch "$MARKERS/step_$num"
+combo_dirname() {
+  echo "$1" | sed 's/[^a-zA-Z0-9_-]/-/g' | tr '[:upper:]' '[:lower:]'
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test one combination: generate compose, boot, verify subjects, check health
+# nats CLI (request/response probes; not installed by bootstrap)
+# ─────────────────────────────────────────────────────────────────────────────
+
+ensure_nats_cli() {
+  if command -v nats >/dev/null 2>&1; then return 0; fi
+  if [ -x "$HOME/bin/nats" ]; then export PATH="$HOME/bin:$PATH"; return 0; fi
+  echo "Installing nats CLI (one-time, ~10 MB)..."
+  local url
+  url=$(curl -fsSL https://api.github.com/repos/nats-io/natscli/releases/latest 2>/dev/null |
+        grep -oE 'https://[^"]+linux-arm64\.zip' | head -1 || true)
+  if [ -z "$url" ]; then
+    echo "  ✗ could not resolve a linux-arm64 natscli release" >&2
+    return 1
+  fi
+  curl -fsSL "$url" -o /tmp/natscli.zip && rm -rf /tmp/natscli &&
+    python3 -m zipfile -e /tmp/natscli.zip /tmp/natscli
+  find /tmp/natscli -type f -name nats -exec cp {} "$HOME/bin/nats" \; &&
+    chmod +x "$HOME/bin/nats"
+  export PATH="$HOME/bin:$PATH"
+  command -v nats >/dev/null 2>&1
+}
+
+# NATS request → stdout raw payload (empty string on no-responder/timeout)
+nats_req() {
+  nats --server "nats://localhost:54222" request --wait 5s --raw "$1" "${2:-{}}" 2>/dev/null || true
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Teardown helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+teardown_main_stack() {
+  if [ -d "$HOME/bot-army" ] &&
+     (cd "$HOME/bot-army" && docker compose ps -q 2>/dev/null | grep -q .); then
+    echo "Tearing down the phase-03 core stack (volumes kept) — combos need its host ports..."
+    (cd "$HOME/bot-army" && docker compose down --remove-orphans >/dev/null 2>&1 || true)
+  fi
+}
+
+teardown_combo() {
+  local dir="$1"
+  [ -f "$dir/docker-compose.yml" ] && [ -f "$dir/override.yml" ] || return 0
+  (cd "$dir" && docker compose -f docker-compose.yml -f override.yml down -v --remove-orphans >/dev/null 2>&1 || true)
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Combo helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Expected bots: union(packs) ∩ catalog names (same join the generator does)
+expected_bots() {
+  python3 - "$1" "$2" <<'PY'
+import json, sys
+packs = set(p.strip() for p in sys.argv[1].replace(',', ' ').split() if p.strip())
+bots = json.load(open(sys.argv[2]))
+pk = json.load(open(sys.argv[3]))
+items = pk if isinstance(pk, list) else pk.get('packs', [])
+chosen = set()
+for p in items:
+    if p.get('name') in packs:
+        chosen.update(p.get('bots', []))
+print(' '.join(b['name'] for b in bots if b['name'] in chosen))
+PY
+}
+
+# Registered bot names from the live registry (best-effort shape handling)
+registry_bot_names() {
+  local payload
+  payload=$(nats_req bot_army.registry.bots.list '{}')
+  [ -z "$payload" ] && { echo "REGISTRY_UNREACHABLE"; return; }
+  echo "$payload" | python3 -c "
+import json, sys
+raw = sys.stdin.read().strip()
+try:
+    d = json.loads(raw)
+except Exception:
+    print('REGISTRY_PARSE_FAIL'); sys.exit(0)
+names = []
+def walk(o):
+    if isinstance(o, dict):
+        n = o.get('name') or o.get('bot') or o.get('bot_name')
+        if isinstance(n, str): names.append(n)
+        for v in o.values(): walk(v)
+    elif isinstance(o, list):
+        for v in o: walk(v)
+walk(d)
+print(' '.join(sorted(set(names))))"
+}
+
+wait_ollama() {
+  local n=0
+  until docker compose exec -T ollama ollama list >/dev/null 2>&1 || [ $n -ge 30 ]; do
+    sleep 2; n=$((n+1))
+  done
+}
+
+pull_models() {
+  wait_ollama
+  for m in "$MODEL_NAME" gemma3:1b; do
+    echo "  ollama pull $m (shared volume — instant once cached)..."
+    docker compose exec -T ollama ollama pull "$m" >/dev/null 2>&1 ||
+      echo "  ⚠ pull $m failed"
+  done
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test one combination
 # ─────────────────────────────────────────────────────────────────────────────
 
 test_combo() {
   local combo="$1"
-  local combo_dir="$HOME/bot-army-combo-$combo"
-  local combo_log="$HOME/logs/04-combo-$combo.log"
-  local combo_marker="$MARKERS/combo_$combo"
+  local safe dir combo_log combo_marker
+  safe=$(combo_dirname "$combo")
+  dir="$HOME/bot-army-combo-$safe"
+  combo_log="$HOME/logs/04-combo-$safe.log"
+  combo_marker="$MARKERS/combo_$safe"
 
   if [ -f "$combo_marker" ]; then
-    echo "  [SKIP] $combo (already tested)"
+    echo "  [SKIP] $combo (already passed)"
     return 0
   fi
 
@@ -56,139 +169,182 @@ test_combo() {
   echo "COMBO: $combo"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-  # Step 1: Clone bot-army for this combo (fresh copy)
-  if [ ! -d "$combo_dir" ]; then
-    echo "  Cloning bot-army for $combo..."
-    git clone --quiet /vagrant "$combo_dir" 2>&1 | grep -v "^Cloning\|^Receiving\|^Resolving" || true
-  else
-    echo "  Refreshing $combo_dir..."
-    cd "$combo_dir" && git pull --ff-only origin main >/dev/null 2>&1 || true
-  fi
+  teardown_combo "$dir"
 
-  cd "$combo_dir" || exit 1
+  # 1. Fresh working copy of the starter (repos/ is kept for cache reuse)
+  mkdir -p "$dir"
+  rm -rf "$dir/catalog" "$dir/scripts" "$dir/Makefile" "$dir/Dockerfile" \
+         "$dir/postgres-init" "$dir/.env" "$dir/docker-compose.yml"
+  cp -a /vagrant/catalog /vagrant/scripts "$dir/"
+  cp -a /vagrant/Makefile /vagrant/Dockerfile "$dir/"
 
-  # Step 2: Load combo config and generate docker-compose.yml
-  echo "  Loading combo definition..."
-  local packs=$(jq -r ".combos[\"$combo\"].packs[]?" /vagrant/vagrant-test/config/04-pack-combinations.json | tr '\n' ' ')
-  local bots=$(jq -r ".combos[\"$combo\"].bots[]?" /vagrant/vagrant-test/config/04-pack-combinations.json | tr '\n' ' ')
-  local timeout=$(jq -r ".combos[\"$combo\"].timeout_seconds // 60" /vagrant/vagrant-test/config/04-pack-combinations.json)
-
-  if [ -z "$packs" ]; then
-    echo "  ✗ Combo '$combo' not found in config"
-    echo "combo_$combo FAILED config_missing" >> "$RESULTS"
-    mark_step "$combo"
+  # 2. Combo definition → packs
+  local packs timeout
+  packs=$(jq -r ".combos[\"$combo\"].packs | join(\" \")" "$COMBO_CONFIG")
+  local timeout
+  timeout=$(jq -r ".combos[\"$combo\"].timeout_seconds // 60" "$COMBO_CONFIG")
+  if [ -z "$packs" ] || [ "$packs" = "null" ]; then
+    echo "  ✗ combo '$combo' not found in config"
+    echo "{\"combo\":\"$combo\",\"result\":\"FAIL\",\"reason\":\"config_missing\"}" >> "$RESULTS"
     return 1
   fi
-
+  local expected
+  expected=$(expected_bots "$packs" "$dir/catalog/bots.json" "$dir/catalog/packs.json")
   echo "  Packs: $packs"
-  echo "  Bots: $bots"
-  echo "  Timeout: ${timeout}s"
+  echo "  Expected bots ($(echo $expected | wc -w)): $expected"
+  echo "  Timeout: ${timeout}s  Model: $MODEL_NAME"
 
-  # Step 3: Generate config for wizard
-  echo "  Generating compose for combo..."
-  cat > .bot-army-combo.json <<EOF
-{
-  "packs": [$(echo $packs | sed 's/ /", "/g' | sed 's/^/"/; s/$/"/')],
-  "providers": ["ollama"],
-  "ports": {
-    "nats": 54222,
-    "nats_monitor": 58222,
-    "postgres": 55432,
-    "ollama": 51434,
-    "mcp": 39900
-  }
-}
+  # 3. Generate .env + compose (PACKS-aware generator)
+  cd "$dir" || return 1
+  if ! PACKS="$packs" MODEL_NAME="$MODEL_NAME" bash scripts/quickstart-default.sh >"$combo_log" 2>&1; then
+    echo "  ✗ generation failed — see $combo_log (tail below)"
+    tail -15 "$combo_log" | sed 's/^/      /'
+    echo "{\"combo\":\"$combo\",\"result\":\"FAIL\",\"reason\":\"generation\"}" >> "$RESULTS"
+    return 1
+  fi
+  echo "  ✓ compose generated ($(grep -c 'build:' docker-compose.yml) bot services)"
+
+  # 4. Shared ollama blobs across combos
+  docker volume create "$SHARED_OLLAMA_VOL" >/dev/null
+  cat > override.yml <<EOF
+services:
+  ollama:
+    volumes:
+      - $SHARED_OLLAMA_VOL:/root/.ollama
+volumes:
+  ollama_data:
+    external: true
+    name: $SHARED_OLLAMA_VOL
 EOF
+  export COMPOSE_FILE="docker-compose.yml:override.yml"
 
-  # Call quickstart to generate compose (with all selected packs)
-  PACKS="$packs" bash scripts/quickstart-default.sh .bot-army-combo.json >/dev/null 2>&1 || {
-    echo "  ✗ Failed to generate compose for $combo"
-    docker compose logs --tail 50 >>$combo_log 2>&1
-    echo "combo_$combo FAILED generation" >> "$RESULTS"
-    mark_step "$combo"
+  # 5. Boot (build can be slow for never-built bots; 30 min ceiling)
+  echo "  Building + starting fleet..."
+  if ! timeout 1800 docker compose up -d --build >>"$combo_log" 2>&1; then
+    echo "  ✗ boot failed — see $combo_log (tail below)"
+    docker compose logs --tail 20 2>/dev/null | sed 's/^/      /' >> "$combo_log"
+    tail -15 "$combo_log" | sed 's/^/      /'
+    echo "{\"combo\":\"$combo\",\"result\":\"FAIL\",\"reason\":\"boot\"}" >> "$RESULTS"
+    teardown_combo "$dir"
     return 1
-  }
-
-  # Step 4: Docker compose up (with all bots)
-  echo "  Bringing up $combo fleet..."
-  timeout $((timeout + 30)) docker compose up -d --build >>$combo_log 2>&1 || {
-    echo "  ✗ Failed to boot $combo"
-    docker compose logs --tail 50 >>$combo_log 2>&1
-    echo "combo_$combo FAILED boot" >> "$RESULTS"
-    return 1
-  }
-
-  # Step 5: Wait for services to settle
-  echo "  Waiting ${timeout}s for services to stabilize..."
-  sleep $timeout
-
-  # Step 6: Verify all bots respond on their NATS subjects
-  echo "  Testing pack subjects..."
-  local subjects=$(jq -r ".combos[\"$combo\"].subjects[]?" /vagrant/vagrant-test/config/04-pack-combinations.json)
-  local subject_pass=0 subject_fail=0
-
-  for subject in $subjects; do
-    if timeout 3 nats request --server nats://localhost:54222 "$subject" '{}' >/dev/null 2>&1; then
-      echo "    ✓ $subject"
-      ((subject_pass++)) || true
-    else
-      echo "    ✗ $subject (no responder or timeout)"
-      ((subject_fail++)) || true
-    fi
-  done
-
-  # Step 7: Check container health (all bots running, no crashes)
-  echo "  Checking container state for all $combo bots..."
-  local container_pass=0 container_fail=0
-  local services=$(docker compose config --services | grep -E '_bot$|_server$' | grep -v '^ollama$' || true)
-
-  for svc in $services; do
-    local state=$(docker compose ps --format '{{.Name}} {{.State}}' 2>/dev/null | awk -v s="$svc" '$1 ~ s {print $2}' || echo "unknown")
-    local restarts=$(docker inspect --format '{{.RestartCount}}' "$(docker compose ps -q "$svc" 2>/dev/null)" 2>/dev/null || echo "?")
-
-    if echo "$state" | grep -q "running" && [ "${restarts:-99}" -le 2 ]; then
-      echo "    ✓ $svc (restarts=$restarts)"
-      ((container_pass++)) || true
-    else
-      echo "    ✗ $svc (state=$state restarts=$restarts)"
-      ((container_fail++)) || true
-      docker compose logs --tail 5 "$svc" 2>&1 | sed 's/^/        /' | head -8
-    fi
-  done
-
-  # Step 8: Log results
-  local combo_result="PASS"
-  if [ $subject_fail -gt 0 ] || [ $container_fail -gt 0 ]; then
-    combo_result="FAIL"
   fi
 
-  echo "combo_$combo $combo_result subjects_ok=$subject_pass subjects_fail=$subject_fail containers_ok=$container_pass containers_fail=$container_fail" >> "$RESULTS"
-  echo "  Result: $combo_result (subjects: $subject_pass/$((subject_pass+subject_fail)) ok, containers: $container_pass/$((container_pass+container_fail)) ok)"
+  # 6. Models into the shared volume (first combo does the real pull)
+  echo "  Ensuring ollama models..."
+  pull_models
 
-  mark_step "$combo"
-  touch "$combo_marker"
+  # 7. Settle
+  echo "  Waiting ${timeout}s for services to stabilize..."
+  sleep "$timeout"
+
+  # 8. Verify — registry bot set
+  echo "  Verifying registry bot set..."
+  local registered
+  registered=$(registry_bot_names)
+  local bot_pass=0 bot_fail=0 missing=""
+  for b in $expected; do
+    if echo " $registered " | grep -q " $b "; then
+      bot_pass=$((bot_pass+1))
+    else
+      bot_fail=$((bot_fail+1)); missing="$missing $b"
+    fi
+  done
+  if [ "$registered" = "REGISTRY_UNREACHABLE" ] || [ "$registered" = "REGISTRY_PARSE_FAIL" ]; then
+    echo "    ✗ registry check unusable ($registered)"
+    bot_fail=$((bot_fail+1))
+    missing="$expected"
+  elif [ $bot_fail -gt 0 ]; then
+    echo "    ✗ missing from registry:$missing (registered: $registered)"
+  else
+    echo "    ✓ all $bot_pass expected bots registered"
+  fi
+
+  # 9. Verify — system.health responder (data plane alive)
+  local health_ok=0
+  if [ -n "$(nats_req system.health)" ]; then
+    echo "    ✓ system.health responder"
+    health_ok=1
+  else
+    echo "    ✗ system.health: no responder"
+  fi
+
+  # 10. Verify — container health
+  echo "  Checking container state..."
+  local container_pass=0 container_fail=0
+  local services
+  services=$(docker compose config --services 2>/dev/null | grep -E '_bot$' || true)
+  for svc in $services; do
+    local cid state restarts
+    cid=$(docker compose ps -q "$svc" 2>/dev/null)
+    state=$(docker inspect --format '{{.State.Status}}' "$cid" 2>/dev/null || echo "unknown")
+    restarts=$(docker inspect --format '{{.RestartCount}}' "$cid" 2>/dev/null || echo "?")
+    if [ "$state" = "running" ] && [ "${restarts:-99}" -le 2 ]; then
+      container_pass=$((container_pass+1))
+    else
+      container_fail=$((container_fail+1))
+      echo "    ✗ $svc (state=$state restarts=$restarts)"
+      docker compose logs --tail 5 "$svc" 2>/dev/null | sed 's/^/        /' | head -8
+    fi
+  done
+  echo "    containers: $container_pass/$((container_pass+container_fail)) healthy"
+
+  # 11. P10 log-regression: the six fixed error classes must stay dead
+  local regression
+  regression=$(docker compose logs 2>/dev/null | grep -ciE 'PulsePublisher terminating|failed_connect|failed 3 times|IntentEvaluator terminating|enoent|no process.*associated' || true)
+  local regression_note="clean"
+  if [ "${regression:-0}" -gt 20 ]; then
+    regression_note="LOOPING"
+  elif [ "${regression:-0}" -gt 0 ]; then
+    regression_note="minor(${regression})"
+  fi
+  echo "    log-regression (P10 classes): $regression hits — $regression_note"
+
+  # 12. Result
+  local combo_result="PASS"
+  [ $bot_fail -gt 0 ] && combo_result="FAIL"
+  [ "$health_ok" = "0" ] && combo_result="FAIL"
+  [ $container_fail -gt 0 ] && combo_result="FAIL"
+  [ "$regression_note" = "LOOPING" ] && combo_result="FAIL"
+
+  echo "{\"combo\":\"$combo\",\"result\":\"$combo_result\",\"bots_ok\":$bot_pass,\"bots_missing\":$bot_fail,\"health\":$health_ok,\"containers_ok\":$container_pass,\"containers_fail\":$container_fail,\"regression_hits\":${regression:-0}}" >> "$RESULTS"
+  echo "  Result: $combo_result"
+
+  if [ "$combo_result" = "PASS" ]; then
+    touch "$combo_marker"
+  fi
+
+  teardown_combo "$dir"
   return 0
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Main: Load combo list and test each
+# Main
 # ─────────────────────────────────────────────────────────────────────────────
 
 hr
 echo "PHASE 04 — pack combination validation ($(date -Is))"
+echo "Model for combos: $MODEL_NAME (shared ollama volume: $SHARED_OLLAMA_VOL)"
 hr
 echo ""
 
-COMBO_CONFIG="/vagrant/vagrant-test/config/04-pack-combinations.json"
 if [ ! -f "$COMBO_CONFIG" ]; then
   echo "✗ Config not found: $COMBO_CONFIG"
   exit 1
 fi
+if ! command -v jq >/dev/null 2>&1; then
+  echo "✗ jq not found in VM"
+  exit 1
+fi
+if ! ensure_nats_cli; then
+  echo "✗ nats CLI unavailable — cannot run registry probes"
+  exit 1
+fi
+echo "✓ nats CLI: $(command -v nats)"
 
-# Determine which combos to run (default: core tier)
+teardown_main_stack
+
 RUN_TIER="${RUN_TIER:-core}"
-COMBOS=$(jq -r ".combos[] | select(.tier == \"$RUN_TIER\") | .tier as \$t | keys[] | select(.tier == \$t)" "$COMBO_CONFIG" 2>/dev/null || \
-         jq -r "to_entries[] | select(.value.tier == \"$RUN_TIER\") | .key" "$COMBO_CONFIG")
+COMBOS=$(jq -r "to_entries[] | select(.value.tier == \"$RUN_TIER\") | .key" "$COMBO_CONFIG")
 
 echo "Running $RUN_TIER tier combinations:"
 echo "$COMBOS" | sed 's/^/  - /'
@@ -197,31 +353,25 @@ echo ""
 COMBO_PASS=0 COMBO_FAIL=0
 for combo in $COMBOS; do
   if test_combo "$combo"; then
-    ((COMBO_PASS++)) || true
+    COMBO_PASS=$((COMBO_PASS+1))
   else
-    ((COMBO_FAIL++)) || true
+    COMBO_FAIL=$((COMBO_FAIL+1))
   fi
 done
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Summary
-# ─────────────────────────────────────────────────────────────────────────────
-
 echo ""
 hr
-if [ $COMBO_FAIL -eq 0 ]; then
+if [ "$COMBO_FAIL" -eq 0 ]; then
   echo "RESULT: PASS — all $COMBO_PASS combo(s) verified"
 else
   echo "RESULT: FAIL — $COMBO_FAIL combo(s) failed, $COMBO_PASS passed"
 fi
 hr
 echo ""
-echo "Detailed results: $RESULTS"
+echo "Results: $RESULTS"
 echo "Combo logs: $HOME/logs/04-combo-*.log"
-echo ""
-echo "To test extended tier (Background, Research combos):"
-echo "  RUN_TIER=extended bash ./scripts/04-pack-matrix.sh"
+echo "Restore the phase-03 stack afterwards: cd ~/bot-army && docker compose up -d"
 echo ""
 echo "PHASE 04 DONE"
 
-exit $COMBO_FAIL
+exit "$COMBO_FAIL"
