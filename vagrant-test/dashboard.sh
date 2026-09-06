@@ -84,9 +84,12 @@ echo "Reading from: $LOG_DIR"
 echo ""
 
 # Read phase results from synced logs
-phase01_result=$(parse_phase_result "$LOG_DIR/01-stream.txt")
-phase01_duration=$(phase_duration "$LOG_DIR/01-stream.txt")
-phase01_time=$(phase_timestamp "$LOG_DIR/01-stream.txt")
+phase01_log="$LOG_DIR/01-run.log"
+[ -f "$phase01_log" ] || phase01_log="$LOG_DIR/01-stream.log"
+[ -f "$phase01_log" ] || phase01_log="$LOG_DIR/01-stream.txt"
+phase01_result=$(parse_phase_result "$phase01_log")
+phase01_duration=$(phase_duration "$phase01_log")
+phase01_time=$(phase_timestamp "$phase01_log")
 
 phase02_result=$(parse_phase_result "$LOG_DIR/02-install-fixed.log")
 phase02_duration=$(phase_duration "$LOG_DIR/02-install-fixed.log")
