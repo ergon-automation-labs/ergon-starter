@@ -228,6 +228,13 @@ OLLAMA_MODEL_MEDIUM=${MODEL_NAME}
 # non-thinking, cheap — pulled alongside MODEL_NAME).
 OLLAMA_URL=http://ollama:11434
 OLLAMA_PROBE_MODEL=gemma3:1b
+# P10 fleet-test fixes: dispatcher's MultiServiceHealthMonitor probes the
+# operator's air/mini topology (nothing answers in a single-VM fleet); the
+# job_scheduler seed chain re-creates the operator's personal schedules in
+# every fresh DB (their jobs embed real machine paths and can never succeed
+# here). Empty value = idle monitor; unset = legacy behavior.
+DISPATCHER_HEALTH_SERVICES=
+JOB_SCHEDULER_DISABLE_SEEDS=1
 ENVEOF
 echo "  ✓ .env"
 
