@@ -93,8 +93,20 @@ BUILDfix
 
 RUN mix deps.get --only ${MIX_ENV} && mix deps.compile
 
-# Copy bot source and compile
+# Copy bot source and compile.
+# WORKDIR /repos is load-bearing (same trap as the base stage): the deps
+# steps above leave WORKDIR at /repos/${BOT_REPO}, so a relative COPY
+# nests the bot's source inside itself — mix compiles nothing and the
+# release ships without its own Application module
+# (e.g. "BotArmyGtd.Application.start/2 is undefined").
+WORKDIR /repos
 COPY ${BOT_REPO}/ ${BOT_REPO}/
+
+# The full-source COPY clobbers the BUILDfix-patched mix.exs with the
+# repo's git-dep version. Re-apply the patch — deps/ symlinks and
+# mix.lock already match this form — then compile.
+WORKDIR /repos/${BOT_REPO}
+RUN elixir /tmp/fix_deps.exs
 RUN mix compile
 RUN mix release ${BOT_NAME}
 
