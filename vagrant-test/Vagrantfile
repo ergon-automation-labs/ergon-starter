@@ -33,18 +33,31 @@ Vagrant.configure("2") do |config|
     config.vm.network "forwarded_port", guest: guest_port, host: host_port, auto_correct: true
   end
 
+  # Parallels provider (macOS with Apple Silicon)
   config.vm.provider "parallels" do |prl|
     prl.name   = "bot-army-install-test"
-    prl.memory = 12288  # 12 GB: builds + 12-bot stack + larger local LLMs (gemma4:e4b is a ~9.6 GB pull); host has 24 GB
+    prl.memory = 12288  # 12 GB: builds + 12-bot stack + larger local LLMs
     prl.cpus   = 4
     # Disk expands dynamically from the base box (~6 GB used at boot).
   end
 
-  # VirtualBox alternative — NOTE: needs an arm64 guest box. ubuntu/jammy64 is
-  # amd64-only and will NOT boot under Apple Silicon VirtualBox 7.x.
-  # config.vm.provider "virtualbox" do |vb|
-  #   vb.memory = 8192
-  #   vb.cpus   = 4
+  # VirtualBox provider (macOS Intel, Windows, Linux)
+  # NOTE: For Apple Silicon (M1/M2/M3), use Parallels above.
+  #       For Intel Macs/Windows/Linux, use this VirtualBox config.
+  config.vm.provider "virtualbox" do |vb|
+    vb.name   = "bot-army-install-test"
+    vb.memory = 8192  # 8 GB: most systems have less RAM; can increase if needed
+    vb.cpus   = 4
+    # Nested virtualization for Docker: may need enabling on Linux
+    # vb.customize ["modifyvm", :id, "--nested-hw-virt", "on"]
+  end
+
+  # libvirt provider (Linux KVM)
+  # Uncomment if using libvirt + vagrant-libvirt plugin
+  # config.vm.provider "libvirt" do |lv|
+  #   lv.memory = 8192
+  #   lv.cpus   = 4
+  #   lv.disk_bus = "virtio"
   # end
 
   config.vm.provision "bootstrap",   type: "shell", path: "scripts/bootstrap.sh"
