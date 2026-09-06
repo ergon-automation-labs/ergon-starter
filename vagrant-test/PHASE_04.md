@@ -1,40 +1,50 @@
-# Phase 04 — Bot Pack Matrix Validation
+# Phase 04 — Pack Combination Validation
 
-**Goal:** Verify that each Bot Army "starter pack" (Primary, Learning, Background, etc.) works end-to-end in isolation.
+**Goal:** Verify that realistic combinations of Bot Army starter packs work together. Users select multiple packs in the wizard → system generates one `docker-compose.yml` with all selected bots → everything runs on shared NATS + PostgreSQL.
 
 ## Why This Matters
 
-Users select a pack when they run the installer. The pack determines which bots they get. Phase 04 proves:
-1. Each pack's bot set boots without crash-loops
-2. Pack-specific NATS subjects (e.g., `bridge.task.list` for Primary) respond
-3. Users picking a pack end up with a working, usable fleet — not a broken subset
+Users don't pick one pack in isolation—they compose their fleet by selecting multiple packs. Phase 04 proves:
+1. ✅ Multiple packs can run together in a single `docker compose up`
+2. ✅ All bots respond on their subjects (shared NATS cluster)
+3. ✅ Database schema handles all bots' migrations  
+4. ✅ Users get a working, integrated multi-pack fleet
 
 ## What It Tests
 
-| Pack | Description | Key Subjects Tested |
-|------|-------------|-------------------|
-| **Primary** | GTD + Bridge + essentials | `bridge.task.list`, `bridge.internal_docs.query` |
-| **Learning** | Terrain + Internal Docs + Graphify | `terrain.lesson.generate`, `internal_docs.query` |
-| **Background** | LLM service + feeds + jobs (headless) | `llm.request.converse`, `job_applications.query` |
-| **Social** | Synapse + chat bridges | `bridge.chat`, `synapse.command.dispatch` |
-| **Research** | RSS + Job aggregation + media | `rss_polling.refresh`, `media_ingestion.ingest` |
-| **Infrastructure** | SRE + observability | `system.health.sre`, `factory_breaker.query` |
+**Core Tier (must pass):**
+
+| Combo | Packs | What It Validates |
+|-------|-------|-------------------|
+| **Primary** | Primary | GTD + Bridge works alone |
+| **Primary+Learning** | Primary + Learning | Task management + knowledge together (GTD + Terrain + Docs) |
+| **Primary+Social** | Primary + Social | Task management + chat together (GTD + Synapse + Discord) |
+| **Primary+Learning+Social** | All three | Full featured fleet (all 3 packs integrated) |
+
+**Extended Tier (nice to have):**
+
+| Combo | Packs | Notes |
+|-------|-------|-------|
+| **Primary+Background** | Primary + Background | Foreground + async LLM/feeds |
+| **Learning+Research** | Learning + Research | Knowledge + content aggregation  |
+| **Primary+Learning+Social+Background** | All four | Maximum fleet capacity test |
 
 ## How It Works
 
-For each pack:
-1. **Clone** — Fresh copy of bot-army repo for isolation
-2. **Generate** — Create a `docker-compose.yml` with just that pack's bots
-3. **Boot** — `docker compose up -d --build` (60s boot window)
-4. **Verify** — Test pack-specific NATS subjects (request/reply 3s timeout)
-5. **Check** — Inspect container state (running, restart count ≤ 2)
-6. **Report** — Pass/Fail per pack + overall summary
+For each combination:
+1. **Load Config** — Read pack list + expected NATS subjects from `04-pack-combinations.json`
+2. **Clone** — Fresh copy of bot-army repo (isolated test environment)
+3. **Generate** — Call `quickstart-default.sh` with selected packs → generates `docker-compose.yml` with all bots
+4. **Boot** — `docker compose up -d --build` (per-combo timeout, e.g. 60-150s)
+5. **Verify** — Test all NATS subjects for the combo work (3s timeout per subject)
+6. **Check** — Inspect container state (running, restart count ≤ 2)
+7. **Report** — Pass/Fail per combo + overall summary
 
-Each pack gets its own log file: `logs/04-pack-Primary.log`, etc.
+Each combo gets its own log file: `logs/04-combo-Primary+Learning.log`, etc.
 
 ## Running
 
-### Test All Packs
+### Test Core Tier (default)
 ```bash
 cd vagrant-test
 make phase04
@@ -42,101 +52,82 @@ make phase04
 vagrant ssh -c "bash ./scripts/04-pack-matrix.sh"
 ```
 
-### Test One Pack
+### Test Extended Tier
 ```bash
-make phase04-pack PACK=Primary
-# or
-vagrant ssh -c "PACK=Primary bash ./scripts/04-pack-matrix.sh"
+vagrant ssh -c "RUN_TIER=extended bash ./scripts/04-pack-matrix.sh"
 ```
 
-### View Results
+### Test One Combo
+Currently, all combos in a tier run together. To test just one combo, modify the script or extract it.
+
+## Watching Progress
+
+From the host (no SSH needed):
 ```bash
-# Real-time status
-vagrant ssh -c "tail -f ~/logs/04-pack-matrix-status.txt"
-
-# Per-pack logs
-vagrant ssh -c "ls -lh ~/logs/04-pack-*.log"
-
-# Detailed JSON results
-vagrant ssh -c "cat ~/logs/04-pack-matrix-results.json | jq ."
+cd vagrant-test
+make watch-04           # Live tail of phase 04 output
+make dashboard          # Quick status check
 ```
 
-## Resumability
+## Logs & Results
 
-Phase 04 is resumable: if it fails mid-run (network glitch, resource exhaustion), re-running the same command picks up where it left off using completion markers in `~/.phase04/markers/`.
+- **Phase log**: `logs/04-pack-combinations.log` (wrapper output, clones, boots, etc.)
+- **Per-combo logs**: `logs/04-combo-Primary+Learning.log`, etc.
+- **Results JSON**: `logs/04-pack-results.json` (machine-parseable pass/fail + metrics)
 
-To force a fresh run:
-```bash
-vagrant ssh -c "rm -rf ~/.phase04/markers && bash ./scripts/04-pack-matrix.sh"
-```
+## Understanding Failures
+
+### Subject doesn't respond
+- Bot crashed or didn't start → check `logs/04-combo-*.log`
+- Wrong NATS subject name → verify in `04-pack-combinations.json`
+- Subject never populated → might be a startup race condition, check logs for errors
+
+### Container restart looping
+- Docker build failed → check `docker compose logs <bot>`
+- Runtime error (missing dep, config) → check bot logs
+- Resource starvation → check `docker stats` or VM memory
+
+### Combo generation fails
+- Missing bot repo → check `repos/` were cloned
+- Dockerfile issue → run `docker compose build <bot>` manually to see error
 
 ## Configuration
 
-Pack definitions and expected NATS subjects live in:
-```
-config/04-pack-subjects.json
-```
+Pack combinations live in: `vagrant-test/config/04-pack-combinations.json`
 
-To add a new pack or change the tested subjects, edit that file. Example:
-
+To add a new combo or change subjects:
 ```json
 {
-  "packs": {
-    "MyPack": {
+  "combos": {
+    "MyCustomCombo": {
       "description": "My custom bot set",
-      "bots": ["gtd_bot", "custom_bot"],
+      "packs": ["Primary", "Learning"],
+      "bots": ["gtd_bot", "terrain_bot", ...],
       "subjects": [
         "bridge.task.list",
-        "custom.endpoint"
+        "terrain.lesson.generate",
+        ...
       ],
-      "timeout_seconds": 60
+      "tier": "extended",
+      "timeout_seconds": 90
     }
   }
 }
 ```
 
-## Common Failures
+## Next Steps
 
-### Subject doesn't respond
-- Bot crashed or didn't start — check `docker logs <bot>`
-- Wrong NATS subject in config — verify against bot's handler code
-- Bot not included in pack — check `catalog/bots.json` and `04-pack-subjects.json`
-
-### Container restart looping
-- Check build logs: `docker compose logs <bot> | tail -50`
-- Dockerfile issue? (missing entrypoint, compilation failure)
-- Runtime issue? (database not ready, dependency missing)
-
-### Compose generation fails
-- Missing or stale bot repo clone — check `~/bot-army-pack-<name>/repos/`
-- Dockerfile or docker-compose template broken — run `04-pack-generate.sh` manually for details
-
-### Timeout (stuck at "waiting for services")
-- Cold Ollama pull? (first run can take 5–10 min)
-- Database slow? (Postgres initialization, migrations)
-- Resource exhaustion? (check `docker stats`, VM RAM)
-
-## Phase 04 Checklist
-
-- [ ] All 6 packs pass individually (Primary, Learning, Background, Social, Research, Infrastructure)
-- [ ] NATS subjects for each pack respond within timeout
-- [ ] No container restart loops (restart count ≤ 2)
-- [ ] Logs are clean (no ERROR/CRASH lines in last 5 min per bot)
-- [ ] Fresh user can select a pack and get a working fleet
-
-## Next Steps (Phase 05+)
-
-- **Pack Compatibility**: Test picking bots from multiple packs at once
-- **State Persistence**: Can a user switch packs while keeping data?
-- **Custom Packs**: User-defined pack JSON + wizard integration
-- **Performance**: Measure boot time + NATS latency per pack
-- **Scale**: Test large custom packs (10+ bots)
+**Phase 04 is combo-focused. Future enhancements:**
+- Phase 04.5: Pack switching + data persistence (can you add Learning bots to Primary-only after deploy?)
+- Phase 05: Performance under load (many packs, large datasets)
+- Monitoring dashboard: real-time health per combo (CPU, memory, NATS latency)
 
 ---
 
 ## See Also
 
 - `PITFALLS.md` — Known issues & fixes (P1–P7)
-- `03-verify.sh` — Infra health checks
-- `04-pack-matrix.sh` — The actual test runner
-- `04-pack-subjects.json` — Pack definitions + subjects
+- `03-verify.sh` — Infra health checks (NATS, PostgreSQL, etc.)
+- `04-pack-matrix.sh` — The test runner
+- `04-pack-combinations.json` — Combo definitions + subjects
+- `DASHBOARD.md` — Live progress watching from host

@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# Phase 04 — pack matrix: validate each bot pack works in isolation
-# Tests that users selecting "Primary", "Learning", "Background", etc. end up
-# with a working, responsive fleet for that pack's use case.
+# Phase 04 — pack combination validation
+# Tests realistic combinations of starter packs (Primary, Learning, Social, etc.)
+# to ensure they work together: shared NATS, shared PostgreSQL, all bots run.
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 
-LOG="$HOME/logs/04-pack-matrix.log"
-HOST_LOG="/vagrant/logs/04-pack-matrix.log"
-STATUS="/vagrant/logs/04-pack-matrix-status.txt"
+LOG="$HOME/logs/04-pack-combinations.log"
+HOST_LOG="/vagrant/logs/04-pack-combinations.log"
+STATUS="/vagrant/logs/04-pack-status.txt"
 MARKERS="$HOME/.phase04/markers"
-RESULTS="/vagrant/logs/04-pack-matrix-results.json"
+RESULTS="/vagrant/logs/04-pack-results.json"
 mkdir -p "$HOME/logs" /vagrant/logs "$MARKERS"
 
 exec > >(tee -a "$LOG" "$HOST_LOG") 2>&1
@@ -34,45 +34,61 @@ step() {
 mark_step() {
   local num="$1"
   touch "$MARKERS/step_$num"
-  echo "$(date -Is)" >> "$MARKERS/step_$num"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test one pack: generate compose, boot, verify subjects, log results
+# Test one combination: generate compose, boot, verify subjects, check health
 # ─────────────────────────────────────────────────────────────────────────────
 
-test_pack() {
-  local pack="$1"
-  local pack_dir="$HOME/bot-army-pack-$pack"
-  local pack_log="$HOME/logs/04-pack-$pack.log"
-  local pack_marker="$MARKERS/pack_$pack"
+test_combo() {
+  local combo="$1"
+  local combo_dir="$HOME/bot-army-combo-$combo"
+  local combo_log="$HOME/logs/04-combo-$combo.log"
+  local combo_marker="$MARKERS/combo_$combo"
 
-  if [ -f "$pack_marker" ]; then
-    echo "  [SKIP] $pack (already tested)"
+  if [ -f "$combo_marker" ]; then
+    echo "  [SKIP] $combo (already tested)"
     return 0
   fi
 
   echo
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "PACK: $pack"
+  echo "COMBO: $combo"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-  # Step 1: Clone bot-army for this pack
-  if [ ! -d "$pack_dir" ]; then
-    echo "  Cloning bot-army for $pack..."
-    git clone --quiet /vagrant "$pack_dir" 2>&1 | grep -v "^Cloning\|^Receiving\|^Resolving"
+  # Step 1: Clone bot-army for this combo (fresh copy)
+  if [ ! -d "$combo_dir" ]; then
+    echo "  Cloning bot-army for $combo..."
+    git clone --quiet /vagrant "$combo_dir" 2>&1 | grep -v "^Cloning\|^Receiving\|^Resolving" || true
   else
-    echo "  Reusing existing $pack_dir"
-    cd "$pack_dir" && git pull --ff-only origin main >/dev/null 2>&1
+    echo "  Refreshing $combo_dir..."
+    cd "$combo_dir" && git pull --ff-only origin main >/dev/null 2>&1 || true
   fi
 
-  cd "$pack_dir" || exit 1
+  cd "$combo_dir" || exit 1
 
-  # Step 2: Generate docker-compose.yml for this pack
-  echo "  Generating compose for $pack..."
-  cat > .bot-army-pack.json <<EOF
+  # Step 2: Load combo config and generate docker-compose.yml
+  echo "  Loading combo definition..."
+  local packs=$(jq -r ".combos[\"$combo\"].packs[]?" /vagrant/vagrant-test/config/04-pack-combinations.json | tr '\n' ' ')
+  local bots=$(jq -r ".combos[\"$combo\"].bots[]?" /vagrant/vagrant-test/config/04-pack-combinations.json | tr '\n' ' ')
+  local timeout=$(jq -r ".combos[\"$combo\"].timeout_seconds // 60" /vagrant/vagrant-test/config/04-pack-combinations.json)
+
+  if [ -z "$packs" ]; then
+    echo "  ✗ Combo '$combo' not found in config"
+    echo "combo_$combo FAILED config_missing" >> "$RESULTS"
+    mark_step "$combo"
+    return 1
+  fi
+
+  echo "  Packs: $packs"
+  echo "  Bots: $bots"
+  echo "  Timeout: ${timeout}s"
+
+  # Step 3: Generate config for wizard
+  echo "  Generating compose for combo..."
+  cat > .bot-army-combo.json <<EOF
 {
-  "packs": ["$pack"],
+  "packs": [$(echo $packs | sed 's/ /", "/g' | sed 's/^/"/; s/$/"/')],
   "providers": ["ollama"],
   "ports": {
     "nats": 54222,
@@ -84,37 +100,34 @@ test_pack() {
 }
 EOF
 
-  # Invoke the wizard's generate logic or use quickstart script
-  # (For now: simplified — use quickstart-default.sh with PACK override)
-  PACK="$pack" bash scripts/04-pack-generate.sh .bot-army-pack.json >/dev/null 2>&1 || {
-    echo "  ✗ Failed to generate compose for $pack"
-    echo "pack_$pack FAILED generation" >> "$RESULTS"
-    mark_step "$((step_num))"
+  # Call quickstart to generate compose (with all selected packs)
+  PACKS="$packs" bash scripts/quickstart-default.sh .bot-army-combo.json >/dev/null 2>&1 || {
+    echo "  ✗ Failed to generate compose for $combo"
+    docker compose logs --tail 50 >>$combo_log 2>&1
+    echo "combo_$combo FAILED generation" >> "$RESULTS"
+    mark_step "$combo"
     return 1
   }
 
-  # Step 3: Docker compose up
-  echo "  Bringing up $pack fleet..."
-  cd "$pack_dir"
-  timeout 300 docker compose up -d --build >>$pack_log 2>&1 || {
-    echo "  ✗ Failed to boot $pack"
-    docker compose logs --tail 50 >>$pack_log 2>&1
-    echo "pack_$pack FAILED boot" >> "$RESULTS"
+  # Step 4: Docker compose up (with all bots)
+  echo "  Bringing up $combo fleet..."
+  timeout $((timeout + 30)) docker compose up -d --build >>$combo_log 2>&1 || {
+    echo "  ✗ Failed to boot $combo"
+    docker compose logs --tail 50 >>$combo_log 2>&1
+    echo "combo_$combo FAILED boot" >> "$RESULTS"
     return 1
   }
 
-  # Step 4: Wait for services to settle
-  echo "  Waiting 60s for services to stabilize..."
-  sleep 60
+  # Step 5: Wait for services to settle
+  echo "  Waiting ${timeout}s for services to stabilize..."
+  sleep $timeout
 
-  # Step 5: Verify pack-specific NATS subjects respond
-  echo "  Testing pack-specific subjects..."
-  local subjects_file="/vagrant/vagrant-test/config/04-pack-subjects.json"
-  local pack_subjects=$(jq -r ".packs[\"$pack\"] // [] | .[]" "$subjects_file" 2>/dev/null || echo "")
-
+  # Step 6: Verify all bots respond on their NATS subjects
+  echo "  Testing pack subjects..."
+  local subjects=$(jq -r ".combos[\"$combo\"].subjects[]?" /vagrant/vagrant-test/config/04-pack-combinations.json)
   local subject_pass=0 subject_fail=0
-  for subject in $pack_subjects; do
-    # Request/reply with 3s timeout
+
+  for subject in $subjects; do
     if timeout 3 nats request --server nats://localhost:54222 "$subject" '{}' >/dev/null 2>&1; then
       echo "    ✓ $subject"
       ((subject_pass++)) || true
@@ -124,8 +137,8 @@ EOF
     fi
   done
 
-  # Step 6: Check container health
-  echo "  Checking container state..."
+  # Step 7: Check container health (all bots running, no crashes)
+  echo "  Checking container state for all $combo bots..."
   local container_pass=0 container_fail=0
   local services=$(docker compose config --services | grep -E '_bot$|_server$' | grep -v '^ollama$' || true)
 
@@ -134,70 +147,59 @@ EOF
     local restarts=$(docker inspect --format '{{.RestartCount}}' "$(docker compose ps -q "$svc" 2>/dev/null)" 2>/dev/null || echo "?")
 
     if echo "$state" | grep -q "running" && [ "${restarts:-99}" -le 2 ]; then
-      echo "    ✓ $svc (state=$state restarts=$restarts)"
+      echo "    ✓ $svc (restarts=$restarts)"
       ((container_pass++)) || true
     else
       echo "    ✗ $svc (state=$state restarts=$restarts)"
       ((container_fail++)) || true
-      # Show last 10 lines of logs for this service
-      docker compose logs --tail 10 "$svc" 2>&1 | sed 's/^/        /' | head -12
+      docker compose logs --tail 5 "$svc" 2>&1 | sed 's/^/        /' | head -8
     fi
   done
 
-  # Step 7: Log results
-  local pack_result="PASS"
+  # Step 8: Log results
+  local combo_result="PASS"
   if [ $subject_fail -gt 0 ] || [ $container_fail -gt 0 ]; then
-    pack_result="FAIL"
+    combo_result="FAIL"
   fi
 
-  cat >> "$RESULTS" <<EOF
-{
-  "pack": "$pack",
-  "result": "$pack_result",
-  "timestamp": "$(date -Is)",
-  "subjects": {
-    "pass": $subject_pass,
-    "fail": $subject_fail
-  },
-  "containers": {
-    "pass": $container_pass,
-    "fail": $container_fail
-  }
-}
-EOF
+  echo "combo_$combo $combo_result subjects_ok=$subject_pass subjects_fail=$subject_fail containers_ok=$container_pass containers_fail=$container_fail" >> "$RESULTS"
+  echo "  Result: $combo_result (subjects: $subject_pass/$((subject_pass+subject_fail)) ok, containers: $container_pass/$((container_pass+container_fail)) ok)"
 
-  echo "  Result: $pack_result (subjects: $subject_pass/$((subject_pass+subject_fail)) ok, containers: $container_pass/$((container_pass+container_fail)) ok)"
-
-  # Step 8: Cleanup (optional — keep for inspection, or docker compose down)
-  # For now: leave running; operator can inspect logs or run tests
-  # docker compose down --remove-orphans >/dev/null 2>&1
-
-  mark_step "$pack"
-  touch "$pack_marker"
+  mark_step "$combo"
+  touch "$combo_marker"
   return 0
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Main: load pack list and test each
+# Main: Load combo list and test each
 # ─────────────────────────────────────────────────────────────────────────────
 
 hr
-echo "PHASE 04 — bot pack matrix validation ($(date -Is))"
+echo "PHASE 04 — pack combination validation ($(date -Is))"
 hr
 echo ""
 
-# Load pack list from catalog
-PACKS=$(jq -r '.packs | keys | .[]' /vagrant/vagrant-test/config/04-pack-subjects.json 2>/dev/null || echo "Primary Background")
+COMBO_CONFIG="/vagrant/vagrant-test/config/04-pack-combinations.json"
+if [ ! -f "$COMBO_CONFIG" ]; then
+  echo "✗ Config not found: $COMBO_CONFIG"
+  exit 1
+fi
 
-echo "Packs to test: $PACKS"
+# Determine which combos to run (default: core tier)
+RUN_TIER="${RUN_TIER:-core}"
+COMBOS=$(jq -r ".combos[] | select(.tier == \"$RUN_TIER\") | .tier as \$t | keys[] | select(.tier == \$t)" "$COMBO_CONFIG" 2>/dev/null || \
+         jq -r "to_entries[] | select(.value.tier == \"$RUN_TIER\") | .key" "$COMBO_CONFIG")
+
+echo "Running $RUN_TIER tier combinations:"
+echo "$COMBOS" | sed 's/^/  - /'
 echo ""
 
-PACK_PASS=0 PACK_FAIL=0
-for pack in $PACKS; do
-  if test_pack "$pack"; then
-    ((PACK_PASS++)) || true
+COMBO_PASS=0 COMBO_FAIL=0
+for combo in $COMBOS; do
+  if test_combo "$combo"; then
+    ((COMBO_PASS++)) || true
   else
-    ((PACK_FAIL++)) || true
+    ((COMBO_FAIL++)) || true
   fi
 done
 
@@ -207,15 +209,19 @@ done
 
 echo ""
 hr
-if [ $PACK_FAIL -eq 0 ]; then
-  echo "RESULT: PASS — all $PACK_PASS pack(s) verified"
+if [ $COMBO_FAIL -eq 0 ]; then
+  echo "RESULT: PASS — all $COMBO_PASS combo(s) verified"
 else
-  echo "RESULT: FAIL — $PACK_FAIL pack(s) failed, $PACK_PASS passed"
+  echo "RESULT: FAIL — $COMBO_FAIL combo(s) failed, $COMBO_PASS passed"
 fi
 hr
 echo ""
 echo "Detailed results: $RESULTS"
-echo "Pack logs: $HOME/logs/04-pack-*.log"
+echo "Combo logs: $HOME/logs/04-combo-*.log"
+echo ""
+echo "To test extended tier (Background, Research combos):"
+echo "  RUN_TIER=extended bash ./scripts/04-pack-matrix.sh"
+echo ""
 echo "PHASE 04 DONE"
 
-exit $PACK_FAIL
+exit $COMBO_FAIL
