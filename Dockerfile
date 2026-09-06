@@ -31,31 +31,25 @@ COPY bot_army_library_core/mix.exs bot_army_library_core/mix.lock* bot_army_libr
 COPY bot_army_library_runtime/mix.exs bot_army_library_runtime/mix.lock* bot_army_library_runtime/
 COPY bot_army_library_learning/mix.exs bot_army_library_learning/mix.lock* bot_army_library_learning/
 
-# Fetch and compile library deps
-WORKDIR /repos/bot_army_library_core
-RUN mix deps.get --only ${MIX_ENV} && mix deps.compile
-WORKDIR /repos/bot_army_library_runtime
-RUN mix deps.get --only ${MIX_ENV} && mix deps.compile
-WORKDIR /repos/bot_army_library_learning
-RUN mix deps.get --only ${MIX_ENV} && mix deps.compile
-
-# Copy full library source and compile
-# WORKDIR reset is load-bearing: the deps steps above leave WORKDIR at
-# .../bot_army_library_learning; relative COPY destinations would nest the
-# other libraries' source INSIDE it, leaving core/runtime lib-less (mix
-# then emits .app metadata with zero beams and every bot release crashes
-# with "BotArmyLibraryRuntime.Application is not available").
-WORKDIR /repos
+# Copy full library source FIRST, then fetch+compile deps in one step.
+#
+# (The previous split — mix.exs-only COPY → deps.compile → source COPY →
+# mix compile — poisoned every library's compile manifest: path-dep
+# siblings were "compiled" before their source existed, recording zero
+# sources; the later `mix compile` then reported up-to-date and emitted
+# .app metadata with ZERO beams. Every bot release inherited that and
+# crashed at boot with "BotArmyLibraryRuntime.Application is not
+# available". Root cause found 2026-09-06 in vagrant-test.)
 COPY bot_army_library_core/ bot_army_library_core/
 COPY bot_army_library_runtime/ bot_army_library_runtime/
 COPY bot_army_library_learning/ bot_army_library_learning/
 
 WORKDIR /repos/bot_army_library_core
-RUN mix compile
+RUN mix deps.get --only ${MIX_ENV} && mix deps.compile && mix compile
 WORKDIR /repos/bot_army_library_runtime
-RUN mix compile
+RUN mix deps.get --only ${MIX_ENV} && mix deps.compile && mix compile
 WORKDIR /repos/bot_army_library_learning
-RUN mix compile
+RUN mix deps.get --only ${MIX_ENV} && mix deps.compile && mix compile
 
 # =============================================
 # Phase 2: Bot-specific build (extends base)
