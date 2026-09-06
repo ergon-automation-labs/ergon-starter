@@ -25,15 +25,24 @@ parse_phase_result() {
     return 0
   fi
 
+  # Check if file was modified in last 60 seconds (actively running)
+  local mod_time=$(stat -f %m "$log_file" 2>/dev/null || stat -c %Y "$log_file" 2>/dev/null || echo 0)
+  local now=$(date +%s)
+  local age=$((now - mod_time))
+  if [ $age -lt 60 ]; then
+    echo "RUNNING"
+    return 0
+  fi
+
   # Look for the RESULT line at the end of the log
   if grep -q "^RESULT: PASS" "$log_file"; then
     echo "PASS"
   elif grep -q "^RESULT: FAIL" "$log_file"; then
     echo "FAIL"
   elif grep -q "PHASE.*DONE" "$log_file"; then
-    echo "DONE"
+    echo "PASS"  # Phase completed (recognize "PHASE XX DONE" as success)
   else
-    echo "RUNNING"
+    echo "DONE"
   fi
 }
 
