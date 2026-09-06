@@ -204,3 +204,22 @@ clear the phase-02 step-70 marker so the resumable script actually
 re-runs the build (a completed run leaves the marker even when the
 resulting images are broken — markers track *steps*, not *health*; phase
 03 is the health gate).
+
+## P7 — Release boots an idle skeleton when `mod:` is missing from the app spec (elixir-tools mcp)
+
+**Symptom**: container "Up" forever, beam alive, but the app never starts — no log file, port never listens, `which_applications` shows only kernel/stdlib/elixir. The 03-verify "MCP endpoint reachable" check returned 000. **Up ≠ working** for a release whose app can't start.
+
+**Root causes (two stacked, both in ergon-elixir-tools-mcp_server)**:
+1. The repo was historically an escript/CLI tool, so it had **no `mod:`** — and the one place that matters is `def application`, whose return **overrides** the project application config. Putting `mod:` in the `project` block (v0.3.2) did nothing; the `.app` still shipped without `mod` (v0.3.3 fixed it in `application/0`). Without `mod:`, `mix release` loads the app's modules but never calls `Application.start/2`.
+2. With `mod:` added, the app finally started — and then **every non-OPTIONS HTTP request returned an empty-body 500**: the HttpHandler pipeline was `plug(:cors); plug(:dispatch)` with **no `plug(:match)`**. Modern Plug's `:dispatch` does a strict `map_get(:plug_route, conn.private)` — a key only the `:match` plug populates (written against an old Plug where dispatch matched implicitly). Fixed by adding `plug(:match)` first (v0.3.6).
+
+**Diagnostics that actually worked**:
+- In-process exception capture through the router: `bin/<rel> eval "(Plug.Test.conn(:get, \"/mcp\") |> Mod.call([])) |> Map.take([:status])"` wrapped in `try/rescue` with `Exception.format(:error, e, __STACKTRACE__)` — gave the exact `router.ex:256` frame when Bandit was silently eating it.
+- Do NOT trust `rpc`/bare `eval` expressions returning values through nested `vagrant ssh` quoting — output vanishes silently and reads as "no result". Wrap in `IO.inspect`/`IO.puts` and verify quoting per hop.
+- `docker logs` shows nothing when the app crashes *before* logging config lands; entrypoint-only output ("Starting bot...") with a healthy BEAM = boot started no application.
+
+**Related**: the fleet `elixir_tools_mcp_bot` crash-looped (`application_terminated, ..., shutdown`) once the app actually started — StdioHandler exits `:normal` on container stdin EOF, which still counts toward max_restarts under the default `:permanent` policy. Fixed with `Supervisor.child_spec({StdioHandler, []}, restart: :transient)` (v0.3.5). No compose changes needed.
+
+**Phantom supervision children (synapse-lite)**: boot crashes naming modules that exist only in the private full-synapse repo (`RunRetentionScheduler`, `GoalStore`) — remove the children; check nested module paths (`BotArmySynapse.NATS.Consumer` lives in `nats/consumer.ex`) before deleting siblings. v0.1.2/v0.1.3.
+
+**Result**: phase 03 **PASS (18/18)** — 2026-09-06.
