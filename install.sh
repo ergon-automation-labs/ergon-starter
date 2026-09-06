@@ -28,15 +28,21 @@ info()  { echo "  → $*"; }
 ok()    { echo "  ✓ $*"; }
 fail()  { echo "  ✗ $*" >&2; exit 1; }
 
-# --- Args (order-independent; survives the sg re-exec below since "$@" is forwarded) ---
+# --- Args (order-independent) ---
+# P11 (2026-09-06, gemma4 round): the P1 sg re-exec below re-invokes this
+# script. A shift-based parser CONSUMES "$@", so forwarding "$@" drops every
+# flag (the re-exec'd installer then fell into the interactive wizard and
+# died on /dev/tty under nohup). Build the original invocation explicitly.
 DEFAULT=0
 MODEL_NAME="${MODEL_NAME:-}"
+_FORWARD_ARGS=""
 while [ $# -gt 0 ]; do
+  _FORWARD_ARGS+=" $(printf '%q' "$1")"
   case "$1" in
     --default) DEFAULT=1 ;;
     --model)
       [ -n "${2:-}" ] || fail "--model requires a value (e.g. --model gemma4:e4b)"
-      MODEL_NAME="$2"; shift ;;
+      MODEL_NAME="$2"; _FORWARD_ARGS+=" $(printf '%q' "$2")"; shift ;;
     *) fail "Unknown option '$1' — supported: --default, --model <ollama-model>" ;;
   esac
   shift
