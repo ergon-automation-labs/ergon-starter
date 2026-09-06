@@ -7,12 +7,13 @@
 set -uo pipefail
 
 LOG="$HOME/logs/04-pack-matrix.log"
-STATUS="$HOME/logs/04-pack-matrix-status.txt"
+HOST_LOG="/vagrant/logs/04-pack-matrix.log"
+STATUS="/vagrant/logs/04-pack-matrix-status.txt"
 MARKERS="$HOME/.phase04/markers"
-RESULTS="$HOME/logs/04-pack-matrix-results.json"
-mkdir -p "$HOME/logs" "$MARKERS"
+RESULTS="/vagrant/logs/04-pack-matrix-results.json"
+mkdir -p "$HOME/logs" /vagrant/logs "$MARKERS"
 
-exec > >(tee -a "$LOG") 2>&1
+exec > >(tee -a "$LOG" "$HOST_LOG") 2>&1
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Utilities

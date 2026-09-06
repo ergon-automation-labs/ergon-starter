@@ -7,8 +7,9 @@
 set -uo pipefail
 
 LOG="$HOME/logs/03-verify.log"
-mkdir -p "$HOME/logs"
-exec > >(tee -a "$LOG") 2>&1
+HOST_LOG="/vagrant/logs/03-verify.log"
+mkdir -p "$HOME/logs" /vagrant/logs
+exec > >(tee -a "$LOG" "$HOST_LOG") 2>&1
 
 cd "$HOME/bot-army" || { echo "✗ ~/bot-army missing"; exit 3; }
 
