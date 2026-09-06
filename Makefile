@@ -135,6 +135,8 @@ quickstart-default: catalog/bots.json ## Headless: core bots + Ollama, no prompt
 		n=0; until docker compose exec -T ollama ollama list >/dev/null 2>&1 || [ $$n -ge 15 ]; do sleep 2; n=$$((n+1)); done; \
 		docker compose exec -T ollama ollama pull "$$model" \
 			|| echo "  ⚠ model pull failed — run 'make pull-model' later"; \
+		docker compose exec -T ollama ollama pull gemma3:1b \
+			|| echo "  ⚠ probe-model pull failed — run 'make pull-model PULL_MODEL=gemma3:1b'"; \
 	fi
 	@echo ""
 	@echo "✓ Bot Army is running with core bots + Ollama"

@@ -223,6 +223,11 @@ BOT_ARMY_LLM_PROVIDER_CHAIN=ollama
 OLLAMA_BASE_URL=http://ollama:11434
 OLLAMA_MODEL_LIGHT=${MODEL_NAME}
 OLLAMA_MODEL_MEDIUM=${MODEL_NAME}
+# llm_bot's OllamaHealthChecker speaks its own env dialect (OLLAMA_URL, not
+# OLLAMA_BASE_URL) and probes with a tiny dedicated model (default gemma3:1b,
+# non-thinking, cheap — pulled alongside MODEL_NAME).
+OLLAMA_URL=http://ollama:11434
+OLLAMA_PROBE_MODEL=gemma3:1b
 ENVEOF
 echo "  ✓ .env"
 

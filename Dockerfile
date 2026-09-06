@@ -162,6 +162,18 @@ RUN mkdir -p config \
     'nats_port = String.to_integer(System.get_env("NATS_PORT", "4222"))' \
     'config :bot_army_library_runtime, :nats,' \
     '  servers: [{nats_host, nats_port}]' \
+    '' \
+    '# ── Starter overlay (P10): OpenTelemetry exporter gate (boot-time) ──' \
+    '# The opentelemetry app defaults to an otlp exporter pointing at' \
+    '# localhost:4318 — in Docker that is a hard fail_connect loop every few' \
+    '# seconds. Only export when an endpoint is actually configured.' \
+    'otel_ep = System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT")' \
+    'if otel_ep do' \
+    '  config :opentelemetry, traces_exporter: :otlp, span_processor: :batch' \
+    '  config :opentelemetry_exporter, otlp_protocol: :http_protobuf, otlp_endpoint: otel_ep' \
+    'else' \
+    '  config :opentelemetry, traces_exporter: :none' \
+    'end' \
     >> config/runtime.exs
 
 RUN mix compile
