@@ -60,6 +60,18 @@ ARG BOT_NAME
 ARG BOT_REPO
 ARG MIX_ENV=prod
 
+# P9: bake the library's NATS default at build time. Library config.exs is
+# evaluated during the build (Mix loads deps' configs at compile time) and
+# System.get_env here resolves to the DEV default localhost:4223 when the
+# build has no NATS env — which is the case in Docker. Bots whose runtime.exs
+# re-applies NATS config at boot override this (they connect either way),
+# but bots WITHOUT that block dial the baked localhost:4223 forever
+# ("Connection failed, retrying"), leaving their slice of the fleet dark.
+# Bake the compose topology instead: the generated stack always runs NATS
+# at service name "nats" on 4222 (runtime .env sets the same values).
+ENV NATS_HOST=nats
+ENV NATS_PORT=4222
+
 WORKDIR /repos
 
 # Copy bot mix.exs first for dep caching
