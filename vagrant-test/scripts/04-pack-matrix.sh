@@ -224,10 +224,13 @@ test_combo() {
   # 4. Shared ollama blobs across combos
   docker volume create "$SHARED_OLLAMA_VOL" >/dev/null
   cat > override.yml <<EOF
+# ollama blobs live in one external shared volume across combos; mounts
+# reference the top-level KEY (ollama_data), the external name redirects
+# the storage location.
 services:
   ollama:
     volumes:
-      - $SHARED_OLLAMA_VOL:/root/.ollama
+      - ollama_data:/root/.ollama
 volumes:
   ollama_data:
     external: true
