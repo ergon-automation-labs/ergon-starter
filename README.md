@@ -35,11 +35,17 @@ For headless setup (core bots + Ollama, no prompts):
 curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/ergon-starter/main/install.sh | bash -s -- --default
 ```
 
+Choose a different Ollama model (written to `.env` as `OLLAMA_MODEL_*` and pulled automatically once the stack is up):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/ergon-starter/main/install.sh | bash -s -- --default --model gemma4:e4b
+```
+
 ## Prerequisites
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (includes Docker Compose v2)
 - Git
-- ~4 GB RAM for builds
+- ~8 GB RAM for builds + running stack (more if you pull a large local LLM)
 
 ## Manual Setup
 

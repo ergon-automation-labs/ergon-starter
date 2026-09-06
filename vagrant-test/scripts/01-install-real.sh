@@ -3,7 +3,9 @@
 # Phase 01 — THE REAL USER FLOW, UNMODIFIED.
 #
 # Runs exactly what the README advertises for a headless install:
-#   curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/ergon-starter/main/install.sh | bash -s -- --default
+#   curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/ergon-starter/main/install.sh | bash -s -- --default --model gemma4:e4b
+# (Round 3: gemma4:e4b — exercises the new --model flag; model is written to
+# .env and pulled automatically after the stack comes up.)
 #
 # No workarounds. If it breaks, we capture where and why. Post-mortem state is
 # dumped so phase 02 can pick up from the same point a real user would be in.
@@ -36,9 +38,9 @@ echo "== pre-flight ==" | tee -a "$LOG"
 } | tee -a "$LOG"
 
 echo | tee -a "$LOG"
-echo "== running documented one-liner ==" | tee -a "$LOG"
+echo "== running documented one-liner (--model gemma4:e4b) ==" | tee -a "$LOG"
 set -o pipefail
-curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/ergon-starter/main/install.sh | bash -s -- --default 2>&1 | tee -a "$LOG"
+curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/ergon-starter/main/install.sh | bash -s -- --default --model gemma4:e4b 2>&1 | tee -a "$LOG"
 RC=${PIPESTATUS[1]}   # [1] = the piped bash installer; [0] is curl and always 0 on success
 echo | tee -a "$LOG"
 echo "PHASE 01 EXIT CODE: $RC" | tee -a "$LOG"

@@ -127,6 +127,16 @@ quickstart-default: catalog/bots.json ## Headless: core bots + Ollama, no prompt
 		DOCKER_BUILDKIT=1 COMPOSE_PARALLEL_LIMIT=$(COMPOSE_BUILD_PARALLEL) docker compose up -d --build; \
 	fi
 	@echo ""
+	@# Pull the configured LLM model so the stack is functional out of the box
+	@if [ -z "$${SKIP_MODEL_PULL:-}" ]; then \
+		model="$$(grep -E '^OLLAMA_MODEL_MEDIUM=' .env 2>/dev/null | cut -d= -f2)"; \
+		model="$${model:-llama3.1}"; \
+		echo "Pulling Ollama model $$model (best-effort; SKIP_MODEL_PULL=1 to skip)..."; \
+		n=0; until docker compose exec -T ollama ollama list >/dev/null 2>&1 || [ $$n -ge 15 ]; do sleep 2; n=$$((n+1)); done; \
+		docker compose exec -T ollama ollama pull "$$model" \
+			|| echo "  ⚠ model pull failed — run 'make pull-model' later"; \
+	fi
+	@echo ""
 	@echo "✓ Bot Army is running with core bots + Ollama"
 	@echo "  Run 'make logs' to follow output"
 
@@ -417,9 +427,13 @@ setup-tools: ## Install host-side tools (graphify + ripgrep)
 rebuild: ## Force rebuild all images (no cache)
 	docker compose build --no-cache
 
-pull-model: ## Pull the default Ollama model into the running stack (llama3.1, ~4.7GB)
-	@echo "Pulling llama3.1 into the ollama container..."
-	docker compose exec ollama ollama pull llama3.1
+# Model to pull: OLLAMA_MODEL_MEDIUM from .env when present, else llama3.1
+MODEL_FROM_ENV := $(shell grep -E '^OLLAMA_MODEL_MEDIUM=' .env 2>/dev/null | cut -d= -f2)
+PULL_MODEL ?= $(if $(MODEL_FROM_ENV),$(MODEL_FROM_ENV),llama3.1)
+
+pull-model: ## Pull the configured Ollama model into the running stack (override: make pull-model PULL_MODEL=<name>)
+	@echo "Pulling $(PULL_MODEL) into the ollama container..."
+	docker compose exec -T ollama ollama pull $(PULL_MODEL)
 	@echo "✓ Model available — LLM-dependent bots can now answer calls"
 
 pull-repos: ## Pull latest code for all cloned repos

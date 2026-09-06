@@ -35,7 +35,7 @@ Vagrant.configure("2") do |config|
 
   config.vm.provider "parallels" do |prl|
     prl.name   = "bot-army-install-test"
-    prl.memory = 8192   # README says ~4 GB for builds; 8 GB leaves headroom
+    prl.memory = 12288  # 12 GB: builds + 12-bot stack + larger local LLMs (gemma4:e4b is a ~9.6 GB pull); host has 24 GB
     prl.cpus   = 4
     # Disk expands dynamically from the base box (~6 GB used at boot).
   end

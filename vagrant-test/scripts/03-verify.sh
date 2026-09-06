@@ -106,8 +106,13 @@ fi
 
 echo
 echo "== LLM wiring =="
-echo "-- ollama models loaded --"
-curl -fsS http://localhost:51434/api/tags 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); print([m['name'] for m in d.get('models',[])] or 'NONE — bots cannot answer LLM calls until a model is pulled (docker exec bot_army_ollama ollama pull llama3.1)')" 2>/dev/null || echo "  (ollama tags unreachable)"
+CFG_MODEL="$(grep -E '^OLLAMA_MODEL_MEDIUM=' .env 2>/dev/null | cut -d= -f2 || true)"
+echo "-- ollama models loaded (configured: ${CFG_MODEL:-<none>}) --"
+curl -fsS http://localhost:51434/api/tags 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); print([m['name'] for m in d.get('models',[])] or 'NONE — bots cannot answer LLM calls until the configured model is pulled: make pull-model (expects ${CFG_MODEL:-<configured model>})')" 2>/dev/null || echo "  (ollama tags unreachable)"
+if [ -n "$CFG_MODEL" ]; then
+  HAVE="$(curl -fsS http://localhost:51434/api/tags 2>/dev/null | python3 -c "import json,sys; print(any(m['name'].split(':')[0]=='${CFG_MODEL%%:*}' for m in json.load(sys.stdin).get('models',[])))" 2>/dev/null || echo False)"
+  check "Configured model '${CFG_MODEL}' present in ollama" test "$HAVE" = "True"
+fi
 
 echo
 echo "== recent errors across bot logs (last 5 min) =="

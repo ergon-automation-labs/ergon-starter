@@ -13,6 +13,9 @@
 #
 # For a non-interactive install with defaults (core bots + Ollama):
 #   curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/ergon-starter/main/install.sh | bash -s -- --default
+#
+# Pick a different Ollama model (written to .env and pulled at the end):
+#   curl -fsSL https://raw.githubusercontent.com/ergon-automation-labs/ergon-starter/main/install.sh | bash -s -- --default --model gemma4:e4b
 
 set -euo pipefail
 
@@ -24,6 +27,21 @@ REGISTRY_PORT="${REGISTRY_PORT:-32000}"
 info()  { echo "  → $*"; }
 ok()    { echo "  ✓ $*"; }
 fail()  { echo "  ✗ $*" >&2; exit 1; }
+
+# --- Args (order-independent; survives the sg re-exec below since "$@" is forwarded) ---
+DEFAULT=0
+MODEL_NAME="${MODEL_NAME:-}"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --default) DEFAULT=1 ;;
+    --model)
+      [ -n "${2:-}" ] || fail "--model requires a value (e.g. --model gemma4:e4b)"
+      MODEL_NAME="$2"; shift ;;
+    *) fail "Unknown option '$1' — supported: --default, --model <ollama-model>" ;;
+  esac
+  shift
+done
+[ -n "$MODEL_NAME" ] && export MODEL_NAME
 
 # --- Preflight ---
 echo ""
@@ -112,8 +130,8 @@ fi
 
 # --- Disk headroom (P4: from-source builds are heavy — warn early, not mid-build) ---
 AVAIL_KB=$(df -Pk "${HOME:-/tmp}" | awk 'NR==2 {print $4}')
-if [ -n "${AVAIL_KB:-}" ] && [ "${AVAIL_KB}" -lt 20971520 ] 2>/dev/null; then
-  echo "  ⚠ Only $((AVAIL_KB / 1048576))GB free in ${HOME:-/} — a from-source build of the core bots + Ollama needs roughly 15–25GB."
+if [ -n "${AVAIL_KB:-}" ] && [ "${AVAIL_KB}" -lt 31457280 ] 2>/dev/null; then
+  echo "  ⚠ Only $((AVAIL_KB / 1048576))GB free in ${HOME:-/} — a from-source build of the core bots (15–25GB) plus the LLM model pull (5–10GB) need roughly 25–35GB."
 fi
 
 docker compose version >/dev/null 2>&1 || fail "docker compose v2 is required (docker compose, not docker-compose)"
@@ -170,8 +188,8 @@ ok "Starter repo ready"
 echo ""
 export DOCKER_BUILDKIT=1
 export REGISTRY="localhost:${REGISTRY_PORT}"
-if [ "${1:-}" = "--default" ]; then
-  info "Running headless quickstart (core bots + Ollama)..."
+if [ "$DEFAULT" = 1 ]; then
+  info "Running headless quickstart (core bots + Ollama${MODEL_NAME:+, model: $MODEL_NAME})..."
   make quickstart-default
 else
   info "Launching interactive setup wizard..."

@@ -39,6 +39,11 @@ POSTGRES_HOST_PORT="${POSTGRES_HOST_PORT:-55432}"
 OLLAMA_HOST_PORT="${OLLAMA_HOST_PORT:-51434}"
 MCP_HOST_PORT="${MCP_HOST_PORT:-39900}"
 
+# LLM model — written to OLLAMA_MODEL_* in .env and pulled after the stack
+# comes up. install.sh --model <name> sets MODEL_NAME; change later by editing
+# .env and running 'make pull-model'.
+MODEL_NAME="${MODEL_NAME:-llama3.1}"
+
 # Select core bots from catalog
 # Output: remote repo_name release_name bot_name needs_db
 core_bots=$(python3 -c "
@@ -216,8 +221,8 @@ NATS_PORT=4222
 # LLM — Ollama (local)
 BOT_ARMY_LLM_PROVIDER_CHAIN=ollama
 OLLAMA_BASE_URL=http://ollama:11434
-OLLAMA_MODEL_LIGHT=llama3.1
-OLLAMA_MODEL_MEDIUM=llama3.1
+OLLAMA_MODEL_LIGHT=${MODEL_NAME}
+OLLAMA_MODEL_MEDIUM=${MODEL_NAME}
 ENVEOF
 echo "  ✓ .env"
 
@@ -312,6 +317,7 @@ echo "  ✓ docker-compose.yml"
 bot_count=$(echo "$core_bots" | grep -c '.' || true)
 echo ""
 echo "✓ Configured ${bot_count} core bots + NATS + PostgreSQL + Ollama"
+echo "  LLM model: ${MODEL_NAME} (OLLAMA_MODEL_* in .env — change + 'make pull-model' to switch)"
 echo ""
 echo "Port map:"
 echo "  NATS:      localhost:${NATS_HOST_PORT}  (internal 4222)"
