@@ -150,7 +150,10 @@ run_step 20-installer     step_20_installer
 run_step 30-make-build    step_30_make_build
 run_step 40-quickstart    step_40_quickstart
 run_step 50-entrypoint-stage step_50_entrypoint_stage
-run_step 60-refresh-repos step_60_refresh_repos
+echo '↻ refresh-repos: always runs (staleness guard, no marker)'
+status RUNNING 60-refresh-repos
+step_60_refresh_repos || true
+status DONE 60-refresh-repos
 run_step 70-compose-up    step_70_compose_up
 run_step 80-status-snapshot  step_80_status_snapshot
 

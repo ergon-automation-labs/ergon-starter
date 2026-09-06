@@ -115,3 +115,34 @@ per repo.
   `vagrant-test/logs/02-status.txt`.
 - Launch it detached so it survives tool/ssh timeouts:
   `vagrant ssh -c "nohup bash /vagrant/scripts/02-install-fixed.sh >/dev/null 2>&1 & echo started"`
+
+## P5 — GHOST CACHE: docker base image can serve a beams-less library build
+**Where:** `Dockerfile` base stage (`mix compile` of the three library repos)
+**Severity:** fleet-wide crash-loop, with *green* build output
+
+Symptom: every bot container crashes at boot with
+`function BotArmyLibraryRuntime.Application.start/2 is undefined (module
+not available)`, while `compose up --build` exits 0. Inside the release
+image, `lib/bot_army_library_runtime-<v>/ebin/` contains ONLY
+`bot_army_library_runtime.app` — zero `.beam` files.
+
+Root cause: BuildKit served stale base-stage layers from earlier,
+partially-broken builds (pre-disk-reset experiments). The library
+directories in the base image contained only mix.exs/mix.lock/deps/_build
+— no `lib/` source at all — so `mix compile` silently "compiled" nothing
+and emitted app metadata only. Every release then packaged a runtime
+without modules.
+
+Diagnosis path (keep this):
+1. `docker run --rm --entrypoint sh <bot-image> -c "ls /app/lib/bot_army_library_runtime-*/ebin | head"`
+   → app file only = packaging is broken, not the bot code.
+2. `docker build -f Dockerfile --target base -t probe repos/` then count
+   beams per library dir → 0 everywhere = base-stage cache ghost.
+3. Context sanity: `COPY <repo>/ /probe/` in a scratch Dockerfile with the
+   real context — proves `.dockerignore` is innocent.
+
+Fix: bump the Dockerfile's `ARG CACHE_BUST` (its documented purpose), and
+clear the phase-02 step-70 marker so the resumable script actually
+re-runs the build (a completed run leaves the marker even when the
+resulting images are broken — markers track *steps*, not *health*; phase
+03 is the health gate).
