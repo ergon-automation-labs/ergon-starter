@@ -123,7 +123,7 @@ quickstart-default: catalog/bots.json ## Headless: core bots + Ollama, no prompt
 		REGISTRY=$(REGISTRY) ./scripts/quickstart-default.sh; \
 		docker compose up -d; \
 	else \
-		./scripts/quickstart-default.sh; \
+		env -u REGISTRY ./scripts/quickstart-default.sh; \
 		DOCKER_BUILDKIT=1 COMPOSE_PARALLEL_LIMIT=$(COMPOSE_BUILD_PARALLEL) docker compose up -d --build; \
 	fi
 	@echo ""

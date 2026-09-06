@@ -78,9 +78,42 @@ else
     sudo systemctl enable docker
     sudo systemctl start docker
     ok "Docker Engine installed and started"
+    # P1 (2026-09-06, Vagrant fresh-user test): `usermod -aG docker` only
+    # applies to NEW login sessions. Every docker call later in THIS session
+    # failed with "permission denied ... docker.sock", killing the install
+    # (set -e) right after "Creating registry container...". If the daemon is
+    # unreachable but membership exists, re-exec the remainder of the
+    # installer inside `sg docker` — a session that has the new group. No
+    # re-login needed. The re-exec'd run skips this branch (docker present).
+    if ! docker info >/dev/null 2>&1; then
+      if id -nG "$USER" 2>/dev/null | grep -qw docker; then
+        info "Applying new 'docker' group membership in-session (sg) — no re-login needed..."
+        if ! command -v sg >/dev/null 2>&1; then
+          fail "'sg' not found — log out and back in (docker group), then re-run this installer"
+        fi
+        if [ -n "${BASH_SOURCE:-}" ] && [ -f "${BASH_SOURCE}" ]; then
+          _SELF="${BASH_SOURCE}"
+        else
+          # piped from curl — stash our own source, then re-exec that copy
+          _SELF="$(mktemp "${TMPDIR:-/tmp}/bot-army-install.XXXXXX.sh")"
+          curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/install.sh" -o "$_SELF"
+        fi
+        _args=""
+        for _a in "$@"; do _args+=" $(printf '%q' "$_a")"; done
+        exec sg docker -c "bash $(printf '%q' "$_SELF")${_args}"
+      else
+        fail "docker daemon unreachable and '$USER' is not in the docker group — log out and back in, then re-run this installer"
+      fi
+    fi
   else
     fail "Unsupported OS ($UNAME_S) — install Docker Desktop manually: https://docs.docker.com/get-docker/"
   fi
+fi
+
+# --- Disk headroom (P4: from-source builds are heavy — warn early, not mid-build) ---
+AVAIL_KB=$(df -Pk "${HOME:-/tmp}" | awk 'NR==2 {print $4}')
+if [ -n "${AVAIL_KB:-}" ] && [ "${AVAIL_KB}" -lt 20971520 ] 2>/dev/null; then
+  echo "  ⚠ Only $((AVAIL_KB / 1048576))GB free in ${HOME:-/} — a from-source build of the core bots + Ollama needs roughly 15–25GB."
 fi
 
 docker compose version >/dev/null 2>&1 || fail "docker compose v2 is required (docker compose, not docker-compose)"

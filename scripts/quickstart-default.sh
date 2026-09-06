@@ -63,7 +63,13 @@ clone_repo() {
   local remote="$1"
   local dest="$2"
   if [ -d "$dest" ]; then
-    echo "  ✓ $remote (exists)"
+    # P4/P6 (2026-09-06, Vagrant fresh-user test): re-runs must pick up fixes
+    # published after the first clone — ff-only refresh, non-fatal on failure.
+    if git -C "$dest" pull --ff-only origin >/dev/null 2>&1; then
+      echo "  ↻ $remote (exists, refreshed to $(git -C "$dest" log --oneline -1 2>/dev/null | head -1))"
+    else
+      echo "  ⚠ $remote (exists, ff-pull failed — keeping existing copy)" >&2
+    fi
     return 0
   fi
   echo "  ⏳ $remote..."
@@ -149,6 +155,16 @@ $(echo -e "$dep_block")
 "
   fi
 done <<< "$core_bots"
+
+# P3 (2026-09-06, Vagrant fresh-user test): the runtime Dockerfile COPYs
+# scripts/docker-entrypoint.sh from the ./repos build context, but no public
+# bot repo carries it — stage the starter's copy so from-source builds don't
+# fail on a missing file.
+if [ -z "$REGISTRY" ]; then
+  mkdir -p repos/scripts
+  cp "$SCRIPT_DIR/docker-entrypoint.sh" repos/scripts/docker-entrypoint.sh
+  echo "  ✓ staged repos/scripts/docker-entrypoint.sh"
+fi
 
 # Create data directories
 mkdir -p data/logs data/para data/backups
