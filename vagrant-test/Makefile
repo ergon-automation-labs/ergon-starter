@@ -11,7 +11,7 @@
 # Each `vagrant ssh -c` spawns a NEW login session — that is exactly the P1
 # workaround (docker group membership only applies to fresh sessions).
 
-.PHONY: help up ssh phase1 phase2 verify phase04 phase04-pack all status logs halt destroy clean
+.PHONY: help up ssh phase1 phase2 verify phase04 phase04-pack all status dashboard logs halt destroy clean
 
 help:
 	@echo "Bot Army Starter — Vagrant install-test driver"
@@ -24,6 +24,7 @@ help:
 	@echo "  make phase04         test all bot packs in isolation"
 	@echo "  make phase04-pack    test one pack (PACK=Primary)"
 	@echo "  make all             up → phase1 → phase2 → verify → phase04"
+	@echo "  make dashboard       show phase status at a glance"
 	@echo "  make status          VM + compose status"
 	@echo "  make logs            tail phase logs from the VM"
 	@echo "  make halt            suspend the VM"
@@ -53,6 +54,9 @@ phase04-pack:
 	vagrant ssh -c "PACK=$(PACK) bash ./scripts/04-pack-matrix.sh" 2>&1 | tee logs/04-pack-$(PACK).log
 
 all: up phase1 phase2 verify phase04
+
+dashboard:
+	vagrant ssh -c "bash ./scripts/status-dashboard.sh"
 
 status:
 	vagrant status
