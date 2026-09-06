@@ -235,6 +235,7 @@ CORE_BOTS_ROWS="$core_bots" python3 - <<'PYEOF' >> postgres-init/01-create-datab
 import os, re, pathlib
 rows = os.environ.get('CORE_BOTS_ROWS', '')
 known = pathlib.Path('postgres-init/01-create-databases.sql').read_text()
+out = []
 for row in rows.splitlines():
     parts = row.split()
     if len(parts) < 2:
