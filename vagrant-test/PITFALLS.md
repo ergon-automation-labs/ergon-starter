@@ -390,3 +390,51 @@ all core DBs present, no missing-DB / NATS-retry loops.
 per-layer embeddings). CPU inference on 4 vCPU: **~10.6 tok/s generation, ~21 tok/s prompt
 eval** — llama3.1 (8B dense) TIMED OUT on the same hardware. The E-series offload makes CPU
 serving viable; worth documenting as the recommended default for CPU-only installs.
+
+## P12 — Round 4: recurring bot-log errors + the real E-series benchmark (2026-09-06)
+**What**: fleet logs showed six recurring error classes. All root-caused and fixed at the
+source (bot repos + starter), verified zero over a 10-minute window with 0 restarts.
+
+1. **bridge_lite `PulsePublisher` crash every 30s** — `FunctionClauseError` in
+   `SynapseHealth.publish/1`: we passed a MAP, the library only accepts a KEYWORD LIST
+   (and an undocumented `:version` key). Fix: keyword-list call (ergon-bridge-lite `e0328dc`).
+2. **dispatcher OTLP `failed_connect` every ~10s** — the opentelemetry app ships a default
+   otlp exporter at localhost:4318; deps' config.exs gating never reaches the release
+   (P9 lesson, again). Fix: P9's boot-time overlay in the Dockerfile now also sets
+   `traces_exporter` from `OTEL_EXPORTER_OTLP_ENDPOINT` (default `:none`) — starter `eb70774`.
+3. **llm_bot ollama probe `econnrefused` every 60s** — the checker reads `OLLAMA_URL`
+   while the stack shipped `OLLAMA_BASE_URL`; **all LLM routing was pointed at
+   localhost:11434** (functional, not cosmetic). Fix: `.env` carries both dialects +
+   `OLLAMA_PROBE_MODEL`; bot accepts either (ergon-llm `97052c0`, starter `eb70774`).
+4. **dispatcher MultiServiceHealthMonitor "failed 3 times, activating mini"** — hardcoded
+   air/mini topology probe subjects nobody answers in a single-VM fleet. Fix:
+   `DISPATCHER_HEALTH_SERVICES` env (unset = legacy default, empty = idle) —
+   ergon-dispatcher `a2fe851`, starter `.env` `7119003`.
+5. **job_scheduler 15-min timeouts + `:enoent` loop** — the `ensure_*` seed chain
+   re-creates the OPERATOR'S PERSONAL schedules (real `/Users/...` paths in args!) in
+   every fresh DB. Fix: `JOB_SCHEDULER_DISABLE_SEEDS=1` skips seeding (existing rows
+   still load; prod unchanged) — ergon-job_scheduler `d172bd8`; also purge seeded rows
+   from a running VM's `ergon_job_scheduler` DB manually.
+6. **gtd IntentEvaluator crash** — gtd registered its OutcomeTracker as
+   `:gtd_outcome_tracker`, but the library's ThresholdAdapter (IntentEvaluator path)
+   calls the tracker under its DEFAULT module name → "no process" crash. Fix: honor
+   the library's default-name contract (ergon-gtd `cc429ff`).
+Cosmetic: every bot logged two boot `[info]` telemetry lines (MFA capture vs fun) —
+fixed with MFA tuples in ergon-library-runtime `fcd75de`. Verify-grep false positives:
+a bot literally named `log_error_scanner` trips any `grep error` on bot logs.
+
+**E-series benchmark corrections** (4 vCPU / 12 GB, one model resident — see 3 below):
+| model | weights | think OFF | think ON |
+|---|---|---|---|
+| gemma4:e2b | 6.7 GB | **13.8 tok/s** | **12.6 tok/s** |
+| gemma4:e4b | 9.4 GB | 6.5 tok/s | 4.5 tok/s |
+e2b is ~2–3× faster and leaves ~5 GB RAM free — the better CPU-only default. Round 3's
+"e4b ≈ 10.6 tok/s" was a short-sample artifact (first-token-dominated, thinking ignored).
+1. **ollama keep_alive swap thrash**: multiple large models stay resident 5 min by
+   default; 6.7 + 9.4 + 1.2 GB > 12 GB RAM → 3.0 tok/s for e2b (vs 12.6 clean). Benchmark
+   with ONE model loaded (`ollama stop <model>` — one name per call!). Starter ships a
+   single MODEL_NAME so prod is safe; beware multi-model experiments on small hosts.
+2. **thinking models + `/api/generate`**: gemma4 defaults to thinking; with generate,
+   think-channel tokens vanish from `response` (empty content, eval_count counts them).
+   Use `/api/chat` — ollama auto-splits thinking into `message.thinking`; verified the
+   bot path (llm_client → /api/chat, no think param) delivers clean content ('56').
