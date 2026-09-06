@@ -87,6 +87,25 @@ c = Enum.reduce(~w(bot_army_core bot_army_library_core bot_army_runtime bot_army
   end
 end)
 File.write!("mix.exs", c)
+
+# Stale public mirrors (e.g. ergon-skills-base) predate the library
+# rename bot_army_runtime → bot_army_library_runtime, so their code
+# references BotArmyRuntime.* / BotArmyCore.* / BotArmyLearning.*
+# modules that no longer exist. Rewrite the module namespace to match
+# the path deps above. Runs as a no-op for current repos (no old refs).
+# NOTE: the first invocation (deps-caching layer) has no lib/ yet —
+# wildcard finds nothing; the re-invocation after the full-source COPY
+# does the actual rewrite.
+paths = Path.wildcard("lib/**/*.{ex,exs}") ++ Path.wildcard("config/*.{ex,exs}")
+Enum.each(paths, fn path ->
+  src = File.read!(path)
+  patched =
+    src
+    |> String.replace("BotArmyRuntime.", "BotArmyLibraryRuntime.")
+    |> String.replace("BotArmyCore.", "BotArmyLibraryCore.")
+    |> String.replace("BotArmyLearning.", "BotArmyLibraryLearning.")
+  if patched != src, do: File.write!(path, patched)
+end)
 ELIXIRSCRIPT
 elixir /tmp/fix_deps.exs
 BUILDfix
