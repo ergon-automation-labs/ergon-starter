@@ -28,7 +28,7 @@ echo "[$(date)] Creating databases..."
 cd "$RELEASE_DIR"
 
 # Detect Release module name and create databases
-RELEASE_MODULE=$(find /app/lib -name "release.ex" -type f | head -1 | xargs grep -o "defmodule [A-Za-z_]*\.Release" | head -1 | sed "s/defmodule //")
+RELEASE_MODULE=$(find /app/lib_src /app/lib -name "release.ex" -type f 2>/dev/null | head -1 | xargs grep -o "defmodule [A-Za-z_]*\.Release" 2>/dev/null | head -1 | sed "s/defmodule //")
 
 if [ -n "$RELEASE_MODULE" ]; then
   ./bin/$BOT_NAME eval "$RELEASE_MODULE.create_databases()" 2>&1 | grep -v "error\|Error" || true

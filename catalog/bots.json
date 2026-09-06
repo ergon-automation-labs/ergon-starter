@@ -36,7 +36,8 @@
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable",
-    "volumes": []
+    "volumes": [],
+    "needs_db": true
   },
   {
     "name": "library_learning",
@@ -62,7 +63,8 @@
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable",
-    "volumes": []
+    "volumes": [],
+    "needs_db": true
   },
   {
     "name": "para",
@@ -88,7 +90,8 @@
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable",
-    "volumes": []
+    "volumes": [],
+    "needs_db": true
   },
   {
     "name": "synapse",
@@ -103,7 +106,8 @@
     "channel_ref": "stable",
     "volumes": [
       "~/.ssh:/root/.ssh:ro"
-    ]
+    ],
+    "needs_db": true
   },
   {
     "name": "bridge_lite",
@@ -129,7 +133,8 @@
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable",
-    "volumes": []
+    "volumes": [],
+    "needs_db": true
   },
   {
     "name": "skills",
@@ -142,7 +147,8 @@
     "stability": "stable",
     "channel": "stable",
     "channel_ref": "stable",
-    "volumes": []
+    "volumes": [],
+    "needs_db": true
   },
   {
     "name": "surface_mcp",

@@ -143,6 +143,13 @@ WORKDIR /app
 
 COPY --from=build /repos/${BOT_REPO}/_build/prod/rel/${BOT_NAME} ./
 
+# P8: ship the bot's lib SOURCE (mix releases contain compiled beams only).
+# The entrypoint greps release.ex to find the Release module and run
+# migrations via the shared MigrationRunner — without this copy the search
+# finds nothing and migrations are silently skipped ("No Release module
+# found") on every bot, every fresh install.
+COPY --from=build /repos/${BOT_REPO}/lib /app/lib_src
+
 # Copy entrypoint script that handles database creation and migrations
 COPY scripts/docker-entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh

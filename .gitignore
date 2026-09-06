@@ -3,6 +3,7 @@
 /bot-army-native
 docker-compose.yml
 .env
+postgres-init/
 
 # Cloned repos
 repos/

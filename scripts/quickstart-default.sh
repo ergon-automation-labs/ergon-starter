@@ -21,6 +21,17 @@ GIT_ORG="ergon-automation-labs"
 # Docker registry — when set, pull pre-built images instead of building from source
 REGISTRY="${REGISTRY:-}"
 
+# P8 (2026-09-06, vagrant-test): some bots don't read the generic DATABASE_*
+# env vars — they carry old-monorepo defaults that don't exist in Docker
+# (e.g. job_scheduler dialed localhost:30003 and never read DATABASE_HOST).
+# Steer them with their own config env names. Bots whose DEFAULT database
+# name is used as-is (gtd→ergon_gtd, llm→ergon_llm, dispatcher→
+# bot_army_dispatcher, skills→bot_army_skills_dev, synapse→ergon_synapse_dev)
+# need no override — postgres-init.sql creates those names.
+declare -A BOT_ENV_OVERRIDES=(
+  [job_scheduler_bot]='    environment:\n      BOT_ARMY_JOB_DB_HOST: postgres\n      BOT_ARMY_JOB_DB_PORT: "5432"\n      BOT_ARMY_JOB_DB_NAME: ergon_job_scheduler'
+)
+
 # Host ports — high defaults to avoid collisions with local services
 NATS_HOST_PORT="${NATS_HOST_PORT:-54222}"
 NATS_MONITOR_HOST_PORT="${NATS_MONITOR_HOST_PORT:-58222}"
@@ -131,6 +142,7 @@ while IFS=' ' read -r remote repo release bot_name db_flag; do
   ${release}:
     image: ${REGISTRY}/${release}:latest
     env_file: .env
+$(echo -e "${BOT_ENV_OVERRIDES[$release]:-}")
     volumes:
       - ./data/logs/${bot_name}:/var/log/bot_army
     depends_on:
@@ -147,6 +159,7 @@ $(echo -e "$dep_block")
         BOT_NAME: ${release}
         BOT_REPO: ${repo}
     env_file: .env
+$(echo -e "${BOT_ENV_OVERRIDES[$release]:-}")
     volumes:
       - ./data/logs/${bot_name}:/var/log/bot_army
     depends_on:
@@ -168,6 +181,13 @@ fi
 
 # Create data directories
 mkdir -p data/logs data/para data/backups
+
+# P8: stage the postgres init SQL (creates every core bot's database with
+# the bot's own config-default name — some intentionally carry dev
+# suffixes). Runs on first pgdata volume initialization.
+mkdir -p postgres-init
+cp "$SCRIPT_DIR/postgres-init.sql" postgres-init/01-create-databases.sql
+echo "  ✓ staged postgres-init/01-create-databases.sql"
 
 echo ""
 echo "Generating .env..."
@@ -266,6 +286,7 @@ services:
       - "${POSTGRES_HOST_PORT}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]

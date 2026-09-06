@@ -417,6 +417,11 @@ setup-tools: ## Install host-side tools (graphify + ripgrep)
 rebuild: ## Force rebuild all images (no cache)
 	docker compose build --no-cache
 
+pull-model: ## Pull the default Ollama model into the running stack (llama3.1, ~4.7GB)
+	@echo "Pulling llama3.1 into the ollama container..."
+	docker compose exec ollama ollama pull llama3.1
+	@echo "✓ Model available — LLM-dependent bots can now answer calls"
+
 pull-repos: ## Pull latest code for all cloned repos
 	@for dir in repos/*/; do \
 		echo "Pulling $$(basename $$dir)..."; \
