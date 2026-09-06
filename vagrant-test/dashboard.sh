@@ -100,17 +100,42 @@ phase04_result=$(parse_phase_result "$LOG_DIR/04-pack-matrix.log")
 phase04_duration=$(phase_duration "$LOG_DIR/04-pack-matrix.log")
 phase04_time=$(phase_timestamp "$LOG_DIR/04-pack-matrix.log")
 
-# Print table
-printf "%-10s %-10s %-10s %-20s\n" "Phase" "Result" "Duration" "Last Run"
-echo "─────────────────────────────────────────────────────────────"
+# Determine current phase
+current_phase=""
+if [ "$phase04_result" = "RUNNING" ]; then
+  current_phase="04"
+elif [ "$phase03_result" = "RUNNING" ]; then
+  current_phase="03"
+elif [ "$phase02_result" = "RUNNING" ]; then
+  current_phase="02"
+elif [ "$phase01_result" = "RUNNING" ]; then
+  current_phase="01"
+elif [ "$phase01_result" = "NOTRUN" ]; then
+  current_phase="01"
+elif [ "$phase02_result" = "NOTRUN" ]; then
+  current_phase="02"
+elif [ "$phase03_result" = "NOTRUN" ]; then
+  current_phase="03"
+elif [ "$phase04_result" = "NOTRUN" ]; then
+  current_phase="04"
+fi
+
+# Print table with "You are here" marker
+printf "%-10s %-10s %-10s %-20s  \n" "Phase" "Result" "Duration" "Last Run"
+echo "─────────────────────────────────────────────────────────────────────────"
 
 print_phase() {
   local phase="$1" result="$2" duration="$3" timestamp="$4"
+  local marker=""
+  if [ "$phase" = "Phase 0$current_phase" ]; then
+    marker=" ← You are here"
+  fi
+
   case "$result" in
-    PASS)   printf "%-10s ✓ PASS    %-10s %-20s\n" "$phase" "$duration" "$timestamp" ;;
-    FAIL)   printf "%-10s ✗ FAIL    %-10s %-20s\n" "$phase" "$duration" "$timestamp" ;;
-    RUNNING) printf "%-10s ⊗ RUN     %-10s %-20s\n" "$phase" "$duration" "$timestamp" ;;
-    *)      printf "%-10s ⊘ —       %-10s %-20s\n" "$phase" "$duration" "$timestamp" ;;
+    PASS)   printf "%-10s ✓ PASS    %-10s %-20s%s\n" "$phase" "$duration" "$timestamp" "$marker" ;;
+    FAIL)   printf "%-10s ✗ FAIL    %-10s %-20s%s\n" "$phase" "$duration" "$timestamp" "$marker" ;;
+    RUNNING) printf "%-10s ⊗ RUN     %-10s %-20s%s\n" "$phase" "$duration" "$timestamp" "$marker" ;;
+    *)      printf "%-10s ⊘ —       %-10s %-20s%s\n" "$phase" "$duration" "$timestamp" "$marker" ;;
   esac
 }
 
