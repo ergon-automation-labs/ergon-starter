@@ -348,3 +348,45 @@ must be defensive.
    failure from wrong-target defaults.
 3. Correlate failing bots with `grep -c 'config :bot_army_library_runtime, :nats'
    <repo>/config/runtime.exs` — 0 = relies on defaults (and pre-fix, on baked dev values).
+
+---
+
+## P11 — Model choice was hardcoded; gemma4:e4b round (2026-09-06, Round 3 pristine)
+
+**Symptom**: the LLM model was baked into 3 places (quickstart .env, Makefile pull-model,
+03-verify hint). Asking "can we use gemma4:e4b?" had no supported answer, and the 9.6 GB
+pull (vs llama3.1's 4.9 GB) blew both VM limits (30 GB LV half-allocated from a 60 GB PV;
+8 GB RAM ceiling).
+
+**Root causes & fixes** (commit 9ee7f04 + 3093595 + 5d28489):
+1. **Hardcoded model** → `install.sh --model <name>` (order-independent parsing, exported as
+   `MODEL_NAME`), `quickstart-default.sh` writes `OLLAMA_MODEL_{LIGHT,MEDIUM}=$MODEL_NAME`,
+   Makefile reads `.env` for `pull-model`. The install now PULLS the model itself after the
+   stack comes up (`SKIP_MODEL_PULL=1` to skip) — an install that ends with "pull it yourself"
+   was not actually complete.
+2. **VM disk**: Ubuntu autoinstall leaves ~30 GB of the VG unallocated. Bootstrap now runs
+   `lvextend -l +100%FREE` + online `resize2fs` → 60 GB. No box/disk-image surgery needed.
+3. **VM RAM**: 8 GB → 12 GB (host had 24 GB). gemma4:e4b sits at ~2.5 GB used with the
+   12-bot stack — 12 GB is comfortable.
+4. **P11a — my --model parsing broke the P1 sg re-exec**: the shift-based loop CONSUMED `$@`,
+   and the P1 fix forwards `"$@"` to the re-exec'd installer → re-exec saw no args → fell
+   into the interactive wizard → died on `/dev/tty` under nohup (exit 1, phase 01, ~5 min in).
+   **Fix**: build `_FORWARD_ARGS` with `printf '%q'` during parsing and forward THAT.
+   **P11b — second latent bug in the same line**: the `--model` branch shifted the VALUE
+   away without appending it to `_FORWARD_ARGS` → re-exec'd installer would see `--model`
+   with no value. Unit-tested the parse block (order-swap / no-args / missing-value) before
+   the third launch. **Lesson**: when a script self-re-exec's, forward saved ORIGINAL args —
+   never the mutated `$@`; and test the parse block in isolation, not via a stale local file.
+5. **raw.githubusercontent.com CDN staleness**: after pushing fixes, raw `main` served the
+   old install.sh for several minutes (md5 mismatch) — the VM would have re-hit the old bug.
+   Poll `curl raw.../install.sh | md5` until it matches local before launching a phase run.
+
+**Result (Round 3, fully pristine)**: `vagrant destroy -f && up` → documented one-liner with
+`--model gemma4:e4b` → **PHASE 01 EXIT CODE: 0** → **phase 03 PASS (23 checks)** — new check:
+configured model present in ollama. 12/12 bots stable (0 restarts), 13 NATS connections,
+all core DBs present, no missing-DB / NATS-retry loops.
+
+**gemma4:e4b data point**: 9.6 GB pull (default tag, ~8B raw params, E4B "effective 4B" via
+per-layer embeddings). CPU inference on 4 vCPU: **~10.6 tok/s generation, ~21 tok/s prompt
+eval** — llama3.1 (8B dense) TIMED OUT on the same hardware. The E-series offload makes CPU
+serving viable; worth documenting as the recommended default for CPU-only installs.
