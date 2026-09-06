@@ -104,19 +104,20 @@ phase04_time=$(phase_timestamp "$LOG_DIR/04-pack-matrix.log")
 printf "%-10s %-10s %-10s %-20s\n" "Phase" "Result" "Duration" "Last Run"
 echo "─────────────────────────────────────────────────────────────"
 
-for phase result duration timestamp in \
-    "Phase 01" "$phase01_result" "$phase01_duration" "$phase01_time" \
-    "Phase 02" "$phase02_result" "$phase02_duration" "$phase02_time" \
-    "Phase 03" "$phase03_result" "$phase03_duration" "$phase03_time" \
-    "Phase 04" "$phase04_result" "$phase04_duration" "$phase04_time"
-do
+print_phase() {
+  local phase="$1" result="$2" duration="$3" timestamp="$4"
   case "$result" in
     PASS)   printf "%-10s ✓ PASS    %-10s %-20s\n" "$phase" "$duration" "$timestamp" ;;
     FAIL)   printf "%-10s ✗ FAIL    %-10s %-20s\n" "$phase" "$duration" "$timestamp" ;;
     RUNNING) printf "%-10s ⊗ RUN     %-10s %-20s\n" "$phase" "$duration" "$timestamp" ;;
     *)      printf "%-10s ⊘ —       %-10s %-20s\n" "$phase" "$duration" "$timestamp" ;;
   esac
-done
+}
+
+print_phase "Phase 01" "$phase01_result" "$phase01_duration" "$phase01_time"
+print_phase "Phase 02" "$phase02_result" "$phase02_duration" "$phase02_time"
+print_phase "Phase 03" "$phase03_result" "$phase03_duration" "$phase03_time"
+print_phase "Phase 04" "$phase04_result" "$phase04_duration" "$phase04_time"
 
 # Summary
 echo ""
