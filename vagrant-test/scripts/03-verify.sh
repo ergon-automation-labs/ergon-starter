@@ -62,6 +62,49 @@ for svc in $BOT_SERVICES; do
 done
 
 echo
+echo "== data-plane health (P8/P9 lessons: liveness ≠ function) =="
+# P8: bots looped forever on 'database "..." does not exist' while compose
+# showed them Up — the liveness checks above cannot see data-plane breakage.
+check_no_missing_db() {
+  ! docker compose logs --since 15m 2>&1 | grep -q 'does not exist'
+}
+check_no_nats_retry() {
+  ! docker compose logs --since 15m 2>&1 | grep -q 'Connection failed, retrying'
+}
+check_core_dbs() {
+  local n
+  n=$(docker compose exec -T postgres psql -U postgres -tAc \
+    "SELECT count(*) FROM pg_database WHERE datname NOT IN ('postgres','template0','template1')" \
+    2>/dev/null | tr -d '[:space:]')
+  [ "${n:-0}" -ge 6 ]
+}
+if check_no_missing_db; then
+  echo "  ✓ no bot looping on a missing database"; PASS=$((PASS+1))
+else
+  echo "  ✗ a bot is looping on a missing database (see postgres-init.sql / P8)"; FAIL=$((FAIL+1))
+  docker compose logs --since 15m 2>&1 | grep -B2 'does not exist' | tail -6 | sed 's/^/       /'
+fi
+if check_no_nats_retry; then
+  echo "  ✓ no bot stuck retrying its NATS connection"; PASS=$((PASS+1))
+else
+  echo "  ✗ a bot is stuck retrying NATS (see Dockerfile NATS overlay / P9)"; FAIL=$((FAIL+1))
+  docker compose logs --since 15m 2>&1 | grep -B2 'Connection failed, retrying' | tail -6 | sed 's/^/       /'
+fi
+if check_core_dbs; then
+  echo "  ✓ core bot databases exist in postgres"; PASS=$((PASS+1))
+else
+  echo "  ✗ core bot databases missing from postgres"; FAIL=$((FAIL+1))
+fi
+# P9 ground truth from the NATS monitor: one connection per connected bot.
+BOT_COUNT=$(docker compose config --services 2>/dev/null | grep -c '_bot$')
+conn=$(curl -fsS http://localhost:58222/connz 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin).get("num_connections",0))' 2>/dev/null || echo 0)
+if [ "${BOT_COUNT:-0}" -gt 0 ] && [ "${conn:-0}" -ge "$BOT_COUNT" ]; then
+  echo "  ✓ all $BOT_COUNT bots connected to NATS ($conn connections)"; PASS=$((PASS+1))
+else
+  echo "  ✗ NATS monitor reports $conn connection(s) for $BOT_COUNT bot(s)"; FAIL=$((FAIL+1))
+fi
+
+echo
 echo "== LLM wiring =="
 echo "-- ollama models loaded --"
 curl -fsS http://localhost:51434/api/tags 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); print([m['name'] for m in d.get('models',[])] or 'NONE — bots cannot answer LLM calls until a model is pulled (docker exec bot_army_ollama ollama pull llama3.1)')" 2>/dev/null || echo "  (ollama tags unreachable)"

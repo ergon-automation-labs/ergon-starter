@@ -294,7 +294,23 @@ lock error. Serialize VM calls (or accept the retry).
 ## P9 — LIVE (found during P8 validation): 6 of 12 bots never connect to NATS — release config is baked at build time
 
 **Date:** 2026-09-06, while validating the P8 fix (post-rebuild log sweep).
-**Status:** FIXED in starter repo — commit `a15d3db`.
+**Status:** FIXED in starter repo — final mechanism `501d3e3` + `b03307e` (take-1 `a15d3db` was
+disproven by experiment and superseded).
+
+**Fix evolution (worth keeping — it's the lesson)**:
+- take 1 (`a15d3db`): ENV NATS_HOST/NATS_PORT in the Dockerfile build stage — NO-OP. Terms from
+  deps' config.exs do NOT reach the release's sys.config; the connection code reads
+  Application env at runtime, which stayed at the library default.
+- take 2 (`501d3e3`): append a boot-time overlay to every bot's config/runtime.exs during the
+  bot image build (the exact mechanism the six connected bots carry themselves). Immediately
+  broke para/general/graphify_cache: they ship NO config/runtime.exs, and the created file
+  lacked `import Config` → `undefined function config_env/0` at release boot → crash loop.
+  Also learned: bare `>> config/runtime.exs` fails when the repo has no config/ dir
+  (graphify_cache, para) → `mkdir -p config` first (`e646a47`).
+- take 3 (`b03307e`): seed `import Config` when creating the file; drop the config_env()
+  :test guard (releases never evaluate runtime.exs under :test — the guard was redundant and
+  was the only reason the import was needed). Both variants parse-checked locally with
+  `Code.string_to_quoted!` against real bot content BEFORE the rebuild.
 
 **Symptom**: para/dispatcher/general/job_scheduler/elixir_tools_mcp/graphify_cache loop
 `[NATS] Connection failed, retrying` + `[NATS] Failed to publish message` forever; the other 6
@@ -312,9 +328,11 @@ NATS_PORT=4223` (the dev broker) when the build has no NATS env — which is exa
 build's situation. `nc` proves the shape: `nats:4222` reachable, `localhost:4223` refused.
 The plist-built fleet never saw this because its builds ran with prod env present.
 
-**Fix**: `ENV NATS_HOST=nats` + `ENV NATS_PORT=4222` in the Dockerfile bot build stage — the
-baked default now matches the generated compose topology. Bots with runtime blocks still
-override at boot from .env with identical values, so both paths agree.
+**Fix**: the Dockerfile bot build stage appends a boot-time NATS overlay to every bot's
+config/runtime.exs (seeded with `import Config` when absent) — reads NATS_HOST/NATS_PORT at
+release boot with the container env. Bots with runtime blocks still re-apply with identical
+values from .env, so both paths agree; Config.Reader's deep merge preserves the bots' own
+ping_interval/max_reconnect keys.
 
 **Lesson**: release-time config baking means BUILD-TIME env is part of the artifact. Any
 dep config that calls System.get_env is a landmine for Docker builds: either set the value in
@@ -323,8 +341,10 @@ bot's runtime.exs to re-apply it. Bots are inconsistent about which they do — 
 must be defensive.
 
 **Diagnosis path (keep this)**:
-1. Per-bot: `docker logs <bot> 2>&1 | grep -c 'Connection established'` — 0 = dark bot.
+1. Fleet-level ground truth: `curl -s http://localhost:58222/connz` (NATS monitor) →
+   `num_connections` — must be ≥ number of bot services. The nats server does NOT log client
+   connects by default; the monitor API is the only cheap fleet-wide connectivity probe.
 2. `docker exec <bot> nc -zv nats 4222` vs `nc -zv localhost 4223` — distinguishes network
-   failure from wrong-target baking.
+   failure from wrong-target defaults.
 3. Correlate failing bots with `grep -c 'config :bot_army_library_runtime, :nats'
-   <repo>/config/runtime.exs` — 0 = relies on baked config.
+   <repo>/config/runtime.exs` — 0 = relies on defaults (and pre-fix, on baked dev values).
