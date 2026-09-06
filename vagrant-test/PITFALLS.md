@@ -3,9 +3,9 @@
 Findings from the Vagrant-based fresh-user reproduction
 (`vagrant-test/`, Ubuntu 24.04 ARM64, Docker Engine installed by install.sh itself).
 
-## P1 — CONFIRMED (live): Docker install succeeds, then everything after it fails
+## P1 — FIXED (commit 1e76d30): Docker install succeeds, then everything after it fails
 **Where:** `install.sh` Linux branch → registry setup step
-**Severity:** install-blocking on a fresh Linux machine
+**Severity:** was install-blocking on a fresh Linux machine — fixed via `sg docker` re-exec in install.sh
 
 `install.sh` installs Docker Engine via `get.docker.com` and runs
 `sudo usermod -aG docker "$USER"`, but group membership only applies to **new**
@@ -28,9 +28,9 @@ A real user *might* guess "re-login and re-run", but nothing tells them to.
 `exec sudo -u "$USER" -i bash ...`-style fresh-session hop, or simply detect
 stale membership and print "re-login and re-run this command".
 
-## P2 — CODE-AUDIT (high confidence, phase 02 confirms): REGISTRY env leak breaks the from-source build
+## P2 — FIXED (commit 1e76d30): REGISTRY env leak breaks the from-source build
 **Where:** `install.sh` → Makefile `quickstart-default` → `scripts/quickstart-default.sh`
-**Severity:** install-blocking for the documented `--default` path
+**Severity:** was install-blocking for the documented `--default` path — fixed with `env -u REGISTRY`
 
 `install.sh` exports `REGISTRY=localhost:32000` before calling
 `make quickstart-default`. The Makefile checks whether the registry actually
@@ -55,9 +55,9 @@ Note: running `make quickstart-default` from a manual clone does NOT hit this
 **Fix:** `env -u REGISTRY ./scripts/quickstart-default.sh` in the Makefile's
 else-branch (or `unset REGISTRY` in the script).
 
-## P3 — CODE-AUDIT: Dockerfile COPY of an entrypoint that isn't in the build context
+## P3 — FIXED (commit 1e76d30): Dockerfile COPY of an entrypoint that isn't in the build context
 **Where:** `Dockerfile` runtime stage: `COPY scripts/docker-entrypoint.sh /app/entrypoint.sh`
-**Severity:** build-blocking for every bot (once P2 is fixed and source builds start)
+**Severity:** was build-blocking for every bot — quickstart now stages entrypoint into repos/
 
 Compose sets `build.context: ./repos`, so the COPY resolves to
 `repos/scripts/docker-entrypoint.sh`. Nothing creates that path:
@@ -223,3 +223,108 @@ resulting images are broken — markers track *steps*, not *health*; phase
 **Phantom supervision children (synapse-lite)**: boot crashes naming modules that exist only in the private full-synapse repo (`RunRetentionScheduler`, `GoalStore`) — remove the children; check nested module paths (`BotArmySynapse.NATS.Consumer` lives in `nats/consumer.ex`) before deleting siblings. v0.1.2/v0.1.3.
 
 **Result**: phase 03 **PASS (18/18)** — 2026-09-06.
+
+## P8 — LIVE (found in fresh-user reproduction): every DB-using bot loops on "database does not exist" — and liveness gates don't see it
+
+**Date:** 2026-09-06, immediately after the pristine one-liner install passed phase 03.
+**Status:** FIXED in starter repo — commits `15288e7` + `3cabb9c`.
+
+**Symptom**: phase 03 verify **PASS (18/18)** — all 16 containers Up, 0 restarts — yet bot logs
+telemetry showed thousands of errors: gtd/llm/dispatcher/skills/synapse looping on
+`Postgrex ... FATAL 3D000 (invalid_catalog_name) database "ergon_gtd" does not exist` (and their
+own DB names), job_scheduler dialing `localhost:30003`, para_bot spamming `[NATS] Failed to
+publish message`. `psql \l` showed **only the `postgres` database** — no bot DB anywhere. The
+army looked perfectly healthy and was completely non-functional.
+
+**Root causes (four, stacked)**:
+1. **No bot can create its own DB.** The entrypoint creates databases via a Release module
+   (`Release.create_databases()`), but: (a) public bot repos implement only `Release.migrate()`
+   (shared `BotArmyLibraryRuntime.Ecto.MigrationRunner`) — `create_databases()` exists nowhere;
+   (b) `mix release` images contain compiled beams only, so the entrypoint's
+   `find /app/lib -name release.ex` found nothing and detection "skipped" silently. DB creation
+   was a fiction on every fresh install.
+2. **The old monorepo's init SQL is broken too** (`CREATE DATABASE cannot be executed from a
+   function`): `DO $$ ... $$` blocks are transactional and CREATE DATABASE can't run in a
+   transaction. The lifted pattern failed live on first use. Correct tool: psql `\gexec`
+   (executes each SELECT's returned row as a standalone statement, no transaction). The old
+   fleet evidently got its DBs through some other path (salt/manual).
+3. **Bots carry old-monorepo defaults**: job_scheduler's ConfigLoader defaults to
+   `localhost:30003` and ignores the generic `DATABASE_HOST` — needs
+   `BOT_ARMY_JOB_DB_HOST/PORT/NAME`. Several DB names carry dev suffixes
+   (`bot_army_skills_dev`, `ergon_synapse_dev`) that are the bots' real config defaults —
+   match them verbatim rather than "fixing" the names.
+4. **catalog/bots.json said `needs_db: false` for every bot**, so generated compose never had
+   DB bots wait for postgres health.
+
+**Fixes (all in the starter repo, commits 15288e7 + 3cabb9c)**:
+- `scripts/postgres-init.sql` — creates each bot's config-default DB via `\gexec` (idempotent),
+  staged by quickstart-default.sh into `postgres-init/` and mounted into the postgres service
+  (`/docker-entrypoint-initdb.d`). Runs on first pgdata volume initialization only.
+- Generated compose sets `BOT_ARMY_JOB_DB_HOST: postgres / PORT: 5432 / NAME: ergon_job_scheduler`
+  for job_scheduler (the one bot that ignores generic DATABASE_*).
+- Dockerfile runtime stage now copies the bot's `lib/` source to `/app/lib_src`; entrypoint
+  searches `/app/lib_src` first — Release.migrate() actually runs instead of being skipped.
+- catalog needs_db corrected → DB bots depend_on postgres service_healthy.
+- `make pull-model` for the default Ollama model (LLM calls fail until a model is pulled).
+
+**VM-side recovery (existing pgdata volume predates the fix — initdb.d only runs on FIRST init)**:
+`docker compose rm -f postgres && docker volume rm bot-army_pgdata && docker compose up -d postgres`
+— safe here because the volume held no data worth keeping. (Note: `compose stop` is NOT enough —
+the stopped container still pins the volume; remove it.)
+
+**Lesson — liveness ≠ function**: the 18-check verify gate proves scheduling/network/restarts,
+not data-plane health. Log-telemetry sweep (error counts per container) is the missing check;
+`database "..." does not exist` in any bot log should fail the gate. A future phase-04 could
+add: per-container error-rate scan + DB-name-existence check + `which_applications` spot check.
+
+**Diagnosis path (keep this)**:
+1. `for b in gtd_bot llm_bot para_bot dispatcher_bot skills_bot job_scheduler_bot synapse_bot
+   general_bot bridge_lite_bot graphify_cache_bot; do echo -n "$b: "; docker logs
+   bot-army-$b-1 2>&1 | grep -aoE 'database "[a-z_0-9]+" does not exist' | tail -1; done`
+   → per-bot attempted DB name (ground truth from the live errors, not the configs).
+2. Each bot's real DB env names live in its own config/runtime.exs (grep `System.get_env` /
+   `ConfigLoader.get`) — they are NOT uniform; job_scheduler uses `BOT_ARMY_JOB_*`, skills/synapse
+   use prefix-cascades ending in `DATABASE_*`.
+3. Postgres init failures appear in `docker logs bot-army-postgres-1` as plain psql errors —
+   check there FIRST when DBs are missing after a volume re-init.
+
+**Also**: do not run two `vagrant ssh` commands concurrently — the second dies with a machine
+lock error. Serialize VM calls (or accept the retry).
+
+## P9 — LIVE (found during P8 validation): 6 of 12 bots never connect to NATS — release config is baked at build time
+
+**Date:** 2026-09-06, while validating the P8 fix (post-rebuild log sweep).
+**Status:** FIXED in starter repo — commit `a15d3db`.
+
+**Symptom**: para/dispatcher/general/job_scheduler/elixir_tools_mcp/graphify_cache loop
+`[NATS] Connection failed, retrying` + `[NATS] Failed to publish message` forever; the other 6
+bots publish normally. `docker logs bot-army-nats-1` shows zero client connections from the
+failing bots. `nc -zv nats 4222` inside a failing bot container SUCCEEDS — the network is fine,
+the bot dials the wrong target.
+
+**Root cause — exact split**: bots whose `config/runtime.exs` re-applies
+`config :bot_army_library_runtime, :nats` at boot connect (12/12 correlation: gtd, llm, synapse,
+skills, bridge_lite, surface_mcp ✓ / para, dispatcher, general, job_scheduler,
+elixir_tools_mcp, graphify_cache ✗ — the ✗ set has NO runtime NATS block). Bots without the
+block use the application env **baked at build time**: Mix evaluates deps' config.exs during
+`mix compile`, and the library's config.exs falls back to `NATS_HOST=localhost /
+NATS_PORT=4223` (the dev broker) when the build has no NATS env — which is exactly the Docker
+build's situation. `nc` proves the shape: `nats:4222` reachable, `localhost:4223` refused.
+The plist-built fleet never saw this because its builds ran with prod env present.
+
+**Fix**: `ENV NATS_HOST=nats` + `ENV NATS_PORT=4222` in the Dockerfile bot build stage — the
+baked default now matches the generated compose topology. Bots with runtime blocks still
+override at boot from .env with identical values, so both paths agree.
+
+**Lesson**: release-time config baking means BUILD-TIME env is part of the artifact. Any
+dep config that calls System.get_env is a landmine for Docker builds: either set the value in
+the Dockerfile (if the deployment topology is fixed, which it is for a starter) or require the
+bot's runtime.exs to re-apply it. Bots are inconsistent about which they do — the starter
+must be defensive.
+
+**Diagnosis path (keep this)**:
+1. Per-bot: `docker logs <bot> 2>&1 | grep -c 'Connection established'` — 0 = dark bot.
+2. `docker exec <bot> nc -zv nats 4222` vs `nc -zv localhost 4223` — distinguishes network
+   failure from wrong-target baking.
+3. Correlate failing bots with `grep -c 'config :bot_army_library_runtime, :nats'
+   <repo>/config/runtime.exs` — 0 = relies on baked config.
