@@ -146,7 +146,9 @@ RUN elixir /tmp/fix_deps.exs
 # so it wins the config merge; Config.Reader deep-merges keyword lists, so
 # bots that also set ping_interval/max_reconnect_attempts keep those keys.
 # Guarded against :test so hermetic test runs inside the image are untouched.
-RUN printf '%s\n' \
+# mkdir -p: graphify_cache and para ship no config/ directory at all — a bare
+# `>> config/runtime.exs` would fail the build (caught live in vagrant-test).
+RUN mkdir -p config && printf '%s\n' \
     '' \
     '# ── Starter overlay (P9): NATS servers from env, evaluated at boot ──' \
     'if config_env() != :test do' \
