@@ -40,6 +40,12 @@ WORKDIR /repos/bot_army_library_learning
 RUN mix deps.get --only ${MIX_ENV} && mix deps.compile
 
 # Copy full library source and compile
+# WORKDIR reset is load-bearing: the deps steps above leave WORKDIR at
+# .../bot_army_library_learning; relative COPY destinations would nest the
+# other libraries' source INSIDE it, leaving core/runtime lib-less (mix
+# then emits .app metadata with zero beams and every bot release crashes
+# with "BotArmyLibraryRuntime.Application is not available").
+WORKDIR /repos
 COPY bot_army_library_core/ bot_army_library_core/
 COPY bot_army_library_runtime/ bot_army_library_runtime/
 COPY bot_army_library_learning/ bot_army_library_learning/
