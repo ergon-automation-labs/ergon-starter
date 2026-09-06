@@ -56,7 +56,7 @@ phase04-pack:
 all: up phase1 phase2 verify phase04
 
 dashboard:
-	vagrant ssh -c "bash ./scripts/status-dashboard.sh"
+	vagrant ssh -c "cd /vagrant/vagrant-test && bash ./scripts/status-dashboard.sh"
 
 status:
 	vagrant status
