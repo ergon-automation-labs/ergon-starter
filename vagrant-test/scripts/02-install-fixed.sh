@@ -108,7 +108,17 @@ step_50_entrypoint_stage() {
 step_60_refresh_repos() {
   # P4: fast-forward repos/* to origin so reruns pick up fixes pushed
   # since the first clone. Non-fatal per repo (logged).
+  # P6: the ROOT starter clone (~/bot-army itself) must refresh too —
+  # Dockerfile/quickstart fixes land on origin, but a stale root clone
+  # keeps building with the old file. Two full rebuilds (2026-09-06) were
+  # burned before this was found: repos refreshed, root did not.
   cd "$HOME/bot-army" || return 1
+  if git fetch origin >/dev/null 2>&1 \
+     && git pull --ff-only origin >/dev/null 2>&1; then
+    echo "  ↻ ROOT: $(git log --oneline -1)"
+  else
+    echo "  ⚠️  ROOT: ff-pull failed (local changes?) — leaving as-is"
+  fi
   local rc=0
   for d in repos/*/; do
     [ -d "$d/.git" ] || continue

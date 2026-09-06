@@ -116,6 +116,49 @@ per repo.
 - Launch it detached so it survives tool/ssh timeouts:
   `vagrant ssh -c "nohup bash /vagrant/scripts/02-install-fixed.sh >/dev/null 2>&1 & echo started"`
 
+## Registry policy — local-build default, registry is the explicit distribution option (2026-09-06, Abby-approved)
+
+**Decision: the from-source flow does NOT require the registry.** `REGISTRY`
+stays unset by default; compose builds images locally and runs them from
+the local docker cache. The registry (which `install.sh` already
+provisions: a `registry:2` container on `localhost:32000`, with
+`scripts/registry-push.sh` to upload) is the explicit option for
+build-once/pull-everywhere flows — host→VM distribution, CI-built
+images, or mirroring air's k8s + registry pattern.
+
+**Why not registry-by-default:** `install.sh` starts the registry but
+nothing ever pushes to it — `registry-push.sh` is a separate manual step
+no install path calls. A fresh user therefore gets an EMPTY registry,
+and the `Makefile:120` auto-detect (`registry reachable AND has
+gtd_bot → pull; else build locally`) is bypassed because `install.sh`
+exports `REGISTRY` into the environment, making `quickstart-default.sh`
+trust the env var over the auto-detect. Net effect pre-fix: pull from
+an empty registry → every container crash-loops. That was P2.
+
+**If the registry path is wanted for real**, the missing piece is not
+provisioning — it's wiring `registry-push.sh` after `make build` so the
+registry is populated whenever it's up. Until then: unset `REGISTRY`,
+build locally. The Makefile's auto-detect already makes a populated
+registry "just work" when present.
+
+## P6 — ROOT starter clone never refreshed; rebuilds silently used old Dockerfile
+
+**Symptom:** pushed Dockerfile fixes (4e89b29 WORKDIR fix, b47b906
+restructure) never took effect in the VM — two full rebuilds (~45 min
+each) produced identical 0-beam images because the VM's `~/bot-army`
+root clone sat at 6a73b87 (pre-fix) while the 13 repos/* clones updated
+correctly. Every "fix didn't work" signal was a mirage.
+
+**Root cause:** step 60 (refresh-repos) iterated `repos/*/` only. The
+root starter clone — which OWNS the Dockerfile, quickstart script, and
+compose file — was never pulled.
+
+**Fix:** step 60 now ff-pulls the root clone first (logged, non-fatal).
+**Lesson:** any "refresh the tree" step must cover the tree's ROOT too,
+not just its submodules. When a fix produces byte-identical behavior,
+verify the FILE CONTENT actually changed in the build context before
+re-deriving the root cause (`rg '<new marker line>' ~/bot-army/Dockerfile`).
+
 ## P5 — GHOST CACHE: docker base image can serve a beams-less library build
 **Where:** `Dockerfile` base stage (`mix compile` of the three library repos)
 **Severity:** fleet-wide crash-loop, with *green* build output
@@ -132,6 +175,21 @@ directories in the base image contained only mix.exs/mix.lock/deps/_build
 — no `lib/` source at all — so `mix compile` silently "compiled" nothing
 and emitted app metadata only. Every release then packaged a runtime
 without modules.
+
+**RETRACTED 2026-09-06:** the "stale layers / ghost cache" theory above
+was WRONG. A `--no-cache` full rebuild reproduced the 0-beam output
+deterministically. The real mechanism (see the Dockerfile fix commits
+4e89b29 + b47b906): the base stage ran `mix deps.compile` BEFORE the
+full-source COPY; libraries path-dep their siblings, so each sibling was
+"compiled" with no source present, recording a ZERO-SOURCE compile
+manifest; the later `mix compile` trusted that manifest ("up to date")
+and emitted .app metadata with zero beams — every build, forever, with
+green output. Fix: copy full source FIRST, then deps.get + deps.compile
++ mix compile per library in one layer. (The WORKDIR nesting found along
+the way — full-source COPYs executing after `WORKDIR
+.../bot_army_library_learning` with relative destinations, burying all
+three libraries' source inside the learning dir — was a second real bug,
+fixed by the `WORKDIR /repos` reset in 4e89b29.)
 
 Diagnosis path (keep this):
 1. `docker run --rm --entrypoint sh <bot-image> -c "ls /app/lib/bot_army_library_runtime-*/ebin | head"`
