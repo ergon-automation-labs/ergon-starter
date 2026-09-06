@@ -1,0 +1,60 @@
+# Convenience driver for the Vagrant-based Bot Army Starter install test.
+#
+#   make up        create + bootstrap the VM (NO docker — install.sh owns that)
+#   make phase1    pristine documented install, unmodified  → surfaces pitfalls
+#   make phase2    fixed flow in a FRESH ssh session        → should reach running army
+#   make verify    health checks + PASS/FAIL verdict
+#   make all       phase1 → phase2 → verify, one command
+#
+# Each `vagrant ssh -c` spawns a NEW login session — that is exactly the P1
+# workaround (docker group membership only applies to fresh sessions).
+
+.PHONY: help up ssh phase1 phase2 verify all status logs halt destroy clean
+
+help:
+	@echo "Bot Army Starter — Vagrant install-test driver"
+	@echo ""
+	@echo "  make up        create + bootstrap the VM"
+	@echo "  make ssh       shell into the VM"
+	@echo "  make phase1    pristine documented install (surfaces pitfalls)"
+	@echo "  make phase2    fixed install (fresh session = P1 workaround)"
+	@echo "  make verify    deployment health checks + verdict"
+	@echo "  make all       up → phase1 → phase2 → verify"
+	@echo "  make status    VM + compose status"
+	@echo "  make logs      tail phase logs from the VM"
+	@echo "  make halt      suspend the VM"
+	@echo "  make destroy   destroy the VM"
+	@echo "  make clean     destroy + wipe logs/.vagrant"
+
+up:
+	vagrant up --provider=parallels
+
+ssh:
+	vagrant ssh
+
+phase1:
+	vagrant ssh -c "bash ./01-install-real.sh" 2>&1 | tee logs/01-stream.txt
+
+phase2:
+	vagrant ssh -c "bash ./02-install-fixed.sh" 2>&1 | tee logs/02-install-fixed.log
+
+verify:
+	vagrant ssh -c "bash ./03-verify.sh" 2>&1 | tee logs/03-verify.log
+
+all: up phase1 phase2 verify
+
+status:
+	vagrant status
+	vagrant ssh -c "cd ~/bot-army 2>/dev/null && docker compose ps || docker ps -a"
+
+logs:
+	vagrant ssh -c "tail -n 30 ~/logs/*.log"
+
+halt:
+	vagrant halt
+
+destroy:
+	vagrant destroy -f
+
+clean: destroy
+	rm -rf logs .vagrant

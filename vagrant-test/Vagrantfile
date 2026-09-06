@@ -1,0 +1,54 @@
+# Bot Army Starter — installation test VM
+#
+# Spins up a clean Ubuntu 24.04 ARM64 VM (Parallels provider — native on Apple
+# Silicon; the bento box is already cached locally). The bootstrap installs
+# ONLY the bare prerequisites (git, curl, python3, make) and deliberately does
+# NOT install Docker — the starter's own install.sh is supposed to do that,
+# and testing that path is the whole point.
+#
+# Usage:
+#   vagrant up                  # create + bootstrap the VM
+#   vagrant ssh                 # then run the phase scripts (see README.md)
+#
+# Phases (run inside the VM from ~):
+#   ./01-install-real.sh        # documented one-liner, unmodified — surfaces pitfalls
+#   ./02-install-fixed.sh       # workarounds applied — should reach a running army
+#   ./03-verify.sh              # health checks + PASS/FAIL report
+#
+# Logs land in ~/logs (mirrored to this directory's logs/ via /vagrant).
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "bento/ubuntu-24.04"
+  config.vm.hostname = "bot-army-install-test"
+
+  # Forward the starter's default host ports so the deployment is reachable
+  # from the Mac exactly as a native user would reach it.
+  [
+    [54222, 54222],  # NATS client
+    [58222, 58222],  # NATS monitor (HTTP)
+    [55432, 55432],  # PostgreSQL
+    [51434, 51434],  # Ollama
+    [39900, 39900],  # MCP server
+  ].each do |host_port, guest_port|
+    config.vm.network "forwarded_port", guest: guest_port, host: host_port, auto_correct: true
+  end
+
+  config.vm.provider "parallels" do |prl|
+    prl.name   = "bot-army-install-test"
+    prl.memory = 8192   # README says ~4 GB for builds; 8 GB leaves headroom
+    prl.cpus   = 4
+    # Disk expands dynamically from the base box (~6 GB used at boot).
+  end
+
+  # VirtualBox alternative — NOTE: needs an arm64 guest box. ubuntu/jammy64 is
+  # amd64-only and will NOT boot under Apple Silicon VirtualBox 7.x.
+  # config.vm.provider "virtualbox" do |vb|
+  #   vb.memory = 8192
+  #   vb.cpus   = 4
+  # end
+
+  config.vm.provision "bootstrap",   type: "shell", path: "scripts/bootstrap.sh"
+  config.vm.provision "push-real",   type: "file", source: "scripts/01-install-real.sh",  destination: "/home/vagrant/01-install-real.sh"
+  config.vm.provision "push-fixed",  type: "file", source: "scripts/02-install-fixed.sh", destination: "/home/vagrant/02-install-fixed.sh"
+  config.vm.provision "push-verify", type: "file", source: "scripts/03-verify.sh",        destination: "/home/vagrant/03-verify.sh"
+end
