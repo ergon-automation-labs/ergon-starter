@@ -148,15 +148,20 @@ RUN elixir /tmp/fix_deps.exs
 # Guarded against :test so hermetic test runs inside the image are untouched.
 # mkdir -p: graphify_cache and para ship no config/ directory at all — a bare
 # `>> config/runtime.exs` would fail the build (caught live in vagrant-test).
-RUN mkdir -p config && printf '%s\n' \
+# If runtime.exs does not exist we must seed 'import Config' (a bare config
+# call is otherwise an undefined function — caught live when para, general
+# and graphify_cache crash-looped with 'undefined function config_env/0').
+# The overlay itself carries no config_env() guard: releases never evaluate
+# runtime.exs under :test, so the guard is redundant even in dev.
+RUN mkdir -p config \
+    && if [ ! -f config/runtime.exs ]; then printf '%s\n' 'import Config' > config/runtime.exs; fi \
+    && printf '%s\n' \
     '' \
     '# ── Starter overlay (P9): NATS servers from env, evaluated at boot ──' \
-    'if config_env() != :test do' \
-    '  nats_host = System.get_env("NATS_HOST", "nats")' \
-    '  nats_port = String.to_integer(System.get_env("NATS_PORT", "4222"))' \
-    '  config :bot_army_library_runtime, :nats,' \
-    '    servers: [{nats_host, nats_port}]' \
-    'end' \
+    'nats_host = System.get_env("NATS_HOST", "nats")' \
+    'nats_port = String.to_integer(System.get_env("NATS_PORT", "4222"))' \
+    'config :bot_army_library_runtime, :nats,' \
+    '  servers: [{nats_host, nats_port}]' \
     >> config/runtime.exs
 
 RUN mix compile
