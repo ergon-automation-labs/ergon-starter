@@ -116,9 +116,7 @@ else
           _SELF="$(mktemp "${TMPDIR:-/tmp}/bot-army-install.XXXXXX.sh")"
           curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/install.sh" -o "$_SELF"
         fi
-        _args=""
-        for _a in "$@"; do _args+=" $(printf '%q' "$_a")"; done
-        exec sg docker -c "bash $(printf '%q' "$_SELF")${_args}"
+        exec sg docker -c "bash $(printf '%q' "$_SELF")${_FORWARD_ARGS}"
       else
         fail "docker daemon unreachable and '$USER' is not in the docker group — log out and back in, then re-run this installer"
       fi
