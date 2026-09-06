@@ -1,30 +1,34 @@
 # Convenience driver for the Vagrant-based Bot Army Starter install test.
 #
-#   make up        create + bootstrap the VM (NO docker — install.sh owns that)
-#   make phase1    pristine documented install, unmodified  → surfaces pitfalls
-#   make phase2    fixed flow in a FRESH ssh session        → should reach running army
-#   make verify    health checks + PASS/FAIL verdict
-#   make all       phase1 → phase2 → verify, one command
+#   make up           create + bootstrap the VM (NO docker — install.sh owns that)
+#   make phase1       pristine documented install, unmodified  → surfaces pitfalls
+#   make phase2       fixed flow in a FRESH ssh session        → should reach running army
+#   make verify       health checks + PASS/FAIL verdict
+#   make phase04      bot pack matrix validation (test each pack in isolation)
+#   make phase04-pack test a specific pack (PACK=Primary)
+#   make all          phase1 → phase2 → verify → phase04, one command
 #
 # Each `vagrant ssh -c` spawns a NEW login session — that is exactly the P1
 # workaround (docker group membership only applies to fresh sessions).
 
-.PHONY: help up ssh phase1 phase2 verify all status logs halt destroy clean
+.PHONY: help up ssh phase1 phase2 verify phase04 phase04-pack all status logs halt destroy clean
 
 help:
 	@echo "Bot Army Starter — Vagrant install-test driver"
 	@echo ""
-	@echo "  make up        create + bootstrap the VM"
-	@echo "  make ssh       shell into the VM"
-	@echo "  make phase1    pristine documented install (surfaces pitfalls)"
-	@echo "  make phase2    fixed install (fresh session = P1 workaround)"
-	@echo "  make verify    deployment health checks + verdict"
-	@echo "  make all       up → phase1 → phase2 → verify"
-	@echo "  make status    VM + compose status"
-	@echo "  make logs      tail phase logs from the VM"
-	@echo "  make halt      suspend the VM"
-	@echo "  make destroy   destroy the VM"
-	@echo "  make clean     destroy + wipe logs/.vagrant"
+	@echo "  make up              create + bootstrap the VM"
+	@echo "  make ssh             shell into the VM"
+	@echo "  make phase1          pristine documented install (surfaces pitfalls)"
+	@echo "  make phase2          fixed install (fresh session = P1 workaround)"
+	@echo "  make verify          deployment health checks + verdict"
+	@echo "  make phase04         test all bot packs in isolation"
+	@echo "  make phase04-pack    test one pack (PACK=Primary)"
+	@echo "  make all             up → phase1 → phase2 → verify → phase04"
+	@echo "  make status          VM + compose status"
+	@echo "  make logs            tail phase logs from the VM"
+	@echo "  make halt            suspend the VM"
+	@echo "  make destroy         destroy the VM"
+	@echo "  make clean           destroy + wipe logs/.vagrant"
 
 up:
 	vagrant up --provider=parallels
@@ -41,7 +45,14 @@ phase2:
 verify:
 	vagrant ssh -c "bash ./03-verify.sh" 2>&1 | tee logs/03-verify.log
 
-all: up phase1 phase2 verify
+phase04:
+	vagrant ssh -c "bash ./scripts/04-pack-matrix.sh" 2>&1 | tee logs/04-pack-matrix.log
+
+phase04-pack:
+	@if [ -z "$(PACK)" ]; then echo "Usage: make phase04-pack PACK=Primary"; exit 1; fi
+	vagrant ssh -c "PACK=$(PACK) bash ./scripts/04-pack-matrix.sh" 2>&1 | tee logs/04-pack-$(PACK).log
+
+all: up phase1 phase2 verify phase04
 
 status:
 	vagrant status

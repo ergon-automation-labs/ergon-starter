@@ -1,0 +1,75 @@
+{
+  "packs": {
+    "Primary": {
+      "description": "GTD + Bridge + essentials (task management, automation)",
+      "bots": ["gtd_bot", "claude_bridge", "llm_proxy", "dispatcher"],
+      "subjects": [
+        "bridge.task.list",
+        "bridge.internal_docs.query",
+        "system.health.bridge",
+        "llm.request.converse"
+      ],
+      "timeout_seconds": 60
+    },
+    "Background": {
+      "description": "LLM service + job/feed management (headless, no UI)",
+      "bots": ["llm_proxy", "job_applications_bot", "rss_polling_bot"],
+      "subjects": [
+        "llm.request.converse",
+        "job_applications.query",
+        "rss_polling.refresh"
+      ],
+      "timeout_seconds": 60
+    },
+    "Learning": {
+      "description": "Knowledge management (Terrain, Internal Docs, Graphify)",
+      "bots": ["terrain_bot", "internal_docs_bot", "graphify_cache_bot"],
+      "subjects": [
+        "terrain.lesson.generate",
+        "internal_docs.query",
+        "bot_army.graph.query"
+      ],
+      "timeout_seconds": 90
+    },
+    "Social": {
+      "description": "Discord + chat bridges (Synapse + message routing)",
+      "bots": ["synapse_bot", "notification_router_bot", "llm_proxy"],
+      "subjects": [
+        "bridge.chat",
+        "synapse.command.dispatch",
+        "notification_router.publish"
+      ],
+      "timeout_seconds": 60
+    },
+    "Research": {
+      "description": "Content aggregation (Feeds, Job Applications, Media Ingestion)",
+      "bots": ["rss_polling_bot", "job_applications_bot", "media_ingestion_bot"],
+      "subjects": [
+        "rss_polling.refresh",
+        "job_applications.query",
+        "media_ingestion.ingest"
+      ],
+      "timeout_seconds": 60
+    },
+    "Infrastructure": {
+      "description": "Deployment & observability (SRE, Factory, Companion)",
+      "bots": ["sre_bot", "factory_breaker_bot", "companion_bot"],
+      "subjects": [
+        "system.health.sre",
+        "factory_breaker.query",
+        "companion.reflection.log"
+      ],
+      "timeout_seconds": 60
+    }
+  },
+  "common_health_checks": [
+    "system.health",
+    "nats.ping",
+    "postgres.health"
+  ],
+  "notes": {
+    "subject_variance": "Not all bots in a pack are always deployed in a fresh install; verify in the wizard's bot manifest. The subjects list includes the PRIMARY use-case endpoints — some bots are dependencies.",
+    "timeout": "Each pack gets a per-pack timeout_seconds to account for cold Ollama pulls and compilation. Learning is slower due to terrain's LLM work.",
+    "nats_port": "Default 54222 (localhost forwarded from vagrant VM). Adjust in pack deployment if needed."
+  }
+}
