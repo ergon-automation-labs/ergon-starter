@@ -354,7 +354,12 @@ echo "  ✓ .env"
 
 echo "Generating docker-compose.yml..."
 
-# Build MCP service entry (registry vs build-from-source)
+# Build MCP service entry (registry vs build-from-source).
+# Only when elixir_tools_mcp is part of the SELECTED fleet: pack-only combos
+# (e.g. auditor) don't clone its repo, and an unconditional service would
+# make `docker compose up --build` fail on the missing build context
+# (P11: hardcoded core assumptions leak into non-core packs).
+if awk '$2 == "bot_army_elixir_tools_mcp"' <<< "$core_bots" | grep -q bot_army; then
 if [ -n "$REGISTRY" ]; then
   mcp_service="
   mcp:
@@ -390,6 +395,9 @@ else
       nats:
         condition: service_started
     restart: unless-stopped"
+fi
+else
+  mcp_service=""
 fi
 
 cat > docker-compose.yml << COMPEOF
