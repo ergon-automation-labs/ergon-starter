@@ -354,7 +354,9 @@ EOF
   fi
 
   teardown_combo "$dir"
-  return 0
+  # The JSONL record + per-combo verdict are the truth; the main-loop tally
+  # must agree (a constant return 0 made "all combos verified" lie on FAIL).
+  if [ "$combo_result" = "PASS" ]; then return 0; else return 1; fi
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
