@@ -123,6 +123,12 @@ ELIXIRSCRIPT
 elixir /tmp/fix_deps.exs
 BUILDfix
 
+# Hex fetch stability in VM builds: parallel hex fetches to repo.hex.pm
+# intermittently time out under load (2026-09-07: ecto-3.14.2 :timeout
+# killed the auditor combo build mid-tier). Serial fetches, longer timeout.
+ENV HEX_HTTP_CONCURRENCY=1 \
+    HEX_HTTP_TIMEOUT=120
+
 RUN mix deps.get --only ${MIX_ENV} && mix deps.compile
 
 # Copy bot source and compile.
