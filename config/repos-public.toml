@@ -180,3 +180,61 @@ remote = "ergon-job_applications"
 category = "research"
 stability = "experimental"
 channels = { stable = "stable", latest = "latest", nightly = "main" }
+
+# ============================================================================
+# AUDITOR PACK (Self-service operability audit platform)
+# Design: vagrant-test/AUDITOR_PACK_DESIGN.md (pack v2: 6 foundation +
+# 4 critical methodology bots). Scaffolds boot + register; methodology
+# handlers land with the measurement-schema implementation. The 3 remaining
+# critical bots (documentation_validator, code_alignment, phase_comparator)
+# have no repos yet and are therefore absent from this list.
+# ============================================================================
+
+[[bots]]
+name = "bot_army_auditor_repo_scanner"
+remote = "ergon-auditor_repo_scanner"
+category = "auditor"
+stability = "experimental"
+channels = { stable = "main", latest = "main", nightly = "main" }
+
+[[bots]]
+name = "bot_army_auditor_test_runner"
+remote = "ergon-auditor_test_runner"
+category = "auditor"
+stability = "experimental"
+channels = { stable = "main", latest = "main", nightly = "main" }
+
+[[bots]]
+name = "bot_army_auditor_llm_harness"
+remote = "ergon-auditor_llm_harness"
+category = "auditor"
+stability = "experimental"
+channels = { stable = "main", latest = "main", nightly = "main" }
+
+[[bots]]
+name = "bot_army_auditor_baseline"
+remote = "ergon-auditor_baseline"
+category = "auditor"
+stability = "experimental"
+channels = { stable = "main", latest = "main", nightly = "main" }
+
+[[bots]]
+name = "bot_army_auditor_metrics_collector"
+remote = "ergon-auditor_metrics_collector"
+category = "auditor"
+stability = "experimental"
+channels = { stable = "main", latest = "main", nightly = "main" }
+
+[[bots]]
+name = "bot_army_auditor_report_generator"
+remote = "ergon-auditor_report_generator"
+category = "auditor"
+stability = "experimental"
+channels = { stable = "main", latest = "main", nightly = "main" }
+
+[[bots]]
+name = "bot_army_auditor_measurement_executor"
+remote = "ergon-auditor_measurement_executor"
+category = "auditor"
+stability = "experimental"
+channels = { stable = "main", latest = "main", nightly = "main" }

@@ -342,5 +342,96 @@
     "volumes": [
       "~/Documents/job-search:/job-search"
     ]
+  },
+  {
+    "name": "auditor_repo_scanner",
+    "repo": "bot_army_auditor_repo_scanner",
+    "remote": "ergon-auditor_repo_scanner",
+    "release_name": "auditor_repo_scanner_bot",
+    "category": "auditor",
+    "description": "Analyzes client repo structure, test config, and CI setup (auditor pack)",
+    "required": false,
+    "stability": "experimental",
+    "channel": "stable",
+    "channel_ref": "main",
+    "volumes": []
+  },
+  {
+    "name": "auditor_test_runner",
+    "repo": "bot_army_auditor_test_runner",
+    "remote": "ergon-auditor_test_runner",
+    "release_name": "auditor_test_runner_bot",
+    "category": "auditor",
+    "description": "Executes the test suite and measures duration/coverage/failures (auditor pack)",
+    "required": false,
+    "stability": "experimental",
+    "channel": "stable",
+    "channel_ref": "main",
+    "volumes": []
+  },
+  {
+    "name": "auditor_llm_harness",
+    "repo": "bot_army_auditor_llm_harness",
+    "remote": "ergon-auditor_llm_harness",
+    "release_name": "auditor_llm_harness_bot",
+    "category": "auditor",
+    "description": "Integrates the LLM provider and generates optimization proposals (auditor pack)",
+    "required": false,
+    "stability": "experimental",
+    "channel": "stable",
+    "channel_ref": "main",
+    "volumes": []
+  },
+  {
+    "name": "auditor_baseline",
+    "repo": "bot_army_auditor_baseline",
+    "remote": "ergon-auditor_baseline",
+    "release_name": "auditor_baseline_bot",
+    "category": "auditor",
+    "description": "Stores Phase 0 baseline metrics for before/after comparison (auditor pack)",
+    "required": false,
+    "stability": "experimental",
+    "channel": "stable",
+    "channel_ref": "main",
+    "volumes": []
+  },
+  {
+    "name": "auditor_metrics_collector",
+    "repo": "bot_army_auditor_metrics_collector",
+    "remote": "ergon-auditor_metrics_collector",
+    "release_name": "auditor_metrics_collector_bot",
+    "category": "auditor",
+    "description": "Records and aggregates time-series audit metrics (auditor pack)",
+    "required": false,
+    "stability": "experimental",
+    "channel": "stable",
+    "channel_ref": "main",
+    "volumes": []
+  },
+  {
+    "name": "auditor_report_generator",
+    "repo": "bot_army_auditor_report_generator",
+    "remote": "ergon-auditor_report_generator",
+    "release_name": "auditor_report_generator_bot",
+    "category": "auditor",
+    "description": "Builds exportable client-facing audit reports (auditor pack)",
+    "required": false,
+    "stability": "experimental",
+    "channel": "stable",
+    "channel_ref": "main",
+    "volumes": []
+  },
+  {
+    "name": "auditor_measurement_executor",
+    "repo": "bot_army_auditor_measurement_executor",
+    "remote": "ergon-auditor_measurement_executor",
+    "release_name": "auditor_measurement_executor_bot",
+    "category": "auditor",
+    "description": "Runs the agent task and measures time/tokens/quality per phase (auditor pack, critical)",
+    "required": false,
+    "stability": "experimental",
+    "channel": "stable",
+    "channel_ref": "main",
+    "volumes": []
   }
 ]

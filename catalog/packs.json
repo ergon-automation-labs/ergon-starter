@@ -85,5 +85,20 @@
     "description": "Webhook infrastructure (ngrok tunneling for local dev webhooks - works with Discord, GitHub, etc.)",
     "release_name": "webhook_pack",
     "bots": []
+  },
+  {
+    "name": "auditor",
+    "stability": "experimental",
+    "description": "Self-service operability audit platform (scaffolds boot + register; measurement methodology lands with the implementation phase). Design: vagrant-test/AUDITOR_PACK_DESIGN.md - the 3 remaining critical methodology bots (documentation_validator, code_alignment, phase_comparator) join when their repos exist.",
+    "release_name": "auditor_pack",
+    "bots": [
+      "auditor_repo_scanner",
+      "auditor_test_runner",
+      "auditor_llm_harness",
+      "auditor_baseline",
+      "auditor_metrics_collector",
+      "auditor_report_generator",
+      "auditor_measurement_executor"
+    ]
   }
 ]
