@@ -386,7 +386,11 @@ echo "✓ nats CLI: $(command -v nats)"
 teardown_main_stack
 
 RUN_TIER="${RUN_TIER:-core}"
-COMBOS=$(jq -r ".combos | to_entries[] | select(.value.tier == \"$RUN_TIER\") | .key" "$COMBO_CONFIG")
+if [ "$RUN_TIER" = "all" ]; then
+  COMBOS=$(jq -r '.combos | keys[]' "$COMBO_CONFIG")
+else
+  COMBOS=$(jq -r ".combos | to_entries[] | select(.value.tier == \"$RUN_TIER\") | .key" "$COMBO_CONFIG")
+fi
 
 echo "Running $RUN_TIER tier combinations:"
 echo "$COMBOS" | sed 's/^/  - /'
