@@ -39,3 +39,13 @@ WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'ergon_synapse_dev')\g
 
 SELECT 'CREATE DATABASE ergon_job_scheduler'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'ergon_job_scheduler')\gexec
+
+-- internal_docs (P10 2026-09-07: runtime.exs only applies the DB override
+-- chain when a DB_NAME is present; without it the bot boots on baked
+-- defaults 127.0.0.1:30006 and crash-loops). Graph DB uses the same
+-- instance; GraphRepo rescues a missing AGE extension at after_connect.
+SELECT 'CREATE DATABASE ergon_internal_docs'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'ergon_internal_docs')\gexec
+
+SELECT 'CREATE DATABASE ergon_graphdb_internal_docs'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'ergon_graphdb_internal_docs')\gexec

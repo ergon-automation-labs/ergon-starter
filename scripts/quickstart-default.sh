@@ -34,7 +34,14 @@ declare -A BOT_ENV_OVERRIDES=(
   # hardcodes 127.0.0.1:30006 (operator's PgBouncer) — DATABASE_* never
   # reaches it. youtube_manager speaks a k8s dialect (DB_HOST/DB_PASS with
   # a postgres.default.svc.cluster.local default).
-  [internal_docs_bot]='    environment:\n      BOT_ARMY_INTERNAL_DOCS_BOT_DB_HOST: postgres\n      BOT_ARMY_INTERNAL_DOCS_BOT_DB_PORT: "5432"'
+  # internal_docs hand-rolls its env chain with a _BOT_ prefix segment and
+  # hardcodes 127.0.0.1:30006 (operator's PgBouncer) — DATABASE_* never
+  # reaches it. P10 (2026-09-07): runtime.exs applies that chain only when
+  # DB_NAME is set — HOST/PORT alone were ignored and the bot crash-looped
+  # on the baked defaults. DB_NAME/USER/PASSWORD gate the override on.
+  # GRAPHDB_* points the AGE graph repo at the same postgres; AGE missing
+  # is rescued in GraphRepo.after_connect (warning, not fatal).
+  [internal_docs_bot]='    environment:\n      BOT_ARMY_INTERNAL_DOCS_BOT_DB_HOST: postgres\n      BOT_ARMY_INTERNAL_DOCS_BOT_DB_PORT: "5432"\n      BOT_ARMY_INTERNAL_DOCS_BOT_DB_NAME: ergon_internal_docs\n      BOT_ARMY_INTERNAL_DOCS_BOT_DB_USER: postgres\n      BOT_ARMY_INTERNAL_DOCS_BOT_DB_PASSWORD: ${POSTGRES_PASSWORD}\n      BOT_ARMY_INTERNAL_DOCS_GRAPHDB_HOST: postgres\n      BOT_ARMY_INTERNAL_DOCS_GRAPHDB_PORT: "5432"'
   [youtube_manager_bot]='    environment:\n      DB_HOST: postgres\n      DB_PASS: postgres'
 )
 

@@ -259,12 +259,32 @@ EOF
 
   # 8. Verify — registry bot set (tolerant name matching: exact registry
   # name, release_name-stripped, or bot_army_<catalog-name> prefix)
+  # Registry participation exceptions (P10 ground truth: prod registry + repo
+  # audit 2026-09-07):
+  #   bridge_lite      — no Registry.register call in repo (by design)
+  #   elixir_tools_mcp — no Registry.register call in repo (matches prod)
+  # These are validated by container health instead of registry presence.
+  #   surface_mcp      — repo hardcodes @registry_bot_name "mcp"
+  local NONREGISTERING_BOTS="bridge_lite elixir_tools_mcp"
+  local alias_for
+  alias_for() {
+    case "$1" in
+      surface_mcp) echo "mcp" ;;
+      *) echo "$1" ;;
+    esac
+  }
   echo "  Verifying registry bot set..."
   local registered
   registered=$(registry_bot_names)
   local bot_pass=0 bot_fail=0 missing=""
   for b in $expected; do
-    if echo " $registered " | grep -q " $b \| bot_army_${b}"; then
+    if echo " $NONREGISTERING_BOTS " | grep -q " $b "; then
+      bot_pass=$((bot_pass+1))
+      continue
+    fi
+    local rname
+    rname=$(alias_for "$b")
+    if echo " $registered " | grep -q " $rname \| bot_army_${rname}"; then
       bot_pass=$((bot_pass+1))
     else
       bot_fail=$((bot_fail+1)); missing="$missing $b"
