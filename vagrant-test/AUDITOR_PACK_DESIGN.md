@@ -1,29 +1,49 @@
 # Auditor Pack Design
 
-**Purpose:** Bot Army as a self-service operability audit platform. Client mounts their repo, selects their LLM harness, and gets measurable proof of test efficiency improvements.
+**Purpose:** Bot Army as a self-service operability audit platform. Client mounts their repo, selects their LLM harness, and gets measurable proof of repo operability improvements across Phase 0→1→2.
 
 ## Pack Overview
 
 ```
+ORIGINAL 6 BOTS (Foundation)
 ┌─────────────────────────────────────────────────┐
-│           AUDITOR PACK (6 bots)                 │
-├─────────────────────────────────────────────────┤
+│  repo_scanner_bot (mount + analyze)             │
+│  test_runner_bot (measure suite)                │
+│  llm_harness_bot (code generation)              │
+│  baseline_bot (stores metrics)                  │
+│  metrics_collector_bot (duration/coverage)      │
+│  report_generator_bot (exportable proof)        │
+└─────────────────────────────────────────────────┘
+                           ↓
+CRITICAL 4 BOTS (Methodology Implementation) ⭐
+┌─────────────────────────────────────────────────┐
+│  measurement_executor_bot ⭐                     │
+│    → Runs agent on codebase, measures           │
+│      time/tokens/proposal quality               │
 │                                                 │
-│  repo_scanner_bot ──┐                          │
-│  (mount + analyze)  │                          │
-│                     ├──→ audit_orchestrator_bot│
-│  test_runner_bot ───┤    (coordinates tests)   │
-│  (measure suite)    │                          │
-│                     ├──→ metrics_collector_bot │
-│  llm_harness_bot ───┤    (duration/coverage)   │
-│  (code generation)  │                          │
-│                     ├──→ comparator_bot        │
-│  baseline_bot ──────┤    (before/after)        │
-│  (stores metrics)   │                          │
-│                     └──→ report_generator_bot  │
-│                         (exportable proof)     │
+│  documentation_validator_bot ⭐                 │
+│    → Audits CLAUDE.md, docstrings, topology     │
+│      completeness & currency                    │
+│                                                 │
+│  code_alignment_bot ⭐                          │
+│    → Detects where code ≠ documentation         │
+│      (module boundaries, type specs, clarity)   │
+│                                                 │
+│  phase_comparator_bot ⭐                        │
+│    → Compares Phase 0→1→2 metrics               │
+│      (time improvement, token cost, confidence) │
 └─────────────────────────────────────────────────┘
 ```
+
+## The Measurement Model
+
+**Grounded in the Agent-Operable Repo Contract consulting methodology:**
+
+- **Phase 0 (Baseline):** Codebase as-is. Agent explores architecture. Measure: time-to-task-completion, tokens consumed, proposal quality, false starts, confidence level.
+- **Phase 1 (Documentation):** Add CLAUDE.md, topology diagram, docstrings. Re-run same task. Measure improvement.
+- **Phase 2 (Code Alignment):** Fix code structure to match docs (type specs, module ownership, boundaries). Re-run. Measure again.
+
+**Real-world result (Plausible Analytics):** 82.5% faster exploration, same token cost, higher confidence by Phase 2.
 
 ## Bots in the Pack
 
@@ -133,6 +153,157 @@
 - `auditor.report.generate` → create report
 - `auditor.report.format` → pick format (html / json / csv / md)
 - `auditor.report.export` → download
+
+---
+
+## Critical 4 Bots (Grounded in Consulting Methodology) ⭐
+
+### 7. `measurement_executor_bot` ⭐ (TIER 1 - ESSENTIAL)
+
+**Purpose:** Run the actual architectural task on the codebase and measure performance
+
+**Why:** This IS the measurement. Everything else is context. The core methodology runs an agent through an architecture discovery task (e.g., "Map all services and their data flow") and captures:
+
+**Inputs:**
+- Repo path + architecture/language
+- Task definition (e.g., "map services, identify data flow, suggest optimization")
+- LLM provider config
+
+**Outputs:**
+- Time-to-completion (milliseconds)
+- Tokens consumed (input + output)
+- Proposal quality (agent-generated architecture, graded by rubric)
+- False starts (direction changes, backtracking)
+- Confidence level (agent's self-reported certainty)
+
+**Subjects:**
+- `auditor.measurement.phase0` → run on baseline codebase
+- `auditor.measurement.phase1` → run after documentation added
+- `auditor.measurement.phase2` → run after code alignment
+- `auditor.measurement.result` → return {time, tokens, quality, false_starts, confidence}
+
+**Storage:** PostgreSQL table per phase (phase0_measurements, phase1_measurements, phase2_measurements)
+
+---
+
+### 8. `documentation_validator_bot` ⭐ (TIER 1 - ESSENTIAL)
+
+**Purpose:** Audit CLAUDE.md, docstrings, and topology completeness
+
+**Why:** Phase 1 = add documentation. Need to measure "how complete is the documentation?" before/after Phase 1.
+
+**Inputs:**
+- Repo path
+- Language (Elixir, Python, Rust, etc.)
+
+**Outputs:**
+- **CLAUDE.md audit:**
+  - Exists? (yes/no)
+  - Current? (modified within last N days)
+  - Sections present: architecture, patterns, deployment, testing, PARA access, etc.
+  - Quality score (0-100)
+
+- **Docstring audit:**
+  - % of public functions documented
+  - % of modules documented
+  - % of type specs defined (Elixir/Python/TypeScript)
+
+- **Topology audit:**
+  - Service map present? (diagram or markdown)
+  - Data flow documented?
+  - External dependencies listed?
+
+- **Overall doc health score:** (0-100)
+
+**Subjects:**
+- `auditor.docs.scan` → analyze current state
+- `auditor.docs.compare` → before/after Phase 1
+- `auditor.docs.report` → formatted audit results
+
+**Storage:** PostgreSQL table (documentation_audits) with per-repo baseline, Phase 1, Phase 2
+
+---
+
+### 9. `code_alignment_bot` ⭐ (TIER 1 - ESSENTIAL)
+
+**Purpose:** Detect where code structure doesn't match documentation
+
+**Why:** Phase 2 = align code to docs. Need to identify misalignments so client knows what to fix.
+
+**Inputs:**
+- Repo path
+- Documentation from documentation_validator_bot (or fresh scan)
+- Language
+
+**Outputs:**
+- **Detected misalignments:**
+  - Module owns functionality that's claimed to be elsewhere
+  - Data flow in code differs from topology doc
+  - Type specs missing/incomplete where docs claim they exist
+  - Interfaces unclear (which functions are public vs internal?)
+  - Code organization doesn't match described architecture
+
+- **Per-misalignment:**
+  - Severity (critical, high, medium, low)
+  - Location (file:line)
+  - Evidence (what the code does vs what docs claim)
+  - Suggested fix (brief)
+
+- **Alignment score:** % of claimed behavior that's actually reflected in code
+
+**Subjects:**
+- `auditor.alignment.scan` → analyze codebase
+- `auditor.alignment.report` → list misalignments
+- `auditor.alignment.diff` → before/after Phase 2
+
+**Storage:** PostgreSQL table (code_alignment_findings) with severity/location/phase
+
+---
+
+### 10. `phase_comparator_bot` ⭐ (TIER 1 - ESSENTIAL)
+
+**Purpose:** Compare Phase 0→1→2 metrics and show improvement
+
+**Why:** The value prop = concrete before/after proof. Show the client: "Here's what Phase 1 documentation achieved."
+
+**Inputs:**
+- Phase 0 measurement (from measurement_executor_bot)
+- Phase 1 measurement (after doc audit / Phase 1 work)
+- Phase 2 measurement (after code alignment / Phase 2 work)
+- Documentation audit results (all phases)
+- Code alignment findings (all phases)
+
+**Outputs:**
+- **Comparison table:**
+  ```
+  Metric                Phase 0    Phase 1    Phase 2    Improvement
+  ────────────────────────────────────────────────────────────────
+  Time-to-task (min)    12.3       8.1        2.8        77% faster
+  Tokens consumed       2,847      2,891      2,840      ~same cost
+  Proposal quality      72%        84%        91%        +19pts
+  False starts          4          1          0          90% fewer
+  Confidence level      6.2/10     8.1/10     9.3/10     +50% higher
+  Doc completeness %    45%        92%        95%        +50pts
+  Code alignment %      62%        78%        94%        +32pts
+  ```
+
+- **Executive summary:**
+  ```
+  Documentation (Phase 1) reduced exploration time by 34% with no token cost.
+  Code alignment (Phase 2) further reduced time by 65% and increased confidence.
+  Total improvement: 77% faster exploration, +19 points quality, 90% fewer false starts.
+  ```
+
+- **Actionable recommendations:**
+  - Which Phase 1 docs were highest-impact?
+  - Which Phase 2 code fixes had best ROI?
+  - What should this team prioritize next?
+
+**Subjects:**
+- `auditor.comparison.generate` → trigger report
+- `auditor.comparison.export` → return {phase0, phase1, phase2, deltas}
+
+**Storage:** PostgreSQL table (phase_comparisons) with normalized metrics per repo
 
 ---
 
@@ -315,36 +486,90 @@ AUDITOR_PUBLIC_LINK: true
 AUDITOR_NOTIFICATIONS: "email,slack,github"
 ```
 
+### `measurement_executor_bot` (NEW)
+```yaml
+AUDITOR_TASK_DEFINITION: "map_services"  # or: architecture_discovery
+AUDITOR_LLM_PROVIDER: claude
+AUDITOR_PHASE: "phase0"  # updated per measurement run
+```
+
+### `documentation_validator_bot` (NEW)
+```yaml
+AUDITOR_DOC_LANGUAGES: "elixir,python,typescript"
+AUDITOR_TYPE_SPEC_REQUIRED: true
+AUDITOR_DOCSTRING_THRESHOLD: 80  # % minimum
+```
+
+### `code_alignment_bot` (NEW)
+```yaml
+AUDITOR_SEVERITY_FILTER: "critical,high"  # only report these
+AUDITOR_ALIGNMENT_BASELINE: "phase0"  # compare against
+```
+
+### `phase_comparator_bot` (NEW)
+```yaml
+AUDITOR_COMPARISON_FORMAT: "json"  # or: html, markdown
+AUDITOR_EXPORT_DELTAS: true  # include before/after diffs
+AUDITOR_RECOMMENDATIONS_LLM: claude  # generate insights
+```
+
 ---
 
-## End-to-End Flow
+## End-to-End Flow (Phases 0→1→2)
 
 **Day 1: User runs installer**
 ```bash
 curl ... | bash -s -- --pack auditor
 # Wizard guides through 7 steps
-# Bot Army boots with Auditor pack configured
+# Bot Army boots with Auditor pack + critical 4 configured
 ```
 
-**Audit runs (automated or on-demand)**
+**Phase 0: Baseline**
 ```
 repo_scanner_bot → detects structure
      ↓
-baseline_bot → establishes baseline (if first run)
+documentation_validator_bot → scan current docs (likely minimal)
      ↓
-test_runner_bot → measures initial suite
+code_alignment_bot → scan current code-vs-docs alignment
      ↓
-llm_harness_bot → suggests optimizations
+measurement_executor_bot → run agent on codebase (PHASE 0)
+     → captures: time, tokens, proposal quality, false starts, confidence
      ↓
-(User reviews suggestions, optionally applies them)
+baseline_bot → stores Phase 0 snapshot
      ↓
-test_runner_bot → re-measure suite
+metrics_collector_bot → record Phase 0 baseline
+```
+
+**Phase 1: Add Documentation**
+```
+(User adds/improves: CLAUDE.md, topology, docstrings)
      ↓
-metrics_collector_bot → record delta
+documentation_validator_bot → re-scan (should show improvement)
      ↓
-report_generator_bot → create report
+measurement_executor_bot → run same agent task (PHASE 1)
+     → captures: time, tokens, proposal quality, false starts, confidence
      ↓
-Notify user (email/Slack/GitHub)
+metrics_collector_bot → record Phase 1 results
+```
+
+**Phase 2: Align Code to Docs**
+```
+code_alignment_bot → identify what to fix (from Phase 1 docs)
+     ↓
+(User: add type specs, fix module ownership, clarify boundaries)
+     ↓
+code_alignment_bot → re-scan (should show resolution)
+     ↓
+measurement_executor_bot → run same agent task (PHASE 2)
+     → captures: time, tokens, proposal quality, false starts, confidence
+     ↓
+metrics_collector_bot → record Phase 2 results
+     ↓
+phase_comparator_bot → generate Phase 0→1→2 comparison report
+     ↓
+report_generator_bot → format for client (HTML/JSON/Markdown)
+     ↓
+Notify user: "You achieved 77% faster exploration, +19 quality points"
 ```
 
 **Week 1 → Week 4: Tracking**
