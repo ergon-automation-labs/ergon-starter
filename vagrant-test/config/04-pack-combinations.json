@@ -46,6 +46,18 @@
       "packs": ["core", "learning_deepdive", "social_media", "areas", "research"],
       "tier": "extended",
       "timeout_seconds": 90
+    },
+    "Auditor": {
+      "description": "The auditor pack alone (7 scaffolds: repo_scanner, test_runner, llm_harness, baseline, metrics_collector, report_generator, measurement_executor) — infra-only fleet, no core bots",
+      "packs": ["auditor"],
+      "tier": "auditor",
+      "timeout_seconds": 75
+    },
+    "Core-Auditor": {
+      "description": "Core + auditor pack coexistence on shared NATS + PostgreSQL",
+      "packs": ["core", "auditor"],
+      "tier": "extended",
+      "timeout_seconds": 90
     }
   }
 }

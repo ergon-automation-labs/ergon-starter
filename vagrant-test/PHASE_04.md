@@ -40,12 +40,26 @@ Users don't pick one pack in isolation—they compose their fleet by selecting m
 | **Core-SocialMedia** | core + social_media | Media pipeline (youtube_manager, media_ingestion) |
 | **Core-Research** | core + research | Research feeds (feeds, rss_polling) |
 
+**Auditor Tier (`RUN_TIER=auditor`):**
+
+| Combo | Packs | What It Validates |
+|-------|-------|-------------------|
+| **Auditor** | auditor | The auditor pack alone: 7 scaffolds boot + register on infra-only fleet (no core bots) — the "individual pack" test |
+
 **Extended Tier (nice to have):**
 
 | Combo | Packs | Notes |
 |-------|-------|-------|
 | **Core-Areas** | core + areas | Personal areas (fitness, chore, rpg) |
+| **Core-Auditor** | core + auditor | Auditor pack coexists with core on shared NATS + PostgreSQL |
 | **Core-Full** | core + all add-on packs | Maximum fleet capacity test |
+
+The auditor pack (design: `AUDITOR_PACK_DESIGN.md`, pack v2) currently ships 7
+scaffold bots (`ergon-auditor_*`) that boot, connect, and register as
+`auditor_*` on the registry; the measurement methodology and the 3 remaining
+critical bots (documentation_validator, code_alignment, phase_comparator) land
+in the implementation phase. The combos intentionally test what actually
+ships — no silent no-op bot names (P10 lesson).
 
 The combos live in `config/04-pack-combinations.json`; expected bot sets are
 computed from `catalog/packs.json` at run time, never stored.
@@ -75,6 +89,11 @@ vagrant ssh -c "bash /vagrant/scripts/04-pack-matrix.sh"
 ### Test Extended Tier
 ```bash
 vagrant ssh -c "RUN_TIER=extended bash /vagrant/scripts/04-pack-matrix.sh"
+```
+
+### Test the Auditor Pack (individual pack)
+```bash
+vagrant ssh -c "RUN_TIER=auditor bash /vagrant/scripts/04-pack-matrix.sh"
 ```
 
 ### Test One Combo
