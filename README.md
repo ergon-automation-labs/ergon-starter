@@ -100,6 +100,9 @@ Then:
 ### 3. Configure Your Storage
 → **[Volumes & Storage Guide](docs/VOLUMES_AND_STORAGE.md)**
 
+Want a sense of how long the first build takes?
+→ **[Build Timings](docs/BUILD_TIMINGS.md)** — reference machine, per-phase timings, and the hex/network gotchas.
+
 Customize where your data lives:
 - PARA (personal knowledge base) — use your own Documents folder
 - Internal docs — index your team's documentation
