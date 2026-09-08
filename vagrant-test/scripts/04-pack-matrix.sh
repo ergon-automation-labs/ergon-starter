@@ -429,6 +429,21 @@ echo "$COMBOS" | sed 's/^/  - /'
 echo ""
 
 COMBO_PASS=0 COMBO_FAIL=0
+
+# Pre-run sweep (2026-09-08, RERUN13): every combo shares .env ports
+# (e.g. NATS 54222), and the previous run's LAST combo is never torn
+# down (teardown happens at the start of the NEXT combo). A leftover
+# stack from an earlier run then holds the port and the first combo
+# fails at boot ("Bind for 0.0.0.0:54222 failed: port is already
+# allocated"). Tear down every combo stack before starting. Plain
+# 'down' keeps named volumes (shared ollama data intact).
+for combo in $COMBOS; do
+  dir="$HOME/bot-army-combo-$combo"
+  if [ -f "$dir/docker-compose.yml" ]; then
+    (cd "$dir" && docker compose down --remove-orphans >/dev/null 2>&1) || true
+  fi
+done
+
 for combo in $COMBOS; do
   if test_combo "$combo"; then
     COMBO_PASS=$((COMBO_PASS+1))
