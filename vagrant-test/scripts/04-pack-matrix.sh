@@ -272,7 +272,12 @@ EOF
   #   elixir_tools_mcp — no Registry.register call in repo (matches prod)
   # These are validated by container health instead of registry presence.
   #   surface_mcp      — repo hardcodes @registry_bot_name "mcp"
-  local NONREGISTERING_BOTS="bridge_lite elixir_tools_mcp"
+  # rss_polling joins 2026-09-08 (RERUN12): it is a publisher-only bot — no
+  # NATS consumer, no Registry.register call anywhere in its lib (children
+  # are DedupFilter + Poller). The social_media pack never includes it, so
+  # its non-registration was invisible until research combos first reached
+  # the bot-set gate.
+  local NONREGISTERING_BOTS="bridge_lite elixir_tools_mcp rss_polling"
   local alias_for
   alias_for() {
     case "$1" in
