@@ -289,23 +289,43 @@ EOF
   local registered
   registered=$(registry_bot_names)
   local bot_pass=0 bot_fail=0 missing=""
-  for b in $expected; do
-    if echo " $NONREGISTERING_BOTS " | grep -q " $b "; then
-      bot_pass=$((bot_pass+1))
-      continue
+  registry_check() {
+    bot_pass=0; bot_fail=0; missing=""
+    registered=$(registry_bot_names)
+    if [ "$registered" = "REGISTRY_UNREACHABLE" ] || [ "$registered" = "REGISTRY_PARSE_FAIL" ]; then
+      bot_fail=$((bot_fail+1)); missing="$expected"
+      return
     fi
-    local rname
-    rname=$(alias_for "$b")
-    if echo " $registered " | grep -q " $rname \| bot_army_${rname}"; then
-      bot_pass=$((bot_pass+1))
-    else
-      bot_fail=$((bot_fail+1)); missing="$missing $b"
+    local b
+    for b in $expected; do
+      if echo " $NONREGISTERING_BOTS " | grep -q " $b "; then
+        bot_pass=$((bot_pass+1))
+        continue
+      fi
+      local rname
+      rname=$(alias_for "$b")
+      if echo " $registered " | grep -q " $rname \| bot_army_${rname}"; then
+        bot_pass=$((bot_pass+1))
+      else
+        bot_fail=$((bot_fail+1)); missing="$missing $b"
+      fi
+    done
+  }
+  registry_check
+  # Registration settle retry (2026-09-08, RERUN12): the single-shot sample
+  # lagged under big-fleet load — fitness_bot registered seconds after the
+  # check in core-full (23 services) yet missed the gate. Re-sample twice
+  # with settle pauses before declaring failure.
+  local attempt
+  for attempt in 1 2; do
+    if [ $bot_fail -gt 0 ]; then
+      echo "    · $bot_fail missing:$missing — settle pause, re-sampling registry..."
+      sleep 15
+      registry_check
     fi
   done
   if [ "$registered" = "REGISTRY_UNREACHABLE" ] || [ "$registered" = "REGISTRY_PARSE_FAIL" ]; then
     echo "    ✗ registry check unusable ($registered)"
-    bot_fail=$((bot_fail+1))
-    missing="$expected"
   elif [ $bot_fail -gt 0 ]; then
     echo "    ✗ missing from registry:$missing (registered: $registered)"
   else
