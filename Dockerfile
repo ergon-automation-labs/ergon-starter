@@ -126,8 +126,10 @@ BUILDfix
 # Hex fetch stability in VM builds: parallel hex fetches to repo.hex.pm
 # intermittently time out under load (2026-09-07: ecto-3.14.2 :timeout
 # killed the auditor combo build mid-tier). Serial fetches, longer timeout.
+# 2026-09-07: fastly (hex CDN) degraded to ~100KB/s on this network; 120s
+# wasn't enough headroom for large packages serially. 600s + serial = done.
 ENV HEX_HTTP_CONCURRENCY=1 \
-    HEX_HTTP_TIMEOUT=120
+    HEX_HTTP_TIMEOUT=600
 
 RUN mix deps.get --only ${MIX_ENV} && mix deps.compile
 
