@@ -187,14 +187,21 @@ test_combo() {
   if [ ! -d "$dir/.git" ]; then
     git init -q "$dir" && git -C "$dir" remote add origin "$STARTER_REPO" || return 1
   fi
-  if ! (git -C "$dir" fetch -q --depth 1 origin main &&
-        git -C "$dir" reset -q --hard FETCH_HEAD &&
-        git -C "$dir" clean -qfd -e repos -e data); then
+  if (git -C "$dir" fetch -q --depth 1 origin main); then
+    git -C "$dir" reset -q --hard FETCH_HEAD
+    git -C "$dir" clean -qfd -e repos -e data
+    echo "  ✓ starter @ $(git -C "$dir" log --oneline -1 | head -1)"
+  elif [ -n "$(git -C "$dir" rev-parse --verify HEAD 2>/dev/null)" ]; then
+    # Resilience (2026-09-08, RERUN11/12): the Parallels host DNS forwarder
+    # (10.211.55.1) flaps mid-run — combos died on 'Could not resolve host'
+    # at this exact step even though a prior starter copy + repos/ build
+    # cache were perfectly usable. Reuse instead of dying.
+    echo "  ⚠ $combo: starter fetch failed — reusing prior starter @ $(git -C "$dir" log --oneline -1 | head -1)"
+  else
     echo "  ✗ could not fetch the starter repo from $STARTER_REPO"
     echo "{\"combo\":\"$combo\",\"result\":\"FAIL\",\"reason\":\"clone\"}" >> "$RESULTS"
     return 1
   fi
-  echo "  ✓ starter @ $(git -C "$dir" log --oneline -1 | head -1)"
 
   # 2. Combo definition → packs
   local packs timeout
