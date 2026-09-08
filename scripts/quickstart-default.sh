@@ -124,6 +124,14 @@ clone_repo() {
     else
       echo "  ⚠ $remote (exists, ff-pull failed — keeping existing copy)" >&2
     fi
+    # Stray-lock guard (2026-09-08, phase-4 pack matrix): an UNTRACKED mix.lock
+    # in a clone (left by manual `mix deps.get` debugging inside a mounted
+    # repo) survives the image's deps.get layer and clobbers it at the
+    # full-source COPY — `mix compile` then sees a git-dep-flavored lock with
+    # no hex entries and aborts with "the dependency is not locked" (skills_bot
+    # in core-areas). Bots that commit their mix.lock are immune; bots that
+    # don't (skills) are not. Remove untracked locks on every refresh.
+    git -C "$dest" clean -fq -- mix.lock 2>/dev/null
     return 0
   fi
   echo "  ⏳ $remote..."
