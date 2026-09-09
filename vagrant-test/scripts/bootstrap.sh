@@ -41,7 +41,7 @@ echo "  (docker deliberately not installed — phase 01 tests install.sh's own d
 # /vagrant synced folder (always the latest starter copy). The script
 # errors quietly when the fleet is down (box not running / fleet stopped) —
 # no daemon, no queue, no state. Log: ~/bot-army-stage/scan-schedule.log
-CRON_LINE="*/30 * * * * /vagrant/vagrant-test/scripts/auditor-scheduled-scan.sh >> $HOME/bot-army-stage/scan-schedule.log 2>&1 # bot-army-auditor-scan"
+CRON_LINE="*/30 * * * * /vagrant/scripts/auditor-scheduled-scan.sh >> $HOME/bot-army-stage/scan-schedule.log 2>&1 # bot-army-auditor-scan"
 ( crontab -l 2>/dev/null | grep -v "bot-army-auditor-scan" || true; echo "$CRON_LINE" ) | crontab - 2>/dev/null \
   && echo "✓ auditor scheduled scan installed (cron: every 30 min, fleet-gated)" \
   || echo "  ⚠ crontab unavailable — auditor scheduled scan not installed"

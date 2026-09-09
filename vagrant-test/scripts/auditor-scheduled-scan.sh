@@ -19,6 +19,12 @@
 
 set -uo pipefail
 
+# cron runs with PATH=/usr/bin:/bin — the nats CLI lives in ~/bin (installed
+# by the starter's install scripts); make sure it's on PATH (2026-09-09:
+# first live cron run would otherwise have died with "nats: command not
+# found" before logging anything).
+export PATH="$HOME/bin:/usr/local/bin:$PATH"
+
 STAGE_DIR="${STAGE_DIR:-$HOME/bot-army-stage}"
 NATS_ADDR="${STAGE_NATS:-nats://localhost:55622}"
 REPLY_TIMEOUT="15s"
