@@ -195,7 +195,11 @@ FROM alpine:3.22 AS runtime
 ARG BOT_NAME
 ARG BOT_REPO
 
-RUN apk add --no-cache libstdc++ openssl ncurses-libs netcat-openbsd
+RUN apk add --no-cache libstdc++ openssl ncurses-libs git netcat-openbsd
+# git (2026-09-09): the auditor pack's repo_scanner audits git hygiene
+# (mix.lock HEAD state, origin remote, clean tree) at runtime — the scanner
+# container must carry a git binary. Small (~3MB); also future-proofs
+# test_runner-style bots that shell out to git.
 
 WORKDIR /app
 
