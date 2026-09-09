@@ -67,6 +67,7 @@ fi
 failing=0
 scanned=0
 for repo in $targets; do
+  scanned=$((scanned+1))
   # No `| tail -1` — reply JSON has no trailing newline (see ping above).
   out=$(nats -s "$NATS_ADDR" request -r --reply-timeout="$REPLY_TIMEOUT" auditor.repo.scan "{\"repo\":\"$repo\"}" 2>/dev/null || true)
   if [ -z "$out" ]; then
