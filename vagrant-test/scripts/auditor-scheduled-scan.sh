@@ -32,6 +32,20 @@ ts() { date '+%Y-%m-%dT%H:%M:%S'; }
 
 log() { echo "[$(ts)] $*"; }
 
+# Rotate the log when it outgrows 1MB: keep current + one previous.
+rotate_log() {
+  local log="${1:-$STAGE_DIR/scan-schedule.log}"
+  # Rotate BEFORE any output if oversized; also handles a fresh box where
+  # the log's parent may not exist yet (cron redirect creates the file).
+  mkdir -p "$(dirname "$log")"
+  if [ -f "$log" ] && [ "$(stat -f%z "$log" 2>/dev/null || stat -c%s "$log" 2>/dev/null || echo 0)" -gt 1048576 ]; then
+    mv -f "$log" "${log}.1"
+    log "rotated log (>1MB) — previous run kept at ${log}.1"
+  fi
+}
+
+rotate_log
+
 # ── Gate: is the fleet (scanner) up? ─────────────────────────────────────
 # No `| tail -1` — the VM nats CLI's reply JSON has no trailing newline, so
 # tail -1 yields the empty final line (caught live 2026-09-09).
