@@ -80,6 +80,18 @@ write_overrides() {
       AUDITOR_REPO_ROOT: /repos
       AUDITOR_CATALOG_PATH: /catalog/bots.json'
   fi
+  # bridge_lite serves bridge.logs.search for the whole fleet — it needs
+  # the stage logs root (./data/logs/<bot>/* per bot) mounted read-only;
+  # LogSearch resolves the LogWatcher's /var/log/bot_army/<file> paths by
+  # basename under FLEET_LOG_ROOT.
+  local logs_block=""
+  if grep -q "bridge_lite_bot" docker-compose.yml 2>/dev/null; then
+    logs_block='  bridge_lite_bot:
+    volumes:
+      - ./data/logs:/var/log/fleet:ro
+    environment:
+      FLEET_LOG_ROOT: /var/log/fleet'
+  fi
   cat > override.yml <<EOF
 # ollama blobs live in one external shared volume across stage + combos;
 # mounts reference the top-level KEY (ollama_data), the external name
@@ -89,12 +101,14 @@ services:
     volumes:
       - ollama_data:/root/.ollama
 ${auditor_block}
+${logs_block}
 volumes:
   ollama_data:
     external: true
     name: $SHARED_OLLAMA_VOL
 EOF
   [ -n "$auditor_block" ] && echo "  ✓ auditor override: /repos + /catalog mounts (read-only)"
+  [ -n "$logs_block" ] && echo "  ✓ bridge_lite override: /var/log/fleet mount (read-only)"
   export COMPOSE_FILE="docker-compose.yml:override.yml"
 }
 
