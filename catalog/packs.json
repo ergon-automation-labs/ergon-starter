@@ -109,5 +109,14 @@
     "bots": [
       "sre"
     ]
+  },
+  {
+    "name": "conformance",
+    "stability": "stable",
+    "description": "Conformance bot (conformance) — the fleet integration test bot: registry-driven cross-bot probe suite; publishes result envelopes + sre audit receipts + failure incidents so sre can validate that integration paths light up",
+    "release_name": "conformance_pack",
+    "bots": [
+      "conformance"
+    ]
   }
 ]

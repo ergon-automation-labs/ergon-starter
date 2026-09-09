@@ -344,6 +344,21 @@
     "volumes": []
   },
   {
+    "name": "conformance",
+    "repo": "bot_army_conformance",
+    "remote": "ergon_conformance",
+    "release_name": "conformance_bot",
+    "category": "conformance",
+    "description": "Conformance: the fleet integration test bot — registry-driven cross-bot probe suite (read-only probes), publishes result envelopes + sre audit receipts + failure incidents",
+    "required": false,
+    "stability": "stable",
+    "channel": "stable",
+    "channel_ref": "stable",
+    "needs_db": false,
+    "visibility": "private",
+    "volumes": []
+  },
+  {
     "name": "job_applications",
     "repo": "bot_army_job_applications",
     "remote": "ergon-job_applications",

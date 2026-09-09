@@ -83,7 +83,7 @@ EOF
 
 wait_for_fleet() {
   local dir="$1" want
-  want=$(expected_bots "${PACKS:-core sre}" "$dir" | wc -l)
+  want=$(expected_bots "${PACKS:-core sre conformance}" "$dir" | wc -l)
   echo "  ⏳ waiting for $want bots to register (max 600s)..."
   local i bots
   for i in $(seq 1 60); do
@@ -113,10 +113,10 @@ print(len(set(names)))" 2>/dev/null || echo 0)
 }
 
 stage_up() {
-  echo "═══ staging env: up (PACKS=${PACKS:-core sre}) ═══"
+  echo "═══ staging env: up (PACKS=${PACKS:-core sre conformance}) ═══"
   fetch_starter
   cd "$STAGE_DIR"
-  PACKS="${PACKS:-core sre}" bash scripts/quickstart-default.sh > stage-generate.log 2>&1 \
+  PACKS="${PACKS:-core sre conformance}" bash scripts/quickstart-default.sh > stage-generate.log 2>&1 \
     || { echo "✗ quickstart generation failed:"; tail -25 stage-generate.log; exit 1; }
   write_ollama_override
   docker compose up -d --build > stage-build.log 2>&1 \
@@ -164,7 +164,7 @@ stage_scenario() {
     echo "✗ unknown scenario: $name (looked for $sc)"
     exit 1
   fi
-  export STAGE_NATS STAGE_DIR PACKS="${PACKS:-core sre}"
+  export STAGE_NATS STAGE_DIR PACKS="${PACKS:-core sre conformance}"
   bash "$sc"
 }
 
