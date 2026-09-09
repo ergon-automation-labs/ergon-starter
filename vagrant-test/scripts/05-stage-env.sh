@@ -19,6 +19,7 @@ STAGE_DIR="${STAGE_DIR:-$HOME/bot-army-stage}"
 STAGE_NAME="$(basename "$STAGE_DIR")"
 COMBO_CONFIG="${STAGE_COMBO_CONFIG:-$HOME/bot-army-combo-sre/config/04-pack-combinations.json}"
 [ -f "$COMBO_CONFIG" ] || COMBO_CONFIG="/vagrant/config/04-pack-combinations.json"
+SHARED_OLLAMA_VOL="${SHARED_OLLAMA_VOL:-bot-army-combo-ollama}"   # same shared volume as the 04 runner
 
 export NATS_HOST_PORT="${NATS_HOST_PORT:-55622}"
 export POSTGRES_HOST_PORT="${POSTGRES_HOST_PORT:-55632}"
