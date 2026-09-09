@@ -228,7 +228,7 @@ stage_scan_all() {
   local fails=0 total=0 r out verdict fails_n
   for r in $repos; do
     total=$((total+1))
-    out=$(nats -s "$STAGE_NATS" request -r --reply-timeout=15s auditor.repo.scan "{\"repo\":\"$r\"}" 2>&1 | tail -1 || true)
+    out=$(nats -s "$STAGE_NATS" request -r --reply-timeout=15s auditor.repo.scan "{\"repo\":\"$r\"}" 2>&1 || true)
     if [ -z "$out" ]; then
       echo "  $r: NO REPLY (scanner down or slow)"
       fails=$((fails+1))
