@@ -36,3 +36,12 @@ chown -R vagrant:vagrant /home/vagrant/logs
 
 echo "✓ bootstrap done: $(git --version) / $(python3 --version) / $(make --version | head -1)"
 echo "  (docker deliberately not installed — phase 01 tests install.sh's own docker path)"
+# ── Auditor scheduled scan (fleet-gated cron) ────────────────────────────
+# Idempotent: strip any previous entry, then add. Runs every 30 min from the
+# /vagrant synced folder (always the latest starter copy). The script
+# errors quietly when the fleet is down (box not running / fleet stopped) —
+# no daemon, no queue, no state. Log: ~/bot-army-stage/scan-schedule.log
+CRON_LINE="*/30 * * * * /vagrant/vagrant-test/scripts/auditor-scheduled-scan.sh >> $HOME/bot-army-stage/scan-schedule.log 2>&1 # bot-army-auditor-scan"
+( crontab -l 2>/dev/null | grep -v "bot-army-auditor-scan" || true; echo "$CRON_LINE" ) | crontab - 2>/dev/null \
+  && echo "✓ auditor scheduled scan installed (cron: every 30 min, fleet-gated)" \
+  || echo "  ⚠ crontab unavailable — auditor scheduled scan not installed"

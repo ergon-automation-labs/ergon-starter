@@ -1,122 +1,131 @@
 [
-  {
-    "name": "core",
-    "stability": "stable",
-    "description": "Framework + operator interface (required by all packs)",
-    "release_name": "core_pack",
-    "bots": [
-      "gtd",
-      "para",
-      "learning",
-      "core",
-      "runtime",
-      "skills",
-      "bridge_lite",
-      "job_scheduler",
-      "dispatcher",
-      "synapse",
-      "llm",
-      "surface_mcp",
-      "elixir_tools_mcp",
-      "graphify_cache",
-      "general"
-    ]
-  },
-  {
-    "name": "social_media",
-    "stability": "experimental",
-    "description": "YouTube transcript extraction + analytics summarization",
-    "release_name": "social_media_pack",
-    "bots": [
-      "youtube_manager",
-      "media_ingestion"
-    ]
-  },
-  {
-    "name": "learning_deepdive",
-    "stability": "stable",
-    "description": "Spaced repetition game + codebase knowledge search",
-    "release_name": "learning_deepdive_pack",
-    "bots": [
-      "terrain",
-      "internal_docs"
-    ]
-  },
-  {
-    "name": "areas",
-    "stability": "stable",
-    "description": "Life management (fitness, chores, narrative gaming)",
-    "release_name": "areas_pack",
-    "bots": [
-      "fitness",
-      "chore",
-      "rpg"
-    ]
-  },
-  {
-    "name": "research",
-    "stability": "experimental",
-    "description": "Web scraping, feeds, policy tracking, job search",
-    "release_name": "research_pack",
-    "bots": [
-      "feeds",
-      "rss_polling"
-    ]
-  },
-  {
-    "name": "development",
-    "stability": "stable",
-    "description": "Local development setup with library repos and volume mounts (edit code live)",
-    "release_name": "development_pack",
-    "bots": []
-  },
-  {
-    "name": "developer-github",
-    "stability": "stable",
-    "description": "GitHub integration (webhook receiver + API queries for PR/issue context)",
-    "release_name": "developer_github_pack",
-    "bots": [
-      "github"
-    ]
-  },
-  {
-    "name": "webhook",
-    "stability": "stable",
-    "description": "Webhook infrastructure (ngrok tunneling for local dev webhooks - works with Discord, GitHub, etc.)",
-    "release_name": "webhook_pack",
-    "bots": []
-  },
-  {
-    "name": "auditor",
-    "stability": "experimental",
-    "description": "Self-service operability audit platform (scaffolds boot + register; measurement methodology lands with the implementation phase). Design: vagrant-test/AUDITOR_PACK_DESIGN.md - the 3 remaining critical methodology bots (documentation_validator, code_alignment, phase_comparator) join when their repos exist.",
-    "release_name": "auditor_pack",
-    "bots": [
-      "auditor_repo_scanner",
-      "auditor_test_runner",
-      "auditor_llm_harness",
-      "auditor_baseline",
-      "auditor_metrics_collector",
-      "auditor_report_generator",
-      "auditor_measurement_executor"
-    ]
-  },
-  {
-    "name": "sre",
-    "stability": "stable",
-    "description": "SRE observer bot (sre) — audit/pod/alert/investigation/runbook intake, incident coordination; the staging fleet's judge for behavior tests",
-    "release_name": "sre_pack",
-    "bots": [
-      "sre"
-    ]
-  },
-  {
-    "name": "conformance",
-    "stability": "stable",
-    "description": "Conformance bot (conformance) — the fleet integration test bot: registry-driven cross-bot probe suite; publishes result envelopes + sre audit receipts + failure incidents so sre can validate that integration paths light up",
-    "release_name": "conformance_pack",
-    "bots": [
-      "conformance"
-    ]
-  }
+ {
+  "name": "core",
+  "stability": "stable",
+  "description": "Framework + operator interface (required by all packs)",
+  "release_name": "core_pack",
+  "bots": [
+   "gtd",
+   "para",
+   "learning",
+   "core",
+   "runtime",
+   "skills",
+   "bridge_lite",
+   "job_scheduler",
+   "dispatcher",
+   "synapse",
+   "llm",
+   "surface_mcp",
+   "elixir_tools_mcp",
+   "graphify_cache",
+   "general"
+  ]
+ },
+ {
+  "name": "social_media",
+  "stability": "experimental",
+  "description": "YouTube transcript extraction + analytics summarization",
+  "release_name": "social_media_pack",
+  "bots": [
+   "youtube_manager",
+   "media_ingestion"
+  ]
+ },
+ {
+  "name": "learning_deepdive",
+  "stability": "stable",
+  "description": "Spaced repetition game + codebase knowledge search",
+  "release_name": "learning_deepdive_pack",
+  "bots": [
+   "terrain",
+   "internal_docs"
+  ]
+ },
+ {
+  "name": "areas",
+  "stability": "stable",
+  "description": "Life management (fitness, chores, narrative gaming)",
+  "release_name": "areas_pack",
+  "bots": [
+   "fitness",
+   "chore",
+   "rpg"
+  ]
+ },
+ {
+  "name": "research",
+  "stability": "experimental",
+  "description": "Web scraping, feeds, policy tracking, job search",
+  "release_name": "research_pack",
+  "bots": [
+   "feeds",
+   "rss_polling"
+  ]
+ },
+ {
+  "name": "development",
+  "stability": "stable",
+  "description": "Local development setup with library repos and volume mounts (edit code live)",
+  "release_name": "development_pack",
+  "bots": []
+ },
+ {
+  "name": "developer-github",
+  "stability": "stable",
+  "description": "GitHub integration (webhook receiver + API queries for PR/issue context)",
+  "release_name": "developer_github_pack",
+  "bots": [
+   "github"
+  ]
+ },
+ {
+  "name": "webhook",
+  "stability": "stable",
+  "description": "Webhook infrastructure (ngrok tunneling for local dev webhooks - works with Discord, GitHub, etc.)",
+  "release_name": "webhook_pack",
+  "bots": []
+ },
+ {
+  "name": "auditor",
+  "stability": "experimental",
+  "description": "Self-service operability audit platform (scaffolds boot + register; measurement methodology lands with the implementation phase). Design: vagrant-test/AUDITOR_PACK_DESIGN.md - the 3 remaining critical methodology bots (documentation_validator, code_alignment, phase_comparator) join when their repos exist.",
+  "release_name": "auditor_pack",
+  "bots": [
+   "auditor_repo_scanner",
+   "auditor_test_runner",
+   "auditor_llm_harness",
+   "auditor_baseline",
+   "auditor_metrics_collector",
+   "auditor_report_generator",
+   "auditor_measurement_executor"
+  ]
+ },
+ {
+  "name": "sre",
+  "stability": "stable",
+  "description": "SRE observer bot (sre) \u2014 audit/pod/alert/investigation/runbook intake, incident coordination; the staging fleet's judge for behavior tests",
+  "release_name": "sre_pack",
+  "bots": [
+   "sre"
+  ]
+ },
+ {
+  "name": "conformance",
+  "stability": "stable",
+  "description": "Conformance bot (conformance) \u2014 the fleet integration test bot: registry-driven cross-bot probe suite; publishes result envelopes + sre audit receipts + failure incidents so sre can validate that integration paths light up",
+  "release_name": "conformance_pack",
+  "bots": [
+   "conformance"
+  ]
+ },
+ {
+  "name": "auditor_scan",
+  "stability": "experimental",
+  "description": "Auditor checklist runner (repo_scanner) \u2014 runs the bot-contract checklist against the fleet's own bot repos; publishes sre audit receipts. Stage-only subset of the auditor pack (the other auditor bots are unimplemented scaffolds).",
+  "release_name": "auditor_scan_pack",
+  "bots": [
+   "auditor_repo_scanner"
+  ]
+ }
 ]

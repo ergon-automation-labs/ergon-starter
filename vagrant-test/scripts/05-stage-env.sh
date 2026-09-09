@@ -61,7 +61,7 @@ fetch_starter() {
   fi
 }
 
-write_ollama_override() {
+write_overrides() {
   # Same pattern as the 04 runner: ONE external shared ollama volume across
   # stage and combos — model blobs pulled once, never re-seeded.
   docker volume create "$SHARED_OLLAMA_VOL" >/dev/null
@@ -78,6 +78,23 @@ volumes:
     external: true
     name: $SHARED_OLLAMA_VOL
 EOF
+  # auditor_repo_scanner needs the fleet's own bot repos mounted read-only
+  # (it scans whatever PACKS cloned into ./repos) plus the catalog for the
+  # catalog-entry check. Added only when the auditor_scan pack is selected
+  # so the override stays valid for core-only stages.
+  if grep -q "auditor_repo_scanner_bot" docker-compose.yml 2>/dev/null; then
+    cat >> override.yml <<EOF
+services:
+  auditor_repo_scanner_bot:
+    volumes:
+      - ./repos:/repos:ro
+      - ./catalog:/catalog:ro
+    environment:
+      AUDITOR_REPO_ROOT: /repos
+      AUDITOR_CATALOG_PATH: /catalog/bots.json
+EOF
+    echo "  ✓ auditor override: /repos + /catalog mounts (read-only)"
+  fi
   export COMPOSE_FILE="docker-compose.yml:override.yml"
 }
 
@@ -118,7 +135,7 @@ stage_up() {
   cd "$STAGE_DIR"
   PACKS="${PACKS:-core sre conformance}" bash scripts/quickstart-default.sh > stage-generate.log 2>&1 \
     || { echo "✗ quickstart generation failed:"; tail -25 stage-generate.log; exit 1; }
-  write_ollama_override
+  write_overrides
   docker compose up -d --build > stage-build.log 2>&1 \
     || { echo "✗ build/up failed:"; tail -25 stage-build.log; exit 1; }
   # model pull into the SHARED volume (instant once cached by any combo)
@@ -168,11 +185,82 @@ stage_scenario() {
   bash "$sc"
 }
 
+# Catalog-driven scan targets: every catalog bot whose repo exists in the
+# stage's repos/ clone dir. Libraries (bot_army_library_*) are excluded —
+# they are path-dep packages, not bots.
+scan_targets() {
+  python3 - "$STAGE_DIR/catalog/bots.json" <<'PY'
+import json, os, sys
+bots = json.load(open(sys.argv[1]))
+items = bots if isinstance(bots, list) else bots.get('bots', [])
+repos_dir = os.path.expanduser(os.environ.get('AUDITOR_REPOS_DIR', os.path.join(os.path.dirname(os.path.abspath(sys.argv[1])), '..', 'repos')))
+for b in items:
+    if not isinstance(b, dict):
+        continue
+    repo = b.get('repo', '')
+    if not repo or repo.startswith('bot_army_library_'):
+        continue
+    if os.path.isdir(os.path.join(repos_dir, repo)):
+        print(repo)
+PY
+}
+
+stage_scan() {
+  local repo="${1:-}"
+  if [ -z "$repo" ]; then
+    echo "usage: $0 scan <repo-name>  (name under repos/, e.g. bot_army_sre)" >&2
+    exit 1
+  fi
+  echo "═══ repo scan: $repo ═══"
+  nats -s "$STAGE_NATS" request -r --reply-timeout=15s auditor.repo.scan "{\"repo\":\"$repo\"}" 2>&1 || \
+    { echo "  ✗ no reply — is auditor_repo_scanner in this fleet? (PACKS must include auditor_scan)"; return 1; }
+}
+
+stage_scan_all() {
+  echo "═══ repo scan: catalog bots present in repos/ ═══"
+  local repos
+  repos=$(AUDITOR_REPOS_DIR="$STAGE_DIR/repos" scan_targets) || repos=""
+  if [ -z "$repos" ]; then
+    echo "  (no scan targets — repos/ empty or catalog missing)"
+    return 0
+  fi
+  local fails=0 total=0 r out verdict fails_n
+  for r in $repos; do
+    total=$((total+1))
+    out=$(nats -s "$STAGE_NATS" request -r --reply-timeout=15s auditor.repo.scan "{\"repo\":\"$r\"}" 2>/dev/null | tail -1 || true)
+    if [ -z "$out" ]; then
+      echo "  $r: NO REPLY (scanner down or slow)"
+      fails=$((fails+1))
+      continue
+    fi
+    verdict=$(echo "$out" | python3 -c "import json,sys
+body=sys.stdin.read()
+try:
+  d=json.loads(body[body.find('{'):])
+  print(d.get('verdict','?'))
+except Exception:
+  print('unparseable')")
+    fails_n=$(echo "$out" | python3 -c "import json,sys
+body=sys.stdin.read()
+try:
+  d=json.loads(body[body.find('{'):])
+  print(d.get('summary',{}).get('fail',0))
+except Exception:
+  print('?')")
+    echo "  $r: $verdict ($fails_n required-fail)"
+    [ "$verdict" = "failing" ] && fails=$((fails+1))
+  done
+  echo "  ── $((total - fails))/$total not-failing ═══"
+  [ "$fails" -eq 0 ]
+}
+
 case "${1:-}" in
   up)       stage_up ;;
   down)     shift; stage_down "$@" ;;
   status)   stage_status ;;
   tap)      shift; stage_tap "${1:-60}" ;;
+  scan)     shift; stage_scan "$1" ;;
+  scan-all) stage_scan_all ;;
   scenario) shift; if [ -n "${1:-}" ]; then stage_scenario "$1"; else echo "usage: scenario <name>"; exit 1; fi ;;
-  *) echo "usage: $0 up|down|status|tap [secs]|scenario <name>"; exit 1 ;;
+  *) echo "usage: $0 up|down|status|tap [secs]|scan <repo>|scan-all|scenario <name>"; exit 1 ;;
 esac
