@@ -60,21 +60,24 @@ fetch_starter() {
   fi
 }
 
-seed_ollama() {
-  # Stage keeps its own ollama volume; seed it from an existing combo volume
-  # so we don't re-pull the multi-GB model (combo data outlives teardowns).
-  local stage_vol="bot-army-stage_ollama_data"
-  if ! docker volume inspect "$stage_vol" >/dev/null 2>&1; then
-    docker volume create "$stage_vol" >/dev/null
-  fi
-  local src_vol
-  src_vol=$(docker volume ls -q | grep "ollama_data" | grep -v "bot-army-stage" | head -1 || true)
-  local count
-  count=$(docker run --rm -v "$stage_vol":/data alpine sh -c 'ls /data/.ollama/models 2>/dev/null | wc -l')
-  if [ "${count:-0}" -eq 0 ] && [ -n "$src_vol" ]; then
-    echo "  ⏳ seeding ollama models from $src_vol (one-time)..."
-    docker run --rm -v "$src_vol":/from -v "$stage_vol":/to alpine sh -c 'cp -a /from/. /to/ 2>/dev/null || true'
-  fi
+write_ollama_override() {
+  # Same pattern as the 04 runner: ONE external shared ollama volume across
+  # stage and combos — model blobs pulled once, never re-seeded.
+  docker volume create "$SHARED_OLLAMA_VOL" >/dev/null
+  cat > override.yml <<EOF
+# ollama blobs live in one external shared volume across stage + combos;
+# mounts reference the top-level KEY (ollama_data), the external name
+# redirects the storage location.
+services:
+  ollama:
+    volumes:
+      - ollama_data:/root/.ollama
+volumes:
+  ollama_data:
+    external: true
+    name: $SHARED_OLLAMA_VOL
+EOF
+  export COMPOSE_FILE="docker-compose.yml:override.yml"
 }
 
 wait_for_fleet() {
@@ -114,9 +117,18 @@ stage_up() {
   cd "$STAGE_DIR"
   PACKS="${PACKS:-core sre}" bash scripts/quickstart-default.sh > stage-generate.log 2>&1 \
     || { echo "✗ quickstart generation failed:"; tail -25 stage-generate.log; exit 1; }
-  seed_ollama
+  write_ollama_override
   docker compose up -d --build > stage-build.log 2>&1 \
     || { echo "✗ build/up failed:"; tail -25 stage-build.log; exit 1; }
+  # model pull into the SHARED volume (instant once cached by any combo)
+  local n=0
+  until docker compose exec -T ollama ollama list >/dev/null 2>&1 || [ $n -ge 30 ]; do
+    sleep 2; n=$((n+1))
+  done
+  for m in "${MODEL_NAME:-gemma4:31b-cloud}" gemma3:1b; do
+    echo "  ollama pull $m (shared volume)..."
+    docker compose exec -T ollama ollama pull "$m" >/dev/null 2>&1 || echo "  ⚠ pull $m failed"
+  done
   wait_for_fleet "$STAGE_DIR"
   echo "  NATS: $STAGE_NATS · dir: $STAGE_DIR"
   echo "  TIP: bash scripts/05-stage-env.sh scenario lights-up"
