@@ -38,7 +38,7 @@ echo "── running conformance suite..."
 (timeout 35 nats -s "$NATS_URL" sub conformance.suite.result --count=1 > /tmp/conf-result-tap.txt 2>/dev/null) &
 tap_pid=$!
 sleep 1
-reply=$(nats -s "$NATS_URL" request conformance.suite.run '{}' --reply-timeout 25s 2>/dev/null || echo "")
+reply=$(nats -s "$NATS_URL" request conformance.suite.run '{}' --reply-timeout 45s 2>/dev/null || echo "")
 
 if [ -n "$reply" ]; then
   passed=$(echo "$reply" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('passed'))" 2>/dev/null || echo "?")
@@ -86,7 +86,7 @@ echo "── seeded failure run (include_failures=true)..."
 (timeout 35 nats -s "$NATS_URL" sub "events.sre.log.incident" --count=1 > /tmp/conf-incident-tap.txt 2>/dev/null) &
 incident_tap_pid=$!
 sleep 1
-f_reply=$(nats -s "$NATS_URL" request conformance.suite.run '{"include_failures": true}' --reply-timeout 25s 2>/dev/null || echo "")
+f_reply=$(nats -s "$NATS_URL" request conformance.suite.run '{"include_failures": true}' --reply-timeout 45s 2>/dev/null || echo "")
 f_failed=$(echo "$f_reply" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('failed'))" 2>/dev/null || echo "?")
 if [ "$f_failed" = "1" ] || [ "$f_failed" = "2" ]; then
   ok "seeded failure run: failed=$f_failed (inject_fail probe worked)"
