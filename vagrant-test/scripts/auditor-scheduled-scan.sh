@@ -27,7 +27,9 @@ ts() { date '+%Y-%m-%dT%H:%M:%S'; }
 log() { echo "[$(ts)] $*"; }
 
 # ── Gate: is the fleet (scanner) up? ─────────────────────────────────────
-ping_out=$(nats -s "$NATS_ADDR" request -r --reply-timeout=3s auditor.repo.ping '{}' 2>/dev/null | tail -1 || true)
+# No `| tail -1` — the VM nats CLI's reply JSON has no trailing newline, so
+# tail -1 yields the empty final line (caught live 2026-09-09).
+ping_out=$(nats -s "$NATS_ADDR" request -r --reply-timeout=3s auditor.repo.ping '{}' 2>/dev/null || true)
 
 if [ -z "$ping_out" ]; then
   log "ERROR: no auditor.repo.ping responder — fleet down or auditor_scan not in PACKS; skipping scan run"
@@ -65,7 +67,8 @@ fi
 failing=0
 scanned=0
 for repo in $targets; do
-  out=$(nats -s "$NATS_ADDR" request -r --reply-timeout="$REPLY_TIMEOUT" auditor.repo.scan "{\"repo\":\"$repo\"}" 2>/dev/null | tail -1 || true)
+  # No `| tail -1` — reply JSON has no trailing newline (see ping above).
+  out=$(nats -s "$NATS_ADDR" request -r --reply-timeout="$REPLY_TIMEOUT" auditor.repo.scan "{\"repo\":\"$repo\"}" 2>/dev/null || true)
   if [ -z "$out" ]; then
     log "$repo: NO REPLY (scanner died mid-run?)"
     failing=$((failing+1))
