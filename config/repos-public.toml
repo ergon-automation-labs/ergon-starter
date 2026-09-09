@@ -96,7 +96,7 @@ channels = { stable = "stable", latest = "latest", nightly = "main" }
 
 [[bots]]
 name = "bot_army_graphify_cache"
-remote = "ergon-graphify-cache"
+remote = "ergon-graphify_cache"
 category = "core"
 channels = { stable = "stable", latest = "latest", nightly = "main" }
 
