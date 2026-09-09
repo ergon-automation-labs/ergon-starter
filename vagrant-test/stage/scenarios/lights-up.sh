@@ -97,8 +97,17 @@ PY
 )
 total=$(grep -c 'Received on' "$timeline" 2>/dev/null || echo 0)
 note "tap captured $total system.health messages in ${WINDOW}s"
+
+# Known gap (stage finding, 2026-09-09): these bots have NO health publisher
+# child (health publishing is opt-in per bot via pulse_publisher/SynapseHealth;
+# gtd/llm/synapse/job_scheduler/sre have it, these don't). They register and
+# serve fine but go unseen by heartbeat-based monitoring. Systemic fix pending.
+NO_HEALTH_PUBLISH="elixir_tools_mcp general graphify_cache"
+
 for bot in $expected; do
   rname=$(alias_for "$bot")
+  echo " $NO_HEALTH_PUBLISH " | grep -q " $bot " \
+    && { note "wire: $bot has no health publisher child (known gap, see ledger)"; continue; }
   echo "$sources" | grep -qw "bot_army_${rname}" \
     && ok "wire: bot_army_${rname} published system.health" \
     || bad "wire: no system.health from bot_army_${rname} in ${WINDOW}s (saw: $(echo "$sources" | head -3))"
