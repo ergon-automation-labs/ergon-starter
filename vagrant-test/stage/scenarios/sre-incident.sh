@@ -60,9 +60,9 @@ envelope = json.dumps({
     "matches": ["GenServer bot_army_chore terminating (timeout)"],
   },
 })
-# nats CLI reads the payload from stdin when omitted
-subprocess.run(["nats", "-s", sys.argv[3], "pub", "events.sre.log.incident"],
-               input=envelope, text=True, capture_output=True, check=True)
+# nats CLI ignores stdin for pub in this VM version — payload must be argv
+subprocess.run(["nats", "-s", sys.argv[3], "pub", "events.sre.log.incident", envelope],
+               text=True, capture_output=True, check=True)
 print("  published", sys.argv[1])
 PY
 
@@ -70,7 +70,7 @@ PY
 deadline=$((SECONDS + 60))
 row=""
 while [ $SECONDS -lt $deadline ]; do
-  row=$($PG "select event, event_id from audit_events where event_id = '$event_id' limit 1;" 2>/dev/null || true)
+  row=$($PG "select event_type, event_id from audit_events where event_id = '$event_id' limit 1;" 2>/dev/null || true)
   [ -n "$row" ] && break
   sleep 3
 done
