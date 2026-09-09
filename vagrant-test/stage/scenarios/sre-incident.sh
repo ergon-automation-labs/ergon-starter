@@ -33,7 +33,7 @@ print(json.dumps({
     "bot": sys.argv[2],
     "error_type": "timeout",
     "match_count": 1,
-    "matches": ["GenServer bot_army_chore terminating (timeout)"],
+    "matches": [{"line_number": 42, "line": "GenServer bot_army_chore terminating (timeout)"}],
   },
 }))
 PY
@@ -57,7 +57,7 @@ envelope = json.dumps({
     "bot": sys.argv[2],
     "error_type": "timeout",
     "match_count": 1,
-    "matches": ["GenServer bot_army_chore terminating (timeout)"],
+    "matches": [{"line_number": 42, "line": "GenServer bot_army_chore terminating (timeout)"}],
   },
 })
 # nats CLI ignores stdin for pub in this VM version — payload must be argv
