@@ -86,8 +86,9 @@ echo "── seeded failure run (include_failures=true)..."
 (timeout 35 nats -s "$NATS_URL" sub "events.sre.log.incident" --count=1 > /tmp/conf-incident-tap.txt 2>/dev/null) &
 incident_tap_pid=$!
 sleep 1
-f_reply=$(nats -s "$NATS_URL" request conformance.suite.run '{"include_failures": true}' --reply-timeout 45s 2>/dev/null || echo "")
-f_failed=$(echo "$f_reply" | python3 -c "import json,sys; d=json.loads(sys.stdin.read()); print(d.get('failed'))" 2>/dev/null || echo "?")
+f_reply=$(nats -s "$NATS_URL" request conformance.suite.run '{"include_failures": true}' --reply-timeout 45s > /tmp/conf-fail-reply.json 2>/tmp/conf-fail-err.txt || echo "")
+echo "      [debug] f_reply bytes: $(wc -c < /tmp/conf-fail-reply.json), stderr: $(head -c 120 /tmp/conf-fail-err.txt)"
+f_failed=$(python3 -c "import json,sys; d=json.loads(open('/tmp/conf-fail-reply.json').read()); print(d.get('failed'))" 2>/dev/null || echo "?")
 if [ "$f_failed" = "1" ] || [ "$f_failed" = "2" ]; then
   ok "seeded failure run: failed=$f_failed (inject_fail probe worked)"
 else
