@@ -65,6 +65,21 @@ write_overrides() {
   # Same pattern as the 04 runner: ONE external shared ollama volume across
   # stage and combos — model blobs pulled once, never re-seeded.
   docker volume create "$SHARED_OLLAMA_VOL" >/dev/null
+  # Compose override is assembled in ONE file with a single services: key.
+  # auditor_repo_scanner needs the fleet's own bot repos mounted read-only
+  # (it scans whatever PACKS cloned into ./repos) plus the catalog for the
+  # catalog-entry check — added only when the auditor_scan pack is selected
+  # so the override stays valid for core-only stages.
+  local auditor_block=""
+  if grep -q "auditor_repo_scanner_bot" docker-compose.yml 2>/dev/null; then
+    auditor_block='  auditor_repo_scanner_bot:
+    volumes:
+      - ./repos:/repos:ro
+      - ./catalog:/catalog:ro
+    environment:
+      AUDITOR_REPO_ROOT: /repos
+      AUDITOR_CATALOG_PATH: /catalog/bots.json'
+  fi
   cat > override.yml <<EOF
 # ollama blobs live in one external shared volume across stage + combos;
 # mounts reference the top-level KEY (ollama_data), the external name
@@ -73,30 +88,16 @@ services:
   ollama:
     volumes:
       - ollama_data:/root/.ollama
+${auditor_block}
 volumes:
   ollama_data:
     external: true
     name: $SHARED_OLLAMA_VOL
 EOF
-  # auditor_repo_scanner needs the fleet's own bot repos mounted read-only
-  # (it scans whatever PACKS cloned into ./repos) plus the catalog for the
-  # catalog-entry check. Added only when the auditor_scan pack is selected
-  # so the override stays valid for core-only stages.
-  if grep -q "auditor_repo_scanner_bot" docker-compose.yml 2>/dev/null; then
-    cat >> override.yml <<EOF
-services:
-  auditor_repo_scanner_bot:
-    volumes:
-      - ./repos:/repos:ro
-      - ./catalog:/catalog:ro
-    environment:
-      AUDITOR_REPO_ROOT: /repos
-      AUDITOR_CATALOG_PATH: /catalog/bots.json
-EOF
-    echo "  ✓ auditor override: /repos + /catalog mounts (read-only)"
-  fi
+  [ -n "$auditor_block" ] && echo "  ✓ auditor override: /repos + /catalog mounts (read-only)"
   export COMPOSE_FILE="docker-compose.yml:override.yml"
 }
+
 
 wait_for_fleet() {
   local dir="$1" want
