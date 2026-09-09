@@ -58,6 +58,12 @@
       "packs": ["core", "auditor"],
       "tier": "extended",
       "timeout_seconds": 90
+    },
+    "Sre": {
+      "description": "The sre pack alone (sre observer) — the staging judge fleet; runs via RUN_TIER=sre or RUN_TIER=all",
+      "packs": ["sre"],
+      "tier": "sre",
+      "timeout_seconds": 75
     }
   }
 }

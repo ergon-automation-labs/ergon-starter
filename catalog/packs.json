@@ -100,5 +100,14 @@
       "auditor_report_generator",
       "auditor_measurement_executor"
     ]
+  },
+  {
+    "name": "sre",
+    "stability": "stable",
+    "description": "SRE observer bot (sre) — audit/pod/alert/investigation/runbook intake, incident coordination; the staging fleet's judge for behavior tests",
+    "release_name": "sre_pack",
+    "bots": [
+      "sre"
+    ]
   }
 ]

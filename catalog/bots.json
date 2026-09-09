@@ -329,6 +329,20 @@
     "volumes": []
   },
   {
+    "name": "sre",
+    "repo": "bot_army_sre",
+    "remote": "ergon_sre",
+    "release_name": "sre_bot",
+    "category": "sre",
+    "description": "SRE observer: audit/pod/alert/investigation/runbook event intake, incident coordination, health/runbook NATS endpoints — the staging fleet's judge",
+    "required": false,
+    "stability": "stable",
+    "channel": "stable",
+    "channel_ref": "stable",
+    "needs_db": true,
+    "volumes": []
+  },
+  {
     "name": "job_applications",
     "repo": "bot_army_job_applications",
     "remote": "ergon-job_applications",
