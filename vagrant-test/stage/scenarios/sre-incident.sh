@@ -81,15 +81,25 @@ else
 fi
 
 # ── assert: incident pipeline ran (Coordinator path in sre log) ────────────
+# The Coordinator must RUN. "Incident processed" = full happy path (needs a
+# bridge.task.create responder — the bridge host bot lives on the HOST's
+# NATS, not this isolated stage NATS). "Incident processing failed:
+# task_creation_failed (Bridge request failed: timeout)" = the Coordinator
+# invoked create_gtd_task and handled the bridge absence GRACEFULLY — that
+# still proves the three systemic legs: consumer received the envelope,
+# EventHandler routed it, Coordinator ran its GTD step. A crash here would
+# be a failure; a handled warning is the documented isolated-fleet boundary.
 sleep 10
 sre_log=$(docker logs bot-army-stage-sre_bot-1 --since 90s 2>&1 || true)
 if echo "$sre_log" | grep -q "Incident processed"; then
-  ok "pipeline: sre Coordinator processed the incident"
+  ok "pipeline: sre Coordinator processed the incident (full happy path)"
+elif echo "$sre_log" | grep -q "Incident processing failed: {:task_creation_failed"; then
+  ok "pipeline: Coordinator ran + handled bridge absence gracefully (isolated-fleet boundary)"
+  echo "$sre_log" | grep -m1 -A1 "Incident processing failed" | sed 's/^/      /' | head -2
 elif echo "$sre_log" | grep -q "Incident processing failed"; then
-  bad "pipeline: Coordinator errored:"; echo "$sre_log" | grep -A2 "Incident processing failed" | head -6 | sed 's/^/      /'
+  bad "pipeline: Coordinator errored (non-bridge failure):"; echo "$sre_log" | grep -A2 "Incident processing failed" | head -6 | sed 's/^/      /'
 else
-  # audit receipt is the hard consumer-side proof; pipeline trace is best-effort
-  echo "  · pipeline: no 'Incident processed' log line in 90s window (audit receipt still green)"
+  bad "pipeline: Coordinator never ran (no Incident log line in 90s window)"
 fi
 
 echo "── sre-incident: $PASS ok, $FAIL failed ──"
