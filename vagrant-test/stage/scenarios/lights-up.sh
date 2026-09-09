@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# lights-up.sh — Scenario L3-1: every registered bot lights up on the wire
-# (P11, 2026-09-09)
+# lights-up.sh — Scenario L3-1: every expected bot lights up (P11, 2026-09-09)
 #
 # Asserts, from the OUTSIDE (consumer-side only — no code hooks):
-#   1. every expected bot is registered in the live registry
-#   2. within one observation window, every registered bot publishes a
-#      `system.health` envelope (the tap is the consumer)
-#   3. the bot's own DB received its heartbeat rows (Heartbeat persister)
+#   1. every expected bot is registered in the live registry (using the SAME
+#      name semantics as the 04 runner: NONREGISTERING_BOTS + alias table +
+#      prefix matching — copied verbatim so there is one source of truth)
+#   2. within one observation window, bots publish `system.health` envelopes
+#      (the tap is the consumer; nats CLI has no --json on this VM — the
+#      human format is parsed: 'Received on "<subject>"' + payload line)
+#   3. every live ergon_* DB received heartbeat rows in the window
 #
 # Env: STAGE_NATS, STAGE_DIR (set by 05-stage-env.sh)
 set -euo pipefail
@@ -17,15 +19,15 @@ cd "$STAGE_DIR"
 
 WINDOW="${SCENARIO_WINDOW:-45}"
 PASS=0; FAIL=0
-note() { echo "  $*"; }
 ok()   { echo "  ✓ $*"; PASS=$((PASS+1)); }
 bad()  { echo "  ✗ $*"; FAIL=$((FAIL+1)); }
+note() { echo "  · $*"; }
 
-# ── expected + registered bots ───────────────────────────────────────────────
+# ── expected + registered bots (04-runner semantics) ────────────────────────
 expected=$(python3 - . <<'PY'
 import json, sys, os
 bots = json.load(open('catalog/bots.json')); pk = json.load(open('catalog/packs.json'))
-packs = set((os.environ.get('STAGE_PACKS') or 'core sre').split())
+packs = set((os.environ.get('PACKS') or 'core sre').split())
 items = pk if isinstance(pk, list) else pk.get('packs', [])
 chosen = set()
 for p in items:
@@ -35,13 +37,18 @@ for b in bots:
         rel = b.get('release_name', b['name'])
         print(rel[:-4] if rel.endswith('_bot') else rel)
 PY
-STAGE_PACKS="${PACKS:-core sre}")
+export PACKS="${PACKS:-core sre}")
 [ -n "$expected" ] || { echo "✗ no expected bots"; exit 1; }
+
+# Same tables as vagrant-test/scripts/04-pack-matrix.sh (single source of
+# truth there — keep in sync or factor out):
+NONREGISTERING_BOTS="bridge_lite elixir_tools_mcp rss_polling"
+alias_for() { case "$1" in surface_mcp) echo "mcp" ;; *) echo "$1" ;; esac; }
 
 registered=$(nats -s "$STAGE_NATS" request -r --reply-timeout=5s bot_army.registry.bots.list '{}' 2>/dev/null | python3 -c "
 import json, sys
 try: d = json.loads(sys.stdin.read().strip())
-except Exception: print(''); raise SystemExit
+except Exception: print('REGISTRY_PARSE_FAIL'); raise SystemExit
 names = set()
 def walk(o):
     if isinstance(o, dict):
@@ -52,50 +59,63 @@ def walk(o):
         for v in o: walk(v)
 walk(d)
 print(' '.join(sorted(names)))" 2>/dev/null || true)
-[ -n "$registered" ] || { echo "✗ registry unreachable"; exit 1; }
+case "$registered" in ""|"REGISTRY_PARSE_FAIL") echo "✗ registry unreachable"; exit 1;; esac
 
 missing=""
 for bot in $expected; do
-  echo "$registered" | grep -qw "$bot" || missing="$missing $bot"
+  echo " $NONREGISTERING_BOTS " | grep -q " $bot " && continue      # infra host
+  rname=$(alias_for "$bot")
+  echo " $registered " | grep -q " $rname \| bot_army_${rname}" || missing="$missing $bot"
 done
-[ -z "$missing" ] && ok "registry: all $(echo "$expected" | wc -l) expected bots registered" \
-                     || bad "registry: missing$missing (have: $registered)"
+n_exp=$(echo "$expected" | wc -l)
+[ -z "$missing" ] && ok "registry: all $n_exp expected bots registered" \
+                    || bad "registry: missing$missing (registered: $registered)"
 
-# ── wire tap: system.health for one window ──────────────────────────────────
+# ── wire tap: system.health for one window (human format) ───────────────────
 echo "  ⏳ tapping system.health for ${WINDOW}s..."
 timeline="$STAGE_DIR/timeline-lights-up.jsonl"
-timeout "$WINDOW" nats -s "$STAGE_NATS" sub "system.health" --json > "$timeline" 2>/dev/null || true
+timeout "$WINDOW" nats -s "$STAGE_NATS" sub "system.health" > "$timeline" 2>/dev/null || true
+# blocks look like:  [#3] Received on "system.health"  \n  <payload json>
 sources=$(python3 - "$timeline" <<'PY'
-import json, sys
+import json, sys, re
 srcs = set()
+subj = None
 for line in open(sys.argv[1]):
     line = line.strip()
     if not line: continue
-    try: m = json.loads(line)
-    except Exception: continue
-    body = m.get('data') or m.get('payload') or ''
-    try: d = json.loads(body) if isinstance(body, str) else (body or {})
-    except Exception: d = {}
-    s = (d or {}).get('source')
-    if isinstance(s, str): srcs.add(s)
+    m = re.match(r'\[#+\d+\]\s+Received on "([^"]+)"', line)
+    if m: subj = m.group(1); continue
+    if subj and line.startswith('{'):
+        try:
+            d = json.loads(line)
+            s = d.get('source')
+            if isinstance(s, str): srcs.add(s)
+        except Exception: pass
+        subj = None
 print(' '.join(sorted(srcs)))
 PY
 )
+total=$(grep -c 'Received on' "$timeline" 2>/dev/null || echo 0)
+note "tap captured $total system.health messages in ${WINDOW}s"
 for bot in $expected; do
-  echo "$sources" | grep -qw "bot_army_${bot}" \
-    && ok "wire: bot_army_${bot} published system.health" \
-    || bad "wire: no system.health from bot_army_${bot} (saw: $(echo "$sources" | head -3))"
+  rname=$(alias_for "$bot")
+  echo "$sources" | grep -qw "bot_army_${rname}" \
+    && ok "wire: bot_army_${rname} published system.health" \
+    || bad "wire: no system.health from bot_army_${rname} in ${WINDOW}s (saw: $(echo "$sources" | head -3))"
 done
 
-# ── DB receipts: heartbeats table per bot that has a DB ────────────────────
-PG="docker exec bot-army-stage-postgres-1 psql -U postgres -tA -c"
-for bot in $expected; do
-  rows=$($PG "select count(*) from heartbeats where source = 'bot_army_${bot}';" 2>/dev/null \
-      || $PG "select count(*) from ergon_${bot}.heartbeats;" 2>/dev/null || echo "nodb")
+# ── DB receipts: heartbeats rows fresh in every live ergon_* DB ────────────
+dbs=$(docker exec bot-army-stage-postgres-1 psql -U postgres -tA -c \
+  "select datname from pg_database where datname like 'ergon%' and not datistemplate;" 2>/dev/null || true)
+[ -n "$dbs" ] || bad "db: no ergon_* databases on stage postgres"
+for db in $dbs; do
+  rows=$(docker exec bot-army-stage-postgres-1 psql -U postgres -d "$db" -tA -c \
+    "select count(*) from heartbeats where recorded_at > now() - interval '10 minutes';" 2>/dev/null \
+    || echo "notable")
   case "$rows" in
-    nodb) note "· $bot: no dedicated DB (skipped)" ;;
-    0)    bad "db: zero heartbeat rows for bot_army_${bot}" ;;
-    *)    ok "db: bot_army_${bot} persisted $rows heartbeat rows" ;;
+    notable) note "db $db: no heartbeats table (skipped)" ;;
+    0)       bad "db $db: zero heartbeats in the last 10 min" ;;
+    *)       ok "db $db: $rows fresh heartbeat rows" ;;
   esac
 done
 

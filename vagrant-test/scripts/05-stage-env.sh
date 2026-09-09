@@ -152,15 +152,19 @@ stage_tap() {
   mkdir -p "$STAGE_DIR/timeline"
   local out="$STAGE_DIR/timeline/$(date +%s).jsonl"
   echo "  ⏳ tapping ${secs}s → $out (subjects: system.health, bot.army.pulse.>, bot_army.registry.presence)"
-  timeout "$secs" nats -s "$STAGE_NATS" sub "system.health" "bot.army.pulse.>" "bot_army.registry.presence" --json >> "$out" 2>/dev/null || true
-  echo "  captured $(grep -c '"subject"' "$out" 2>/dev/null || echo 0) messages"
+  # NOTE: VM nats CLI has no --json; human format (Received on + payload).
+  timeout "$secs" nats -s "$STAGE_NATS" sub "system.health" "bot.army.pulse.>" "bot_army.registry.presence" >> "$out" 2>/dev/null || true
+  echo "  captured $(grep -c 'Received on' "$out" 2>/dev/null || echo 0) messages"
 }
 
 stage_scenario() {
   local name="$1"
   local sc="$STAGE_DIR/vagrant-test/stage/scenarios/${name}.sh"
-  [ -f "$sc" ] || { echo "✗ unknown scenario: $name (looked for $sc)"; exit 1; }
-  export STAGE_NATS STAGE_DIR
+  if [ ! -f "$sc" ]; then
+    echo "✗ unknown scenario: $name (looked for $sc)"
+    exit 1
+  fi
+  export STAGE_NATS STAGE_DIR PACKS="${PACKS:-core sre}"
   bash "$sc"
 }
 
@@ -169,6 +173,6 @@ case "${1:-}" in
   down)     shift; stage_down "$@" ;;
   status)   stage_status ;;
   tap)      shift; stage_tap "${1:-60}" ;;
-  scenario) shift; [ -n "${1:-}" ] && stage_scenario "$1" || { echo "usage: scenario <name>"; exit 1; } ;;
+  scenario) shift; if [ -n "${1:-}" ]; then stage_scenario "$1"; else echo "usage: scenario <name>"; exit 1; fi ;;
   *) echo "usage: $0 up|down|status|tap [secs]|scenario <name>"; exit 1 ;;
 esac
