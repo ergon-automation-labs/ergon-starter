@@ -40,6 +40,22 @@ Most pack bots live in **public** `ergon-automation-labs` repos and clone fine
 over anonymous HTTPS. Some packs — currently the **sre** pack (`ergon_sre`) —
 live in **private** repos. Cloning them needs one of:
 
+- **the built-in token wizard** (preferred): run the setup flow interactively
+  (`vagrant ssh`, then `RUN_TIER=sre bash scripts/04-pack-matrix.sh` — not
+  `nohup`), and the quickstart detects the private repos and prompts inline.
+  You create one **fine-grained PAT per private repo** (repo-scoped,
+  `Contents: Read-only` only), paste it when prompted; the wizard validates
+  it live, stores it at `~/.config/bot-army/github-tokens/<repo>.token`
+  (0600), and installs a repo-scoped rewrite so refreshes authenticate
+  without the token landing in any `.git/config`. Standalone form:
+
+  ```bash
+  bash scripts/github-token-wizard.sh ergon_sre
+  ```
+
+  `GITHUB_TOKEN` env (passed through to quickstart) also works — one token
+  for all repos; prefer per-repo wizard tokens for least privilege.
+
 - `gh` installed in the VM and authenticated with a token of an
   **`ergon-automation-labs` member** (contents:read on the repo suffices —
   no need for the personal CLI token's full scope):

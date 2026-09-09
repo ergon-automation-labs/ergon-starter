@@ -122,13 +122,34 @@ for b in bots:
 ")
 if [ -n "$private_bots" ]; then
   if ! command -v gh >/dev/null 2>&1 || ! gh auth status >/dev/null 2>&1; then
-    echo "⚠ Private pack repos in this selection: $private_bots" >&2
-    echo "  Anonymous HTTPS clones CANNOT fetch them. Either:" >&2
-    echo "    • install gh and auth with a token of an ${GIT_ORG} member:  gh auth login" >&2
-    echo "    • or pre-seed the clone from an authenticated host into repos/<dir>" >&2
-    echo "      (ff-pull refresh failures on private repos are tolerated, so a" >&2
-    echo "      seeded clone keeps working, it just won't auto-refresh)" >&2
-    echo "  See vagrant-test/README.md → 'Private pack repos (gh token)'." >&2
+    # Only repos without a usable credential need attention (per-repo
+    # token file, or a GITHUB_TOKEN env covering them all).
+    need_tokens=""
+    for r in $private_bots; do
+      tokfile="$HOME/.config/bot-army/github-tokens/$r.token"
+      if [ ! -s "$tokfile" ] && [ -z "${GITHUB_TOKEN:-}" ]; then
+        need_tokens="$need_tokens $r"
+      fi
+    done
+    if [ -n "$need_tokens" ]; then
+      if [ -t 0 ]; then
+        # Interactive: run the per-repo fine-grained token wizard inline —
+        # the user inputs tokens as part of THIS setup flow.
+        echo "🔐 Private pack repos need tokens:$need_tokens"
+        if ! bash "$SCRIPT_DIR/github-token-wizard.sh" $need_tokens; then
+          echo "⚠ token wizard did not complete — private clones will fail" >&2
+        fi
+      else
+        echo "⚠ Private pack repos in this selection:$need_tokens" >&2
+        echo "  Anonymous HTTPS clones CANNOT fetch them. Either:" >&2
+        echo "    • run the interactive token wizard first:  bash scripts/github-token-wizard.sh$need_tokens" >&2
+        echo "      (per-repo fine-grained PATs: repo-scoped, Contents: Read-only)" >&2
+        echo "    • or pre-seed the clone from an authenticated host into repos/<dir>" >&2
+        echo "      (ff-pull refresh failures on private repos are tolerated, so a" >&2
+        echo "      seeded clone keeps working, it just won't auto-refresh)" >&2
+        echo "  See vagrant-test/README.md → 'Private pack repos (gh token)'." >&2
+      fi
+    fi
   fi
 fi
 
@@ -174,6 +195,36 @@ clone_repo() {
     return 0
   fi
   echo "  ⏳ $remote..."
+
+  # Credential order (2026-09-09, token wizard): per-repo fine-grained PAT
+  # file → GITHUB_TOKEN env → gh auth → anonymous HTTPS. Per-repo files are
+  # least-privilege by design (each token scoped to exactly one repo).
+  local token=""
+  local tokfile="$HOME/.config/bot-army/github-tokens/${remote}.token"
+  if [ -s "$tokfile" ]; then
+    token=$(tr -d ' \r\n' < "$tokfile")
+  elif [ -n "${GITHUB_TOKEN:-}" ]; then
+    token="$GITHUB_TOKEN"
+  fi
+  if [ -n "$token" ]; then
+    local clone_out
+    clone_out="$(git clone --depth 1 "https://oauth2:${token}@github.com/${GIT_ORG}/${remote}.git" "$dest" 2>&1)"
+    if [ $? -eq 0 ]; then
+      echo "  ✓ $remote (per-repo token)"
+      # Never let the token live in .git/config of the clone: reset origin
+      # to the plain URL and install a repo-scoped insteadOf rewrite (the
+      # token stays in ~/.gitconfig, 0600) so ff-pull refreshes still auth.
+      git -C "$dest" remote set-url origin "https://github.com/${GIT_ORG}/${remote}.git"
+      git config --global --replace-all \
+        "url.https://oauth2:${token}@github.com/${GIT_ORG}/${remote}.git.insteadOf" \
+        "https://github.com/${GIT_ORG}/${remote}.git"
+      chmod 600 "$HOME/.gitconfig" 2>/dev/null || true
+      return 0
+    fi
+    printf '%s\n' "${clone_out//$token/***}" | head -1 >&2
+    echo "  ⚠ stored token rejected for $remote — re-run scripts/github-token-wizard.sh $remote" >&2
+  fi
+
   if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
     if gh repo clone "${GIT_ORG}/${remote}" "$dest" -- --depth 1 2>&1; then
       echo "  ✓ $remote"
