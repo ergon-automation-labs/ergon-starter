@@ -200,6 +200,9 @@ RUN apk add --no-cache libstdc++ openssl ncurses-libs git netcat-openbsd
 # (mix.lock HEAD state, origin remote, clean tree) at runtime — the scanner
 # container must carry a git binary. Small (~3MB); also future-proofs
 # test_runner-style bots that shell out to git.
+# safe.directory=* (git ≥2.35.4): mounted repos are owned by the host user
+# (uid 1000); git's dubious-ownership check fails every command otherwise —
+# caught live in the stage scan (all git checks false-failed).
 
 WORKDIR /app
 
@@ -219,5 +222,10 @@ RUN chmod +x /app/entrypoint.sh
 ENV BOT_NAME=${BOT_NAME}
 ENV DB_HOST=${DB_HOST:-postgres}
 ENV DB_PORT=${DB_PORT:-5432}
+
+# git: trust all mounted repos (host-owned clones scanned read-only)
+ENV GIT_CONFIG_COUNT=1 \
+    GIT_CONFIG_KEY_0=safe.directory \
+    GIT_CONFIG_VALUE_0=*
 
 ENTRYPOINT ["/app/entrypoint.sh"]
