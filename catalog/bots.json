@@ -340,6 +340,7 @@
     "channel": "stable",
     "channel_ref": "stable",
     "needs_db": true,
+    "visibility": "private",
     "volumes": []
   },
   {

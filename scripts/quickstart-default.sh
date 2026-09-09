@@ -93,6 +93,45 @@ else:
             print(remote, b['repo'], b['release_name'], b['name'], str(b.get('needs_db', False)).lower())
 ")
 
+# Private-repo preflight (2026-09-08, sre pack): some catalog bots live in
+# PRIVATE org repos (catalog "visibility": "private", e.g. sre/ergon_sre).
+# Anonymous HTTPS clones fail for those; the harness needs gh + an
+# ergon-automation-labs member token (or a pre-seeded clone in repos/).
+# Warn BEFORE the clone sequence instead of dying mid-way with a bare
+# "could not read Username" (same fail-fast discipline as the mini NATS
+# conf lesson: validate before apply).
+private_bots=$(PACKS="${PACKS:-}" python3 -c "
+import json, os
+packs_env = os.environ.get('PACKS', '').strip()
+packs = json.load(open('catalog/packs.json'))
+items = packs if isinstance(packs, list) else packs.get('packs', [])
+if packs_env:
+    pack_names = [p.strip() for p in packs_env.replace(',', ' ').split() if p.strip()]
+    chosen = {pk.get('name') for pk in items if pk.get('name') in pack_names}
+    names = set()
+    for pk in items:
+        if pk.get('name') in chosen:
+            names.update(pk.get('bots', []))
+else:
+    names = None
+bots = json.load(open('catalog/bots.json'))
+bots = bots if isinstance(bots, list) else bots.get('bots', [])
+for b in bots:
+    if b['name'] in names and b.get('visibility') == 'private':
+        print(b.get('remote', b['repo']), end=' ')
+")
+if [ -n "$private_bots" ]; then
+  if ! command -v gh >/dev/null 2>&1 || ! gh auth status >/dev/null 2>&1; then
+    echo "⚠ Private pack repos in this selection: $private_bots" >&2
+    echo "  Anonymous HTTPS clones CANNOT fetch them. Either:" >&2
+    echo "    • install gh and auth with a token of an ${GIT_ORG} member:  gh auth login" >&2
+    echo "    • or pre-seed the clone from an authenticated host into repos/<dir>" >&2
+    echo "      (ff-pull refresh failures on private repos are tolerated, so a" >&2
+    echo "      seeded clone keeps working, it just won't auto-refresh)" >&2
+    echo "  See vagrant-test/README.md → 'Private pack repos (gh token)'." >&2
+  fi
+fi
+
 if [ -n "$REGISTRY" ]; then
   echo "Using pre-built images from ${REGISTRY} (skipping source clone)..."
 else
@@ -141,10 +180,23 @@ clone_repo() {
       return 0
     fi
   fi
-  if git clone --depth 1 "https://github.com/${GIT_ORG}/${remote}.git" "$dest" 2>&1; then
+  clone_out="$(git clone --depth 1 "https://github.com/${GIT_ORG}/${remote}.git" "$dest" 2>&1)"
+  if [ $? -eq 0 ]; then
     echo "  ✓ $remote"
     return 0
   fi
+  echo "$clone_out" | head -1 >&2
+  # Diagnose the private-repo signature instead of leaving a bare
+  # 'could not read Username' (2026-09-08: sre pack hit this — ergon_sre is
+  # private, all other pack repos are public).
+  case "$clone_out" in
+    *"could not read Username"*|*"Authentication failed"*|*"terminal prompts disabled"*|*"not found"*)
+      echo "  💡 $remote failed to clone over anonymous HTTPS — it is likely PRIVATE." >&2
+      echo "     Fix: gh auth login with a token of an ${GIT_ORG} member (contents:read" >&2
+      echo "     for the repo suffices), or seed repos/$remote from an authenticated" >&2
+      echo "     host clone. See vagrant-test/README.md → 'Private pack repos (gh token)'." >&2
+      ;;
+  esac
   echo "  ✗ $remote (clone failed)" >&2
   return 1
 }
