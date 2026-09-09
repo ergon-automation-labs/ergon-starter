@@ -245,9 +245,14 @@ volumes:
 EOF
   export COMPOSE_FILE="docker-compose.yml:override.yml"
 
-  # 5. Boot (build can be slow for never-built bots; 30 min ceiling)
+  # 5. Boot (build can be slow for never-built bots; default 30 min ceiling,
+  # overridable per combo via .combos[<id>].boot_timeout_seconds — RERUN16/17
+  # burned the whole ceiling on cold-cache full rebuilds after a runtime
+  # version bump)
   echo "  Building + starting fleet..."
-  if ! timeout 1800 docker compose up -d --build >>"$combo_log" 2>&1; then
+  local boot_timeout
+  boot_timeout=$(jq -r ".combos[\"$combo\"].boot_timeout_seconds // 1800" "$COMBO_CONFIG")
+  if ! timeout "$boot_timeout" docker compose up -d --build >>"$combo_log" 2>&1; then
     echo "  ✗ boot failed — see $combo_log (tail below)"
     docker compose logs --tail 20 2>/dev/null | sed 's/^/      /' >> "$combo_log"
     tail -15 "$combo_log" | sed 's/^/      /'
