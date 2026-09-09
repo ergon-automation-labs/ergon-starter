@@ -22,6 +22,45 @@ set -u
 GIT_ORG="${GIT_ORG:-ergon-automation-labs}"
 TOKEN_DIR="$HOME/.config/bot-army/github-tokens"
 
+# --from-file <path> <remote>: non-interactive — the PAT is already staged at
+# <path> (host-side, e.g. a file the user wrote locally); this mode reads it,
+# validates it live, stores it the same way, installs the same rewrite, and
+# NEVER prints the token. Same guarantees as the interactive flow.
+if [ "${1:-}" = "--from-file" ]; then
+  token_file="${2:-}"
+  remote="${3:-}"
+  if [ -z "$token_file" ] || [ -z "$remote" ]; then
+    echo "Usage: $0 --from-file <path-to-token-file> <remote>   e.g. $0 --from-file ~/pat-ergon_sre.txt ergon_sre" >&2
+    exit 1
+  fi
+  if ! [ -f "$token_file" ]; then
+    echo "✗ token file not found: $token_file" >&2
+    exit 1
+  fi
+  token=$(tr -d ' \r\n' < "$token_file")
+  if [ -z "$token" ]; then
+    echo "✗ token file is empty: $token_file" >&2
+    exit 1
+  fi
+  mkdir -p "$TOKEN_DIR"
+  chmod 700 "$TOKEN_DIR"
+  if git ls-remote --heads "https://oauth2:${token}@github.com/${GIT_ORG}/${remote}.git" HEAD >/dev/null 2>&1; then
+    tokfile="$TOKEN_DIR/${remote}.token"
+    printf '%s' "$token" > "$tokfile"
+    chmod 600 "$tokfile"
+    git config --global --replace-all \
+      "url.https://oauth2:${token}@github.com/${GIT_ORG}/${remote}.git.insteadOf" \
+      "https://github.com/${GIT_ORG}/${remote}.git"
+    chmod 600 "$HOME/.gitconfig" 2>/dev/null || true
+    echo "✓ ${remote}: token validated from ${token_file}, stored (0600), refresh rewrite installed"
+    exit 0
+  else
+    echo "✗ token REJECTED for ${remote} (wrong scope, wrong repo, or expired)." >&2
+    echo "  Re-check: Only select repositories → ${GIT_ORG}/${remote}, Contents: Read-only." >&2
+    exit 1
+  fi
+fi
+
 if ! [ -t 0 ]; then
   echo "✗ github-token-wizard needs an interactive terminal (TTY)." >&2
   echo "  Run it inside an interactive 'vagrant ssh' session:" >&2
@@ -31,6 +70,7 @@ fi
 
 if [ $# -eq 0 ]; then
   echo "Usage: $0 <remote> [<remote>...]   e.g. $0 ergon_sre" >&2
+  echo "       $0 --from-file <path-to-token-file> <remote>  (non-interactive)" >&2
   exit 1
 fi
 
