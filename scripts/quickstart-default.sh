@@ -43,6 +43,16 @@ declare -A BOT_ENV_OVERRIDES=(
   # is rescued in GraphRepo.after_connect (warning, not fatal).
   [internal_docs_bot]='    environment:\n      BOT_ARMY_INTERNAL_DOCS_BOT_DB_HOST: postgres\n      BOT_ARMY_INTERNAL_DOCS_BOT_DB_PORT: "5432"\n      BOT_ARMY_INTERNAL_DOCS_BOT_DB_NAME: ergon_internal_docs\n      BOT_ARMY_INTERNAL_DOCS_BOT_DB_USER: postgres\n      BOT_ARMY_INTERNAL_DOCS_BOT_DB_PASSWORD: ${POSTGRES_PASSWORD}\n      BOT_ARMY_INTERNAL_DOCS_GRAPHDB_HOST: postgres\n      BOT_ARMY_INTERNAL_DOCS_GRAPHDB_PORT: "5432"'
   [youtube_manager_bot]='    environment:\n      DB_HOST: postgres\n      DB_PASS: postgres'
+  # para is the only bot allowed OS writes (para-only-OS-write law) — its write
+  # target must be a real bind mount, not the ephemeral container overlay.
+  [para_bot]='    environment:\n      PARA_FS_ROOT: /data/para'
+)
+
+# Extra bind mounts per release, emitted after the shared logs volume.
+# para_bot mounts the host's data/para so para.fs.* writes survive container
+# recreation and are visible to the operator on the host.
+declare -A BOT_VOLUME_OVERRIDES=(
+  [para_bot]='      - ./data/para:/data/para'
 )
 
 # Host ports — high defaults to avoid collisions with local services
@@ -299,6 +309,7 @@ while IFS=' ' read -r remote repo release bot_name db_flag; do
 $(echo -e "${BOT_ENV_OVERRIDES[$release]:-}")
     volumes:
       - ./data/logs/${bot_name}:/var/log/bot_army
+$(echo -e "${BOT_VOLUME_OVERRIDES[$release]:-}")
     depends_on:
 $(echo -e "$dep_block")
     restart: unless-stopped
@@ -316,6 +327,7 @@ $(echo -e "$dep_block")
 $(echo -e "${BOT_ENV_OVERRIDES[$release]:-}")
     volumes:
       - ./data/logs/${bot_name}:/var/log/bot_army
+$(echo -e "${BOT_VOLUME_OVERRIDES[$release]:-}")
     depends_on:
 $(echo -e "$dep_block")
     restart: unless-stopped
@@ -580,7 +592,7 @@ echo "  MCP:       localhost:${MCP_HOST_PORT}  (internal 39900)"
 echo ""
 echo "Data directories:"
 echo "  ./data/logs/     Bot logs (mounted from containers)"
-echo "  ./data/para/     PARA output (mount to para_bot)"
+echo "  ./data/para/     PARA output (mounted to para_bot, PARA_FS_ROOT=/data/para)"
 echo "  ./data/backups/  DB backups (mount to backup_bot)"
 echo ""
 
